@@ -43,6 +43,7 @@ hunter_add_package(glm)
 find_package(glm CONFIG REQUIRED)
 hunter_add_package(spdlog)
 find_package(spdlog CONFIG REQUIRED)
+add_compile_definitions(SPDLOG_FMT_EXTERNAL)
 
 CPMAddPackage(
         NAME magic_enum
@@ -94,11 +95,13 @@ if (chaiscript_ADDED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
 endif()
 
+print_all_vars()
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
 add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_ENABLE}
         exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
+        args/valid_path_check_action.cpp
         #${IMPLOT_CPP_FILES}
-        )
+        utils.h logging/global_logger.cpp logging/global_logger.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
