@@ -4,10 +4,9 @@
 
 #include "stacktrace_exception.h"
 
-#include <utility>
 #include "fmt/format.h"
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmacro-redefined"
+#include <utility>
+#undef BACKWARD_HAS_BFD
 #define BACKWARD_HAS_BFD 1
 #include "backward.hpp"
 #include "range/v3/view/enumerate.hpp"
@@ -31,9 +30,7 @@ stacktrace_exception::stacktrace_exception(std::string_view message) {
   what_stacktrace = ss.str();
 }
 
-const char *stacktrace_exception::what() const noexcept {
-  return what_stacktrace.c_str();
-}
+const char *stacktrace_exception::what() const noexcept { return what_stacktrace.c_str(); }
 
 std::vector<trace_data> get_trace(std::size_t skip_n) {
   auto result = std::vector<trace_data>{};
@@ -54,4 +51,3 @@ trace_data::trace_data(std::string filename, std::string location, uint32_t line
 
 invalid_argument_exception::invalid_argument_exception(const std::string_view &message)
     : stacktrace_exception(message) {}
-#pragma clang diagnostic popW

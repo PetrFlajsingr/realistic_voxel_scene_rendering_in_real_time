@@ -29,7 +29,7 @@ project(
 )
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10 -Werror=return-type -Wall -Wextra -Werror -pedantic -Wno-unknown-pragmas")
 
 
 hunter_add_package(imgui)
@@ -94,7 +94,6 @@ if (chaiscript_ADDED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
 endif()
 
-print_all_vars()
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
 add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_ENABLE}
         exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
