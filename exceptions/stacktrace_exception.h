@@ -16,6 +16,7 @@ class stacktrace_exception : public std::exception {
   explicit stacktrace_exception(std::string_view message);
 
   [[nodiscard]] const char *what() const noexcept override;
+
  private:
   std::string what_stacktrace;
 };

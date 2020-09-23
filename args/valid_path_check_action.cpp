@@ -4,7 +4,6 @@
 
 #include "valid_path_check_action.h"
 
-
 std::filesystem::path valid_path_check_action::operator()(std::string_view path_str) {
   auto path = std::filesystem::path(path_str);
   if (!std::filesystem::is_directory(path)) {

@@ -1,9 +1,9 @@
 #include "argparse.hpp"
 #include "args/valid_path_check_action.h"
+#include "logging/global_logger.h"
 #include "spdlog/spdlog.h"
 #include "utils.h"
 #include <filesystem>
-#include "logging/global_logger.h"
 
 argparse::ArgumentParser create_argument_parser() {
   auto argument_parser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
@@ -16,7 +16,6 @@ argparse::ArgumentParser create_argument_parser() {
       .action(valid_path_check_action{});
   return argument_parser;
 }
-
 
 int main(int argc, char *argv[]) {
   auto argument_parser = create_argument_parser();

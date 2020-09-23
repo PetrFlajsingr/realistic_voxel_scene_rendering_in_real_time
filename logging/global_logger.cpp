@@ -4,7 +4,6 @@
 
 #include "global_logger.h"
 
-
 std::vector<std::shared_ptr<spdlog::sinks::sink>> create_console_log_sinks(const global_logger_settings &settings) {
   auto sinks = std::vector<std::shared_ptr<spdlog::sinks::sink>>{};
   auto console_out = std::make_shared<filtered_sink<spdlog::sinks::stdout_color_sink_mt>>();
@@ -14,8 +13,8 @@ std::vector<std::shared_ptr<spdlog::sinks::sink>> create_console_log_sinks(const
     return true;
   });
   console_out->set_level(settings.verbose ? spdlog::level::trace
-                                          : settings.debug ? spdlog::level::debug
-                                                           : spdlog::level::info);
+                         : settings.debug ? spdlog::level::debug
+                                          : spdlog::level::info);
   console_out->set_pattern("[general] [%^%l%$] %v");
 
   auto console_err = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
