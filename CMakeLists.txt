@@ -29,7 +29,10 @@ project(
 )
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10 -Werror=return-type -Wall -Wextra -Werror -pedantic -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type -fcoroutines")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function")
 
 find_package(Vulkan REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -97,6 +100,7 @@ if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
 endif()
+include_directories(${CMAKE_SOURCE_DIR}/third_party/)
 
 add_compile_definitions(GLFW_INCLUDE_VULKAN
         GLM_FORCE_RADIANS
@@ -111,7 +115,7 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
         args/valid_path_check_action.cpp
         #${IMPLOT_CPP_FILES}
-        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h meta.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h)
+        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h ui/events/common.h ui/events/subscription.cpp ui/events/subscription.h concepts/iterable.h concepts/streams.h coroutines/sequence.h concepts/incrementable.h ui/events/event_dispatch_impl.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript

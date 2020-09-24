@@ -11,6 +11,7 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
+namespace pf {
 struct application_settings {
   bool debug;
   window::window_settings window_settings;
@@ -28,9 +29,10 @@ class application {
   void run() {
     logger->info("Initialising window.");
     if (auto init_res = window.init(); init_res.has_value()) {
-      throw stacktrace_exception(fmt::format("Window creating failed: {}", init_res.value()));
+      throw stacktrace_exception(fmt::format("Window creation failed: {}", init_res.value()));
     }
     logger->info("Window initialised\n{}", window);
+
     window.main_loop();
     logger->info("Main loop ended.");
   }
@@ -39,5 +41,5 @@ class application {
   std::shared_ptr<spdlog::logger> logger;
   Window window;
 };
-
+}// namespace pf
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H

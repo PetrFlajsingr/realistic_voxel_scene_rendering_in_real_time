@@ -1,7 +1,7 @@
 #include "application.h"
 #include "argparse.hpp"
 #include "args/valid_path_check_action.h"
-#include "exceptions/stacktrace_exception.h"
+#include "coroutines/sequence.h"
 #include "logging/loggers.h"
 #include "ui/glfw_window.h"
 #include "utils.h"
@@ -39,6 +39,7 @@ void create_loggers(argparse::ArgumentParser &argument_parser) {
 }
 
 int main(int argc, char *argv[]) {
+  using namespace pf;
   auto argument_parser = create_argument_parser();
 
   try {
