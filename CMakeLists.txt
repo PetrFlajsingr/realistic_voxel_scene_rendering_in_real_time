@@ -31,12 +31,15 @@ project(
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10 -Werror=return-type -Wall -Wextra -Werror -pedantic -Wno-unknown-pragmas")
 
+find_package(Vulkan REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_search_module(GLFW REQUIRED glfw3)
+include_directories(${GLFW_INCLUDE_DIRS})
 
+hunter_add_package(Microsoft.GSL)
+find_package(Microsoft.GSL CONFIG REQUIRED)
 hunter_add_package(imgui)
 find_package(imgui CONFIG REQUIRED)
-find_package(Vulkan REQUIRED)
-hunter_add_package(glfw)
-find_package(glfw3 CONFIG REQUIRED)
 hunter_add_package(fmt)
 find_package(fmt CONFIG REQUIRED)
 hunter_add_package(glm)
@@ -95,17 +98,24 @@ if (chaiscript_ADDED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
 endif()
 
-print_all_vars()
+add_compile_definitions(GLFW_INCLUDE_VULKAN
+        GLM_FORCE_RADIANS
+        GLM_FORCE_DEPTH_ZERO_TO_ONE
+        GLM_ENABLE_EXPERIMENTAL
+        GLM_FORCE_SWIZZLE
+        VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE)
+
+
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
 add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_ENABLE}
         exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
         args/valid_path_check_action.cpp
         #${IMPLOT_CPP_FILES}
-        utils.h logging/global_logger.cpp logging/global_logger.h)
+        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h meta.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
-        ${Vulkan_LIBRARIES} glfw)
+        ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_scene_rendering_in_real_time)
 
 

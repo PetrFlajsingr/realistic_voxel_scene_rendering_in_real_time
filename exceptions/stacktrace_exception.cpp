@@ -25,7 +25,8 @@ stacktrace_exception::stacktrace_exception(std::string_view message) {
 
   const auto padding = std::string(CAUSED_BY.size(), ' ');
   for (const auto &[idx, trace] : ranges::views::enumerate(traces)) {
-    ss << fmt::format("{}#{} {} ({}:{})\n", padding, idx, trace.location, trace.filename, trace.line_n);
+    ss << fmt::format("{}#{} {} ({}:{})\n", padding, idx, trace.location, trace.filename,
+                      trace.line_n);
   }
   what_stacktrace = ss.str();
 }
