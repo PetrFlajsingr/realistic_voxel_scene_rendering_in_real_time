@@ -4,7 +4,9 @@
 #include "window.h"
 #include <fmt/format.h>
 
-double pf::window::resolution_t::aspect_ratio() const { return static_cast<double>(width) / height; }
+double pf::window::resolution_t::aspect_ratio() const {
+  return static_cast<double>(width) / height;
+}
 
 std::ostream &pf::window::operator<<(std::ostream &os, const pf::window::resolution_t &res) {
   os << fmt::format("{}x{}", res.width, res.height);

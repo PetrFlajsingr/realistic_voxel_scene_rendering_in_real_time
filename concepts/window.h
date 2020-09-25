@@ -75,7 +75,8 @@ concept window = std::constructible_from<T, window_settings> &&requires(
 &&requires(T t, const vk::Instance &instance) {
   { t.create_vulkan_surface(instance) }
   ->std::same_as<vk::UniqueSurfaceKHR>;
-  {t.required_vulkan_extensions()} -> std::same_as<std::unordered_set<std::string>>;
+  { t.required_vulkan_extensions() }
+  ->std::same_as<std::unordered_set<std::string>>;
 }
 &&stream_outputable<T>;
 

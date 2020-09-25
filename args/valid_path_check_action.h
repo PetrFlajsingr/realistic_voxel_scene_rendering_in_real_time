@@ -7,9 +7,8 @@
 #include "fmt/format.h"
 #include <filesystem>
 
-enum class path_type {
-  file, directory
-};
+enum class path_type { file, directory };
+
 struct valid_path_check_action {
   explicit valid_path_check_action(path_type type);
   std::filesystem::path operator()(std::string_view path_str) const;

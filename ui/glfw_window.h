@@ -28,15 +28,13 @@ class glfw_window final : public window::window_data, public events::event_dispa
   static std::unordered_set<std::string> required_vulkan_extensions();
 
  private:
-
-  static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-  static void mouse_position_callback(GLFWwindow* window, double xpos, double ypos);
-  static void mouse_wheel_callback(GLFWwindow* window, double xpos, double ypos);
-  static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+  static void mouse_button_callback(GLFWwindow *window, int button, int action, int mods);
+  static void mouse_position_callback(GLFWwindow *window, double xpos, double ypos);
+  static void mouse_wheel_callback(GLFWwindow *window, double xpos, double ypos);
+  static void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
   GLFWwindow *handle{};
   std::function<void()> main_loop_fnc = [] {};
   std::pair<double, double> cursor_position{0, 0};
-
 };
 
 std::optional<events::mouse_button> glfw_button_to_events(int button);

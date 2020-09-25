@@ -89,7 +89,8 @@ vk::UniqueSurfaceKHR pf::glfw_window::create_vulkan_surface(const vk::Instance &
     throw stacktrace_exception::fmt("Window surface creation failed: {} {}",
                                     magic_enum::enum_name(res_enum), vk::to_string(res_enum));
   }
-  auto surface_deleter = vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(instance);
+  auto surface_deleter =
+      vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(instance);
   return vk::UniqueSurfaceKHR(surface, surface_deleter);
 }
 std::unordered_set<std::string> pf::glfw_window::required_vulkan_extensions() {

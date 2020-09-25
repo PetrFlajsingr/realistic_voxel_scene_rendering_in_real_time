@@ -17,5 +17,4 @@ class regex_check_action {
   std::regex regex;
 };
 
-
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_REGEX_CHECK_ACTION_H
