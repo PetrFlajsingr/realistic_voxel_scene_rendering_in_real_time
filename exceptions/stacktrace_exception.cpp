@@ -3,8 +3,6 @@
 //
 
 #include "stacktrace_exception.h"
-
-#include "fmt/format.h"
 #include <utility>
 #undef BACKWARD_HAS_BFD
 #define BACKWARD_HAS_BFD 1
@@ -32,6 +30,7 @@ stacktrace_exception::stacktrace_exception(std::string_view message) {
 }
 
 const char *stacktrace_exception::what() const noexcept { return what_stacktrace.c_str(); }
+
 
 std::vector<trace_data> get_trace(std::size_t skip_n) {
   auto result = std::vector<trace_data>{};

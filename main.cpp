@@ -55,15 +55,15 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
-  auto config = toml::parse(argument_parser.get<std::filesystem::path>("--config"));
-
-  create_loggers(argument_parser);
-  const auto window_settings = window::window_settings{.resolution = {800, 600},
-                                                       .title = "test",
-                                                       .mode = window::mode_t::windowed};
-  auto app = application<glfw_window>(application_settings{.debug = argument_parser.get<bool>("-d"),
-                                                           .window_settings = window_settings});
   try {
+    auto config = toml::parse(argument_parser.get<std::filesystem::path>("--config"));
+
+    create_loggers(argument_parser);
+    const auto window_settings = window::window_settings{.resolution = {800, 600},
+                                                         .title = "test",
+                                                         .mode = window::mode_t::windowed};
+    auto app = application<glfw_window>(application_settings{.debug = argument_parser.get<bool>("-d"),
+                                                      .window_settings = window_settings});
     app.run();
   } catch (const std::exception &exception) {
     auto logger = spdlog::get("general");
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     return -1;
   } catch (...) {
     auto logger = spdlog::get("general");
-    logger->critical("Unknown application crash:");
+    logger->critical("Unknown application crash.");
     return -1;
   }
   return 0;

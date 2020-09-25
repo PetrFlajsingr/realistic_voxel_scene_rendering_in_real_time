@@ -24,6 +24,9 @@ class glfw_window final : public window::window_data, public events::event_dispa
   void set_main_loop_callback(std::invocable auto &&callback) { main_loop_fnc = callback; }
   void main_loop();
 
+  vk::UniqueSurfaceKHR create_vulkan_surface(const vk::Instance &instance);
+  static std::unordered_set<std::string> required_vulkan_extensions();
+
  private:
 
   static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);

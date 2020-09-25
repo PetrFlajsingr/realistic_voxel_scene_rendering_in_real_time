@@ -3,6 +3,7 @@
 //
 
 #include "glfw_window.h"
+#include "../exceptions/stacktrace_exception.h"
 #include <fmt/format.h>
 #include <magic_enum.hpp>
 
@@ -79,6 +80,24 @@ void pf::glfw_window::key_callback(GLFWwindow *window, int key, int, int action,
   if (!event_type.has_value()) { return; }
   const auto key_char = static_cast<char>(key);
   self->notify_key(event_type.value(), key_char);
+}
+vk::UniqueSurfaceKHR pf::glfw_window::create_vulkan_surface(const vk::Instance &instance) {
+  auto surface = VkSurfaceKHR{};
+  if (const auto res = glfwCreateWindowSurface(instance, handle, nullptr, &surface);
+      res != VK_SUCCESS) {
+    const auto res_enum = static_cast<vk::Result>(res);
+    throw stacktrace_exception::fmt("Window surface creation failed: {} {}",
+                                    magic_enum::enum_name(res_enum), vk::to_string(res_enum));
+  }
+  auto surface_deleter = vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(instance);
+  return vk::UniqueSurfaceKHR(surface, surface_deleter);
+}
+std::unordered_set<std::string> pf::glfw_window::required_vulkan_extensions() {
+  auto result = std::vector<std::string>();
+  auto extension_count = uint32_t{};
+  const char **extensions;
+  extensions = glfwGetRequiredInstanceExtensions(&extension_count);
+  return std::unordered_set<std::string>(extensions, extensions + extension_count);
 }
 
 std::optional<pf::events::mouse_button> pf::glfw_button_to_events(int button) {

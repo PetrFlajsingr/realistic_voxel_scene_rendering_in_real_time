@@ -13,6 +13,8 @@
 #include <fmt/ostream.h>
 #include <functional>
 #include <string>
+#include <unordered_set>
+#include <vulkan/vulkan.hpp>
 
 namespace pf::window {
 struct resolution_t {
@@ -69,6 +71,11 @@ concept window = std::constructible_from<T, window_settings> &&requires(
   ->std::same_as<events::subscription>;
   { t.add_key_listener(k_type, k_fnc) }
   ->std::same_as<events::subscription>;
+}
+&&requires(T t, const vk::Instance &instance) {
+  { t.create_vulkan_surface(instance) }
+  ->std::same_as<vk::UniqueSurfaceKHR>;
+  {t.required_vulkan_extensions()} -> std::same_as<std::unordered_set<std::string>>;
 }
 &&stream_outputable<T>;
 

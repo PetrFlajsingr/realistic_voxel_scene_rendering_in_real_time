@@ -10,10 +10,14 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "fmt/format.h"
 
 class stacktrace_exception : public std::exception {
  public:
   explicit stacktrace_exception(std::string_view message);
+  static stacktrace_exception fmt(std::string_view fmt, auto &&...args) {
+    return stacktrace_exception(fmt::format(fmt, args...));
+  }
 
   [[nodiscard]] const char *what() const noexcept override;
 

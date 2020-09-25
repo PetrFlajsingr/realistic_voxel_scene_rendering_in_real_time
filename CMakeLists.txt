@@ -35,6 +35,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic -Wno-unk
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function")
 
 find_package(Vulkan REQUIRED)
+include_directories(${Vulkan_INCLUDE_DIRS})
+set(VK_LAYER_PATH "/etc/vulkan/explicit_layer.d")
+set(LD_LIBRARY_PATH "/usr/lib")
+
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 include_directories(${GLFW_INCLUDE_DIRS})
@@ -115,7 +119,7 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
         args/valid_path_check_action.cpp
         #${IMPLOT_CPP_FILES}
-        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h ui/events/common.h ui/events/subscription.cpp ui/events/subscription.h concepts/iterable.h concepts/streams.h coroutines/sequence.h concepts/incrementable.h ui/events/event_dispatch_impl.h)
+        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h ui/events/common.h ui/events/subscription.cpp ui/events/subscription.h concepts/iterable.h concepts/streams.h coroutines/sequence.h concepts/incrementable.h ui/events/event_dispatch_impl.h vulkan/vulkan.h vulkan/vulkan_exception.cpp vulkan/vulkan_exception.h vulkan/utils.h vulkan/utils.cpp vulkan/default_device_suitability_scorer.cpp vulkan/default_device_suitability_scorer.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
