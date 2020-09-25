@@ -27,6 +27,7 @@ cppcoro::generator<T> range(T end) {
   return range(T(0), end);
 }
 
+
 template <typename T>
 T get_next(cppcoro::generator<T> &generator) {
   auto iter = generator.begin();
