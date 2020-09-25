@@ -4,8 +4,8 @@
 #include "coroutines/sequence.h"
 #include "logging/loggers.h"
 #include "ui/glfw_window.h"
-#include "utils.h"
 #include <filesystem>
+#include <toml.hpp>
 
 argparse::ArgumentParser create_argument_parser() {
   auto argument_parser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
@@ -24,7 +24,11 @@ argparse::ArgumentParser create_argument_parser() {
   argument_parser.add_argument("--log_dir")
       .help("Custom directory for log files.")
       .default_value(std::filesystem::current_path())
-      .action(valid_path_check_action{});
+      .action(valid_path_check_action{path_type::directory});
+  argument_parser.add_argument("--config")
+      .help("Custom TOML config file.")
+      .default_value(std::filesystem::current_path().append("config.toml"))
+      .action(valid_path_check_action{path_type::file});
   return argument_parser;
 }
 
@@ -40,6 +44,7 @@ void create_loggers(argparse::ArgumentParser &argument_parser) {
 
 int main(int argc, char *argv[]) {
   using namespace pf;
+
   auto argument_parser = create_argument_parser();
 
   try {
@@ -49,6 +54,8 @@ int main(int argc, char *argv[]) {
     std::cout << argument_parser;
     return 0;
   }
+
+  auto config = toml::parse(argument_parser.get<std::filesystem::path>("--config"));
 
   create_loggers(argument_parser);
   const auto window_settings = window::window_settings{.resolution = {800, 600},
