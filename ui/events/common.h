@@ -7,6 +7,7 @@
 
 #include <functional>
 #include <magic_enum.hpp>
+#include <string>
 #include <utility>
 
 namespace pf::events {
@@ -26,6 +27,10 @@ struct key_event {
   char key;
 };
 
+struct text_event {
+  std::string text;
+};
+
 struct mouse_event {
   mouse_event_type type;
   mouse_button button;
@@ -36,6 +41,7 @@ struct mouse_event {
 namespace details {
 using mouse_event_fnc = std::function<bool(mouse_event)>;
 using key_event_fnc = std::function<bool(key_event)>;
+using text_event_fnc = std::function<bool(text_event)>;
 }// namespace details
 
 template<typename F>
@@ -44,6 +50,9 @@ concept mouse_event_listener =
 template<typename F>
 concept key_event_listener =
     std::invocable<F, key_event> &&std::same_as<std::invoke_result_t<F, key_event>, bool>;
+template<typename F>
+concept text_event_listener =
+    std::invocable<F, text_event> &&std::same_as<std::invoke_result_t<F, text_event>, bool>;
 
 }// namespace pf::events
 

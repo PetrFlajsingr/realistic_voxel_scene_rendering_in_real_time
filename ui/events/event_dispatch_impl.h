@@ -14,6 +14,7 @@
 #include <iostream>
 #include <queue>
 #include <unordered_map>
+#include <utility>
 
 namespace pf::events {
 class event_dispatch_impl {
@@ -31,6 +32,12 @@ class event_dispatch_impl {
     key_listeners[magic_enum::enum_integer(type)][id] = listener;
     return subscription(
         [id, type, this] { key_listeners[magic_enum::enum_integer(type)].erase(id); });
+  }
+
+  subscription add_text_listener(text_event_listener auto listener) {
+    const auto id = generate_listener_id();
+    text_listeners[id] = listener;
+    return subscription([id, this] { text_listeners.erase(id); });
   }
 
   [[nodiscard]] bool is_mouse_down() const { return is_mouse_down_; }
@@ -78,6 +85,13 @@ class event_dispatch_impl {
     }
   }
 
+  void notify_text(std::string text) {
+    const auto event = text_event{.text = std::move(text)};
+    for (auto &[id, listener] : text_listeners) {
+      if (listener(event)) { break; }
+    }
+  }
+
   void on_frame() {
     const auto curr_time = std::chrono::steady_clock::now();
     while (!event_queue.empty() && event_queue.top().exec_time <= curr_time) {
@@ -107,6 +121,7 @@ class event_dispatch_impl {
       mouse_listeners;
   std::array<std::unordered_map<listener_id, details::key_event_fnc>, keyboard_event_type_count>
       key_listeners;
+  std::unordered_map<listener_id, details::text_event_fnc> text_listeners;
 
   bool is_mouse_down_ = false;
   std::chrono::steady_clock::time_point last_click_time{};
