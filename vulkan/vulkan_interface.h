@@ -8,6 +8,9 @@
 #include "../concepts/window.h"
 #include "default_device_suitability_scorer.h"
 #include "utils.h"
+#include "vulkan_exception.h"
+#include <range/v3/action.hpp>
+#include <range/v3/view.hpp>
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
@@ -16,7 +19,7 @@ template<window::window Window, device_suitability_scorer DeviceScorer>
 class vulkan_interface {
  public:
   explicit vulkan_interface(const instance_config &i_config, std::shared_ptr<Window> window,
-                  DeviceScorer &&device_scorer)
+                            DeviceScorer &&device_scorer)
       : window(std::move(window)), device_scorer(device_scorer) {
     user_data = i_config.debug.user_data;
     debug_callback = i_config.debug.callback;
@@ -24,6 +27,16 @@ class vulkan_interface {
     instance = std::move(create_data.instance);
     debug_messenger = std::move(create_data.debug_messenger);
     surface = std::move(this->window->create_vulkan_surface(*instance));
+    selected_device = select_physical_device();
+  }
+
+  // proper destruction order
+  ~vulkan_interface() {
+    if (debug_messenger.has_value()) {
+      debug_messenger->release();
+    }
+    surface.release();
+    instance.release();
   }
 
  private:
@@ -39,12 +52,29 @@ class vulkan_interface {
         : VK_FALSE;
   }
 
+  vk::PhysicalDevice select_physical_device() {
+    using namespace ranges;
+    const auto physical_devices = instance->enumeratePhysicalDevices();
+    const auto suitable_devices = physical_devices | views::transform([this](const auto &device) {
+                                    return std::make_pair(device_scorer(device), device);
+                                  })
+        | views::filter([](const auto &scored_device) { return scored_device.first.has_value(); })
+        | to_vector | actions::sort([](const auto &dev_a, const auto &dev_b) {
+                                    return dev_a.first.value() > dev_b.first.value();
+                                  });
+    if (suitable_devices.empty()) {
+      throw vulkan_exception("No suitable physical device was found.");
+    }
+    return suitable_devices.front().second;
+  }
+
   vulkan_debug_callback debug_callback;
   void *user_data;
+  std::optional<DynamicUniqueDebugUtilsMessengerEXT> debug_messenger = std::nullopt;
   vk::UniqueInstance instance;
   vk::UniqueSurfaceKHR surface;
-  std::optional<DynamicUniqueDebugUtilsMessengerEXT> debug_messenger;
   std::shared_ptr<Window> window;
+  vk::PhysicalDevice selected_device;
   device_suitability_scorer_fnc device_scorer;
 };
 

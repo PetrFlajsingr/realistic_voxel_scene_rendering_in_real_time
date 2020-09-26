@@ -33,20 +33,20 @@ class application {
     }
     logger->info("Window initialised\n{}", *window);
 
-    auto extensions = window->required_vulkan_extensions();
+    const auto window_extensions = window->required_vulkan_extensions();
     auto validation_layers = std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
     const auto vulkan_config = vulkan::instance_config{
         .app_name = "Realistic voxel rendering in real time",
         .app_version = {0, 1, 0},
         .vk_version = {1, 2, 0},
         .e_info = vulkan::engine_info{.name = "<unnamed>", .engine_version = {0, 1, 0}},
-        .required_extensions = std::move(extensions),
+        .required_extensions = std::move(window_extensions),
         .validation_layers = std::move(validation_layers),
         .debug{.user_data = this, .callback = debug_callback}};
 
     vul = std::make_unique<vulkan::vulkan_interface<Window, vulkan::default_device_suitability_scorer>>(
         vulkan_config, window,
-        vulkan::default_device_suitability_scorer(vulkan_config.required_extensions, {},
+        vulkan::default_device_suitability_scorer({}, {},
                                                   [](const auto &) { return 0; }));
   }
 
