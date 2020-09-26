@@ -5,9 +5,9 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H
 
-#include "../vulkan/vulkan.h"
 #include "concepts/window.h"
 #include "exceptions/stacktrace_exception.h"
+#include "vulkan/vulkan_interface.h"
 #include <iostream>
 #include <memory>
 #include <spdlog/spdlog.h>
@@ -44,7 +44,7 @@ class application {
         .validation_layers = std::move(validation_layers),
         .debug{.user_data = this, .callback = debug_callback}};
 
-    vul = std::make_unique<vulkan::vulkan<Window, vulkan::default_device_suitability_scorer>>(
+    vul = std::make_unique<vulkan::vulkan_interface<Window, vulkan::default_device_suitability_scorer>>(
         vulkan_config, window,
         vulkan::default_device_suitability_scorer(vulkan_config.required_extensions, {},
                                                   [](const auto &) { return 0; }));
@@ -80,7 +80,7 @@ class application {
 
   std::shared_ptr<spdlog::logger> logger;
   std::shared_ptr<Window> window;
-  std::unique_ptr<vulkan::vulkan<Window, vulkan::default_device_suitability_scorer>> vul;
+  std::unique_ptr<vulkan::vulkan_interface<Window, vulkan::default_device_suitability_scorer>> vul;
 };
 }// namespace pf
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H

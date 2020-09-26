@@ -2,8 +2,8 @@
 // Created by petr on 9/25/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKAN_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKAN_H
+#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKAN_INTERFACE_H
+#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKAN_INTERFACE_H
 
 #include "../concepts/window.h"
 #include "default_device_suitability_scorer.h"
@@ -13,9 +13,9 @@
 namespace pf::vulkan {
 
 template<window::window Window, device_suitability_scorer DeviceScorer>
-class vulkan {
+class vulkan_interface {
  public:
-  explicit vulkan(const instance_config &i_config, std::shared_ptr<Window> window,
+  explicit vulkan_interface(const instance_config &i_config, std::shared_ptr<Window> window,
                   DeviceScorer &&device_scorer)
       : window(std::move(window)), device_scorer(device_scorer) {
     user_data = i_config.debug.user_data;
@@ -31,7 +31,7 @@ class vulkan {
       VkDebugUtilsMessageSeverityFlagBitsEXT severity,
       VkDebugUtilsMessageTypeFlagsEXT msg_type_flags,
       const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *user_data) {
-    auto self = reinterpret_cast<vulkan *>(user_data);
+    auto self = reinterpret_cast<vulkan_interface *>(user_data);
     return self->debug_callback(self->user_data, debug_callback_data::from_vk(*pCallbackData),
                                 static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(severity),
                                 static_cast<vk::DebugUtilsMessageTypeFlagsEXT>(msg_type_flags))
@@ -49,4 +49,4 @@ class vulkan {
 };
 
 }// namespace pf::vulkan
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKAN_H
+#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKAN_INTERFACE_H

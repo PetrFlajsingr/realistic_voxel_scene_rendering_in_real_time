@@ -119,7 +119,7 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
         args/valid_path_check_action.cpp
         #${IMPLOT_CPP_FILES}
-        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h ui/events/common.h ui/events/subscription.cpp ui/events/subscription.h concepts/iterable.h concepts/streams.h coroutines/sequence.h concepts/incrementable.h ui/events/event_dispatch_impl.h vulkan/vulkan.h vulkan/vulkan_exception.cpp vulkan/vulkan_exception.h vulkan/utils.h vulkan/utils.cpp vulkan/default_device_suitability_scorer.cpp vulkan/default_device_suitability_scorer.h)
+        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h ui/events/common.h ui/events/subscription.cpp ui/events/subscription.h concepts/iterable.h concepts/streams.h coroutines/sequence.h concepts/incrementable.h ui/events/event_dispatch_impl.h vulkan/vulkan_interface.h vulkan/vulkan_exception.cpp vulkan/vulkan_exception.h vulkan/utils.h vulkan/utils.cpp vulkan/default_device_suitability_scorer.cpp vulkan/default_device_suitability_scorer.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
