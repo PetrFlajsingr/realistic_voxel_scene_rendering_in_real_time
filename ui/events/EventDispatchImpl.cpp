@@ -39,7 +39,7 @@ void pf::events::EventDispatchImpl::notifyMouse(pf::events::MouseEventType type,
     mouseClicked = isMouseDown_;
     isMouseDown_ = false;
   }
-  auto &listeners = mouseListeners[magic_enum::enum_integer(type)];
+  const auto &listeners = mouseListeners[magic_enum::enum_integer(type)];
   const auto event =
       MouseEvent{.type = type, .button = button, .location = location, .delta = delta};
   for (auto &[id, listener] : listeners) {
@@ -62,7 +62,7 @@ void pf::events::EventDispatchImpl::notifyMouse(pf::events::MouseEventType type,
   }
 }
 void pf::events::EventDispatchImpl::notifyKey(pf::events::KeyEventType type, char key) {
-  auto &listeners = keyListeners[magic_enum::enum_integer(type)];
+  const auto &listeners = keyListeners[magic_enum::enum_integer(type)];
   const auto event = KeyEvent{.type = type, .key = key};
   for (auto &[id, listener] : listeners) {
     if (listener(event)) { break; }

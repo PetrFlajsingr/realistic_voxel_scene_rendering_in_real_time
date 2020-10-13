@@ -10,3 +10,5 @@ do
    out_path=$output_dir$filename$ext
    glslc $path -o $out_path
 done
+
+

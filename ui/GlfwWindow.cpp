@@ -93,7 +93,6 @@ vk::UniqueSurfaceKHR pf::GlfwWindow::createVulkanSurface(const vk::Instance &ins
   return vk::UniqueSurfaceKHR(surface, surfaceDeleter);
 }
 std::unordered_set<std::string> pf::GlfwWindow::requiredVulkanExtensions() {
-  auto result = std::vector<std::string>();
   auto extensionCount = uint32_t{};
   const char **extensions;
   extensions = glfwGetRequiredInstanceExtensions(&extensionCount);

@@ -43,7 +43,8 @@ class LogicalDevice : public VulkanObject, public PtrConstructable<LogicalDevice
   LogicalDevice &operator=(const LogicalDevice &other) = delete;
 
   [[nodiscard]] const vk::Device &getVkLogicalDevice() const;
-  [[nodiscard]] const std::unordered_map<vk::QueueFlagBits, uint32_t> &getQueueIndices() const;
+  [[nodiscard]] std::unordered_map<vk::QueueFlagBits, uint32_t> &getQueueIndices();
+  [[nodiscard]] vk::Queue getQueue(vk::QueueFlagBits type);
   [[nodiscard]] const std::optional<uint32_t> &getPresentQueueIndex() const;
 
   const vk::Device &operator*() const;
@@ -91,7 +92,6 @@ class Device : public VulkanObject,
   [[nodiscard]] const vk::PhysicalDevice &getPhysicalDevice();
 
   const vk::PhysicalDevice &operator*() const;
-
   vk::PhysicalDevice const *operator->() const;
 
   [[nodiscard]] LogicalDevice &getLogicalDevice(const LogicalDeviceId &id);

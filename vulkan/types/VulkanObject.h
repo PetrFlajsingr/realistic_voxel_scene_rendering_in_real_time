@@ -14,7 +14,7 @@ class VulkanObject {
   [[nodiscard]] virtual std::string info() const = 0;
   virtual ~VulkanObject() = default;
 
-  inline friend std::ostream &operator<<(std::ostream &ostream, VulkanObject &obj) {
+  inline friend std::ostream &operator<<(std::ostream &ostream, const VulkanObject &obj) {
     return ostream << obj.info();
   }
 };

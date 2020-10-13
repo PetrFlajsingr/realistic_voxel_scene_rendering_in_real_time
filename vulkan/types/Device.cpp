@@ -30,8 +30,8 @@ const vk::Device &pf::vulkan::LogicalDevice::getVkLogicalDevice() const {
   return vkLogicalDevice.get();
 }
 
-const std::unordered_map<vk::QueueFlagBits, uint32_t> &
-pf::vulkan::LogicalDevice::getQueueIndices() const {
+std::unordered_map<vk::QueueFlagBits, uint32_t> &
+pf::vulkan::LogicalDevice::getQueueIndices() {
   return queueIndices;
 }
 
@@ -48,6 +48,10 @@ vk::Device const *pf::vulkan::LogicalDevice::operator->() const { return &*vkLog
 pf::vulkan::Device &pf::vulkan::LogicalDevice::getPhysicalDevice() const {
   auto ptr = physDevice.lock();
   return *ptr;
+}
+
+vk::Queue pf::vulkan::LogicalDevice::getQueue(vk::QueueFlagBits type) {
+  return vkLogicalDevice->getQueue(queueIndices[type], 0);
 }
 
 std::unordered_map<vk::QueueFlagBits, uint32_t>
