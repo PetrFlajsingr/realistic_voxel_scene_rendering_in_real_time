@@ -5,10 +5,10 @@ include(FetchContent)
 
 function(print_all_vars)
     get_cmake_property(_variableNames VARIABLES)
-    list (SORT _variableNames)
+    list(SORT _variableNames)
     foreach (_variableName ${_variableNames})
         message(STATUS "${_variableName}=${${_variableName}}")
-    endforeach()
+    endforeach ()
 endfunction()
 
 HunterGate(
@@ -17,9 +17,9 @@ HunterGate(
 )
 
 find_program(CCACHE_PROGRAM ccache)
-if(CCACHE_PROGRAM)
+if (CCACHE_PROGRAM)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
-endif()
+endif ()
 
 
 project(
@@ -103,7 +103,7 @@ CPMAddPackage(
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
-endif()
+endif ()
 include_directories(${CMAKE_SOURCE_DIR}/third_party/)
 
 add_compile_definitions(GLFW_INCLUDE_VULKAN
@@ -116,10 +116,28 @@ add_compile_definitions(GLFW_INCLUDE_VULKAN
 
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
 add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_ENABLE}
-        exceptions/stacktrace_exception.cpp exceptions/stacktrace_exception.h
-        args/valid_path_check_action.cpp
+        exceptions/StackTraceException.cpp exceptions/StackTraceException.h
+        args/ValidPathCheckAction.cpp
         #${IMPLOT_CPP_FILES}
-        utils.h logging/loggers.cpp logging/loggers.h logging/some_levels_sink.h args/regex_check_action.h args/regex_check_action.cpp application.h concepts/window.cpp ui/glfw_window.cpp ui/glfw_window.h ui/events/common.h ui/events/subscription.cpp ui/events/subscription.h concepts/iterable.h concepts/streams.h coroutines/sequence.h concepts/incrementable.h ui/events/event_dispatch_impl.h vulkan/vulkan_interface.h vulkan/vulkan_exception.cpp vulkan/vulkan_exception.h vulkan/utils.h vulkan/utils.cpp vulkan/default_device_suitability_scorer.cpp vulkan/default_device_suitability_scorer.h)
+        utils.h logging/loggers.cpp logging/loggers.h logging/SomeLevelsSink.h
+        args/RegexCheckAction.h args/RegexCheckAction.cpp application.h
+        concepts/Window.cpp ui/GlfwWindow.cpp ui/GlfwWindow.h ui/events/common.h
+        ui/events/Subscription.cpp ui/events/Subscription.h concepts/Iterable.h concepts/StreamConcepts.h
+        coroutines/Sequence.h concepts/Incrementable.h ui/events/EventDispatchImpl.h
+        vulkan/VulkanException.cpp vulkan/VulkanException.h vulkan/DefaultDeviceSuitabilityScorer.cpp
+        vulkan/DefaultDeviceSuitabilityScorer.h rendering/TriangleRenderer.cpp
+        rendering/TriangleRenderer.h vulkan/types/SwapChain.cpp
+        vulkan/types/SwapChain.h vulkan/types/Device.cpp vulkan/types/Device.h vulkan/types/Instance.cpp
+        vulkan/types/Instance.h vulkan/types/VulkanCommon.h
+        vulkan/types/Surface.h concepts/Renderer.h vulkan/types/ImageView.cpp vulkan/types/ImageView.h
+        vulkan/types/Image.cpp vulkan/types/Image.h vulkan/types/RenderPass.cpp vulkan/types/RenderPass.h
+        vulkan/types/builders/RenderPassBuilder.cpp vulkan/types/builders/RenderPassBuilder.h vulkan/types/Shader.cpp
+        vulkan/types/Shader.h vulkan/types/GraphicsPipeline.cpp vulkan/types/GraphicsPipeline.h
+        vulkan/types/builders/GraphicsPipelineBuilder.cpp vulkan/types/builders/GraphicsPipelineBuilder.h
+        vulkan/types/DescriptorSetLayout.cpp vulkan/types/DescriptorSetLayout.h vulkan/types/CommandPool.cpp
+        vulkan/types/CommandPool.h vulkan/types/FrameBuffer.cpp vulkan/types/FrameBuffer.h vulkan/types/VulkanObject.cpp
+        vulkan/types/VulkanObject.h vulkan/types/Surface.cpp ui/events/EventDispatchImpl.cpp concepts/PtrConstructable.h
+        rendering/TriangleRenderer.cpp)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
