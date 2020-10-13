@@ -44,7 +44,6 @@ pf::vulkan::Shader::Shader(const pf::vulkan::ShaderConfigSrc &config) {
   vkShader = config.logicalDevice.getVkLogicalDevice().createShaderModuleUnique(create_info);
 }
 
-
 const vk::ShaderModule &pf::vulkan::Shader::getShaderModule() { return vkShader.get(); }
 
 pf::vulkan::ShaderType pf::vulkan::Shader::getType() const { return type; }

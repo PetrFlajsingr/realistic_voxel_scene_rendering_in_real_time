@@ -129,8 +129,8 @@ class TriangleRenderer {
 
  private:
   bool debugCallback(const vulkan::DebugCallbackData &data,
-                      vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                      const vk::DebugUtilsMessageTypeFlagsEXT &);
+                     vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                     const vk::DebugUtilsMessageTypeFlagsEXT &);
 
   vk::Format getDepthFormat();
 

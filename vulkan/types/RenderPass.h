@@ -23,11 +23,11 @@ class RenderPass : public VulkanObject, public PtrConstructable<RenderPass> {
   [[nodiscard]] const vk::RenderPass &getRenderPass() const;
 
   const vk::RenderPass &operator*() const;
-  vk::RenderPass const * operator->() const;
+  vk::RenderPass const *operator->() const;
 
   [[nodiscard]] std::string info() const override;
- private:
 
+ private:
   vk::UniqueRenderPass vkRenderPass;
   std::vector<std::string> subPassNames;
 };

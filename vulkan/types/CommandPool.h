@@ -5,8 +5,8 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
 
-#include "VulkanObject.h"
 #include "../concepts/PtrConstructable.h"
+#include "VulkanObject.h"
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
@@ -21,7 +21,7 @@ class CommandPool : public VulkanObject, public PtrConstructable<CommandPool> {
   [[nodiscard]] const vk::CommandPool &getCommandPool() const;
 
   const vk::CommandPool &operator*() const;
-  vk::CommandPool const * operator->() const;
+  vk::CommandPool const *operator->() const;
 
   [[nodiscard]] std::string info() const override;
 

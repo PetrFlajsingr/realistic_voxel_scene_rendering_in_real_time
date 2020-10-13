@@ -28,7 +28,6 @@ struct ShaderConfigSrc {
   LogicalDevice &logicalDevice;
 };
 
-
 vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type);
 
 class Shader : public VulkanObject, public PtrConstructable<Shader> {
@@ -45,7 +44,7 @@ class Shader : public VulkanObject, public PtrConstructable<Shader> {
   [[nodiscard]] const std::string &getName() const;
   const vk::ShaderModule &operator*() const;
 
-  vk::ShaderModule const * operator->() const;
+  vk::ShaderModule const *operator->() const;
 
   [[nodiscard]] std::string info() const override;
 
@@ -57,7 +56,6 @@ class Shader : public VulkanObject, public PtrConstructable<Shader> {
 
 std::vector<uint8_t> readSpvFile(std::istream &istream);
 std::vector<uint8_t> readSpvFile(std::istream &&istream);
-
 
 }// namespace pf::vulkan
 

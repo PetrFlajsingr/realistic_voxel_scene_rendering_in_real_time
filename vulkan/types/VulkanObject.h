@@ -5,8 +5,8 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKANOBJECT_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKANOBJECT_H
 
-#include <string>
 #include <memory>
+#include <string>
 
 namespace pf::vulkan {
 class VulkanObject {

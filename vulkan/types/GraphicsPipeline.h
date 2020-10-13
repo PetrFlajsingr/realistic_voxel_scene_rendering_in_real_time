@@ -5,9 +5,9 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GRAPHICSPIPELINE_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GRAPHICSPIPELINE_H
 
+#include "../concepts/PtrConstructable.h"
 #include "VulkanObject.h"
 #include <vulkan/vulkan.hpp>
-#include "../concepts/PtrConstructable.h"
 
 namespace pf::vulkan {
 
@@ -22,7 +22,7 @@ class GraphicsPipeline : public VulkanObject, public PtrConstructable<GraphicsPi
   [[nodiscard]] const vk::Pipeline &getVkPipeline() const;
 
   const vk::Pipeline &operator*() const;
-  vk::Pipeline const * operator->() const;
+  vk::Pipeline const *operator->() const;
 
   [[nodiscard]] std::string info() const override;
 

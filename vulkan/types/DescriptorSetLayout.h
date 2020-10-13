@@ -36,7 +36,7 @@ class DescriptorSetLayout : public VulkanObject, public PtrConstructable<Descrip
   [[nodiscard]] std::string info() const override;
 
   const vk::DescriptorSetLayout &operator*() const;
-  vk::DescriptorSetLayout const * operator->() const;
+  vk::DescriptorSetLayout const *operator->() const;
 
  private:
   vk::UniqueDescriptorSetLayout vkSet;

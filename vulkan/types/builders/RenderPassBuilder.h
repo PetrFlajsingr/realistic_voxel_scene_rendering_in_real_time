@@ -101,6 +101,7 @@ class RenderPassBuilder {
   friend class details::AttachmentDescriptionBuilder;
   friend class details::SubPassBuilder;
   friend class RenderPass;
+
  public:
   details::AttachmentDescriptionBuilder attachment(std::string name);
   details::SubPassBuilder subpass(std::string name);

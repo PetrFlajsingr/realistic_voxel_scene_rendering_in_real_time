@@ -13,7 +13,6 @@
 
 namespace pf::vulkan {
 
-
 struct ImageConfig {
   LogicalDevice &logicalDevice;
   vk::ImageType imageType;
@@ -33,7 +32,7 @@ class Image : public VulkanObject {
   [[nodiscard]] virtual const vk::Image &getImage() const = 0;
 
   const vk::Image &operator*() const;
-  vk::Image const * operator->() const;
+  vk::Image const *operator->() const;
 };
 
 class ImageRef : public Image, public PtrConstructable<ImageRef> {

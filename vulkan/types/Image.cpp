@@ -10,7 +10,6 @@ const vk::Image &pf::vulkan::ImageRef::getImage() const { return vkImage; }
 
 std::string pf::vulkan::ImageRef::info() const { return "Vulkan image reference"; }
 
-
 const vk::Image &pf::vulkan::ImageUnique::getImage() const { return vkImage.get(); }
 
 std::string pf::vulkan::ImageUnique::info() const { return "Vulkan image unique handle"; }

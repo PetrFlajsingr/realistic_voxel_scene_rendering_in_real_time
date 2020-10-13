@@ -5,8 +5,8 @@
 #include "TriangleRenderer.h"
 
 bool pf::TriangleRenderer::debugCallback(const pf::vulkan::DebugCallbackData &data,
-                                           vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                                           const vk::DebugUtilsMessageTypeFlagsEXT &) {
+                                         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                                         const vk::DebugUtilsMessageTypeFlagsEXT &) {
   auto log_level = spdlog::level::trace;
   switch (severity) {
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
@@ -25,14 +25,14 @@ vk::Format pf::TriangleRenderer::getDepthFormat() {
   const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
   return vk::Format::eD32Sfloat;
   for (auto format :
-      {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint}) {
+       {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint}) {
     const auto properties = vkDevice->getPhysicalDevice().getFormatProperties(format);
 
     if (tiling == vk::ImageTiling::eLinear
         && (properties.linearTilingFeatures & features) == features) {
       return format;
     } else if (tiling == vk::ImageTiling::eOptimal
-        && (properties.optimalTilingFeatures & features) == features) {
+               && (properties.optimalTilingFeatures & features) == features) {
       return format;
     }
   }
