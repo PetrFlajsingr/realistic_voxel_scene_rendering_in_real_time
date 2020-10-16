@@ -9,7 +9,7 @@
 
 pf::vulkan::Instance::Instance(pf::vulkan::InstanceConfig config) {
   log(spdlog::level::info, VK_TAG, "Creating vulkan instance.");
-  const auto app_info = vk::ApplicationInfo(
+  const auto appInfo = vk::ApplicationInfo(
       config.appName.c_str(), versionToUint32(config.appVersion), config.engineInfo.name.c_str(),
       versionToUint32(config.engineInfo.engineVersion), versionToUint32(config.vkVersion));
   logFmt(spdlog::level::info, VK_TAG,
@@ -17,41 +17,41 @@ pf::vulkan::Instance::Instance(pf::vulkan::InstanceConfig config) {
          config.appName, config.appVersion, config.engineInfo.name, config.engineInfo.engineVersion,
          config.vkVersion);
 
-  const auto message_severity_flags = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
+  const auto messageSeverityFlags = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose
       | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo
       | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
       | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-  const auto message_type_flags = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
+  const auto messageTypeFlags = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral
       | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance
       | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation;
-  const auto debug_create_info = vk::DebugUtilsMessengerCreateInfoEXT(
-      {}, message_severity_flags, message_type_flags, cVulkanDebugCallback, this);
+  const auto debugCreateInfo = vk::DebugUtilsMessengerCreateInfoEXT(
+      {}, messageSeverityFlags, messageTypeFlags, cVulkanDebugCallback, this);
   using namespace ranges;
 
-  const auto validation_layers_enabled =
+  const auto validationLayersEnabled =
       !config.validationLayers.empty() && config.callback.has_value();
-  if (validation_layers_enabled) {
+  if (validationLayersEnabled) {
     log(spdlog::level::info, VK_TAG, "Validation layers are enabled.");
     config.requiredWindowExtensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     debugCallback = config.callback.value();
   }
 
-  const auto ext_c_str = config.requiredWindowExtensions
+  const auto extCStr = config.requiredWindowExtensions
       | views::transform([](auto &str) { return str.c_str(); }) | to_vector;
-  const auto layer_c_str = config.validationLayers
+  const auto layerCStr = config.validationLayers
       | ranges::views::transform([](auto &str) { return str.c_str(); }) | to_vector;
 
-  auto create_info = vk::InstanceCreateInfo();
-  create_info.setPApplicationInfo(&app_info)
-      .setPEnabledExtensionNames(ext_c_str)
-      .setPEnabledLayerNames(layer_c_str)
-      .setPNext(validation_layers_enabled ? &debug_create_info : nullptr);
+  auto createInfo = vk::InstanceCreateInfo();
+  createInfo.setPApplicationInfo(&appInfo)
+      .setPEnabledExtensionNames(extCStr)
+      .setPEnabledLayerNames(layerCStr)
+      .setPNext(validationLayersEnabled ? &debugCreateInfo : nullptr);
 
-  vkInstance = vk::createInstanceUnique(create_info);
+  vkInstance = vk::createInstanceUnique(createInfo);
 
-  if (validation_layers_enabled) {
+  if (validationLayersEnabled) {
     debugMessenger = vkInstance->createDebugUtilsMessengerEXTUnique(
-        debug_create_info, nullptr, vk::DispatchLoaderDynamic{*vkInstance, vkGetInstanceProcAddr});
+        debugCreateInfo, nullptr, vk::DispatchLoaderDynamic{*vkInstance, vkGetInstanceProcAddr});
   }
   log(spdlog::level::info, VK_TAG, "Vulkan instance created.");
 }

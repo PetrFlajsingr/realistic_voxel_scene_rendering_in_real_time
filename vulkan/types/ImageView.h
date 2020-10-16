@@ -6,8 +6,7 @@
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGEVIEW_H
 
 #include "../concepts/PtrConstructable.h"
-#include "Device.h"
-#include "Image.h"
+#include "fwd.h"
 #include "VulkanObject.h"
 #include <vulkan/vulkan.hpp>
 

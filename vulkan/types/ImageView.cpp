@@ -3,6 +3,8 @@
 //
 
 #include "ImageView.h"
+#include "Image.h"
+#include "Device.h"
 
 pf::vulkan::ImageView::ImageView(const ImageViewConfig &config) {
   auto createInfo = vk::ImageViewCreateInfo{};

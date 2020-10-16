@@ -3,6 +3,7 @@
 //
 
 #include "Shader.h"
+#include "Device.h"
 #include <fmt/format.h>
 #include <fstream>
 #include <magic_enum.hpp>

@@ -3,6 +3,7 @@
 //
 
 #include "CommandPool.h"
+#include "Device.h"
 
 pf::vulkan::CommandPool::CommandPool(pf::vulkan::CommandPoolConfig &&config)
     : queue(config.device->getQueue(config.queueFamily)) {

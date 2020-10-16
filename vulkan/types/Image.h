@@ -6,15 +6,15 @@
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGE_H
 
 #include "../concepts/PtrConstructable.h"
-#include "Device.h"
+#include "fwd.h"
 #include "VulkanObject.h"
 #include <unordered_set>
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
-
+class ImageView;
 struct ImageConfig {
-  LogicalDevice &logicalDevice;
+  std::shared_ptr<LogicalDevice> logicalDevice;
   vk::ImageType imageType;
   vk::Format format;
   vk::Extent3D extent;
@@ -56,6 +56,10 @@ class ImageUnique : public Image, public PtrConstructable<ImageUnique> {
   ImageUnique(const ImageUnique &other) = delete;
   ImageUnique &operator=(const ImageUnique &other) = delete;
 
+  [[nodiscard]] std::shared_ptr<ImageView>
+  createImageView(SwapChain &swapChain, vk::ColorSpaceKHR colorSpace, vk::ImageViewType viewType,
+                  const vk::ImageSubresourceRange& subResourceRange);
+
   [[nodiscard]] const vk::Image &getImage() const override;
   [[nodiscard]] std::string info() const override;
 
@@ -78,6 +82,7 @@ class ImageUnique : public Image, public PtrConstructable<ImageUnique> {
   vk::SampleCountFlagBits sampleCount;
   vk::ImageTiling tiling;
   vk::ImageLayout layout;
+  std::shared_ptr<LogicalDevice> logicalDevice;
 };
 
 }// namespace pf::vulkan

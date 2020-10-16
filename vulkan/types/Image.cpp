@@ -3,6 +3,8 @@
 //
 
 #include "Image.h"
+#include "ImageView.h"
+#include "Device.h"
 
 pf::vulkan::ImageRef::ImageRef(vk::Image img) : vkImage(img) {}
 
@@ -31,7 +33,7 @@ pf::vulkan::ImageUnique::ImageUnique(const pf::vulkan::ImageConfig &config) {
   } else {
     createInfo.setSharingMode(vk::SharingMode::eExclusive);
   }
-  vkImage = config.logicalDevice.getVkLogicalDevice().createImageUnique(createInfo);
+  vkImage = config.logicalDevice->getVkLogicalDevice().createImageUnique(createInfo);
   imageType = config.imageType;
   format = config.format;
   extent = config.extent;
@@ -40,6 +42,7 @@ pf::vulkan::ImageUnique::ImageUnique(const pf::vulkan::ImageConfig &config) {
   sampleCount = config.sampleCount;
   tiling = config.tiling;
   layout = config.layout;
+  logicalDevice = config.logicalDevice;
 }
 
 vk::ImageType pf::vulkan::ImageUnique::getImageType() const { return imageType; }
@@ -57,6 +60,22 @@ vk::SampleCountFlagBits pf::vulkan::ImageUnique::getSampleCount() const { return
 vk::ImageTiling pf::vulkan::ImageUnique::getTiling() const { return tiling; }
 
 vk::ImageLayout pf::vulkan::ImageUnique::getLayout() const { return layout; }
+
+std::shared_ptr<pf::vulkan::ImageView>
+pf::vulkan::ImageUnique::createImageView(SwapChain &swapChain, vk::ColorSpaceKHR colorSpace,
+                                         vk::ImageViewType viewType,
+                                         const vk::ImageSubresourceRange& subResourceRange) {
+  auto imageViewConfig = ImageViewConfig {
+    .logicalDevice = *logicalDevice,
+    .swapChain = swapChain,
+    .image = *this,
+    .format = format,
+    .colorSpace = colorSpace,
+    .viewType = viewType,
+    .subResourceRange = subResourceRange
+  };
+  return ImageView::CreateShared(imageViewConfig);
+}
 
 const vk::Image &pf::vulkan::Image::operator*() const { return getImage(); }
 

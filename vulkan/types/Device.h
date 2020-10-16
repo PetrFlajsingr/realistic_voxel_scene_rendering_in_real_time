@@ -9,7 +9,9 @@
 #include "../VulkanException.h"
 #include "../concepts/PtrConstructable.h"
 #include "../logging/loggers.h"
-#include "Surface.h"
+#include "fwd.h"
+#include "Instance.h"
+#include "../concepts/Window.h"
 #include "VulkanObject.h"
 #include <range/v3/action.hpp>
 #include <range/v3/view.hpp>
@@ -35,7 +37,7 @@ class Device;
 
 class LogicalDevice : public VulkanObject, public PtrConstructable<LogicalDevice> {
  public:
-  LogicalDevice(std::shared_ptr<Device> device, vk::UniqueDevice &&vkLogicalDevice,
+  LogicalDevice(const std::shared_ptr<Device>& device, vk::UniqueDevice &&vkLogicalDevice,
                 std::unordered_map<vk::QueueFlagBits, uint32_t> queueIndices,
                 const std::optional<uint32_t> &presentQueueIndex);
 

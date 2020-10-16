@@ -16,10 +16,10 @@ HunterGate(
         SHA1 "64024b7b95b4c86d50ae05b926814448c93a70a0"
 )
 
-find_program(CCACHE_PROGRAM ccache)
-if (CCACHE_PROGRAM)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
-endif ()
+#find_program(CCACHE_PROGRAM ccache)
+#if (CCACHE_PROGRAM)
+#    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+#endif ()
 
 
 project(
@@ -31,8 +31,10 @@ project(
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type -fcoroutines")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -pedantic -Wno-unknown-pragmas")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -Wno-unknown-pragmas")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function")
+
+#list(APPEND )
 
 find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIRS})
@@ -137,7 +139,7 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         vulkan/types/DescriptorSetLayout.cpp vulkan/types/DescriptorSetLayout.h vulkan/types/CommandPool.cpp
         vulkan/types/CommandPool.h vulkan/types/FrameBuffer.cpp vulkan/types/FrameBuffer.h vulkan/types/VulkanObject.cpp
         vulkan/types/VulkanObject.h vulkan/types/Surface.cpp ui/events/EventDispatchImpl.cpp concepts/PtrConstructable.h
-        rendering/TriangleRenderer.cpp)
+        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript

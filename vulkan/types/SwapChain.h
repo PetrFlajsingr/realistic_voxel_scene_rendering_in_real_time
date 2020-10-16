@@ -6,8 +6,7 @@
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H
 
 #include "../concepts/PtrConstructable.h"
-#include "Device.h"
-#include "ImageView.h"
+#include "fwd.h"
 #include "VulkanObject.h"
 #include <set>
 #include <unordered_set>

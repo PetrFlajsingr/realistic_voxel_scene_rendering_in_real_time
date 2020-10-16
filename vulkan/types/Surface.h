@@ -7,7 +7,7 @@
 
 #include "../concepts/PtrConstructable.h"
 #include "../concepts/Window.h"
-#include "Instance.h"
+#include "fwd.h"
 #include "VulkanObject.h"
 
 namespace pf::vulkan {

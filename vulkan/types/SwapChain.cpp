@@ -3,6 +3,10 @@
 //
 
 #include "SwapChain.h"
+#include "Device.h"
+#include "Image.h"
+#include "ImageView.h"
+#include "Surface.h"
 #include "../VulkanException.h"
 #include <range/v3/view.hpp>
 

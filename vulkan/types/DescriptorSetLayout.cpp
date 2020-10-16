@@ -3,6 +3,7 @@
 //
 
 #include "DescriptorSetLayout.h"
+#include "Device.h"
 
 pf::vulkan::DescriptorSetLayout::DescriptorSetLayout(const DescriptorSetLayoutConfig &config) {
   auto bindings = std::vector<vk::DescriptorSetLayoutBinding>();

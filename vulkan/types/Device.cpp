@@ -20,18 +20,17 @@ const vk::PhysicalDevice &pf::vulkan::Device::operator*() const { return vkDevic
 vk::PhysicalDevice const *pf::vulkan::Device::operator->() const { return &vkDevice; }
 
 pf::vulkan::LogicalDevice::LogicalDevice(
-    std::shared_ptr<Device> device, vk::UniqueDevice &&vkLogicalDevice,
+    const std::shared_ptr<Device> &device, vk::UniqueDevice &&vkLogicalDevice,
     std::unordered_map<vk::QueueFlagBits, uint32_t> queueIndices,
     const std::optional<uint32_t> &presentQueueIndex)
-    : physDevice(std::move(device)), vkLogicalDevice(std::move(vkLogicalDevice)),
+    : physDevice(device), vkLogicalDevice(std::move(vkLogicalDevice)),
       queueIndices(std::move(queueIndices)), presentQueueIndex(presentQueueIndex) {}
 
 const vk::Device &pf::vulkan::LogicalDevice::getVkLogicalDevice() const {
   return vkLogicalDevice.get();
 }
 
-std::unordered_map<vk::QueueFlagBits, uint32_t> &
-pf::vulkan::LogicalDevice::getQueueIndices() {
+std::unordered_map<vk::QueueFlagBits, uint32_t> &pf::vulkan::LogicalDevice::getQueueIndices() {
   return queueIndices;
 }
 
@@ -58,21 +57,18 @@ std::unordered_map<vk::QueueFlagBits, uint32_t>
 pf::vulkan::details::getQueueFamilyIndices(vk::PhysicalDevice &physicalDevice,
                                            std::unordered_set<vk::QueueFlagBits> queueTypes) {
   log(spdlog::level::info, VK_TAG, "Getting queue family indices.");
-  using namespace ranges;
   const auto queue_family_properties_list = physicalDevice.getQueueFamilyProperties();
   auto result = std::unordered_map<vk::QueueFlagBits, uint32_t>{};
   for (const auto &[idx, queue_family_properties] :
-       views::enumerate(queue_family_properties_list)) {
-    std::optional<vk::QueueFlagBits> used_flag = std::nullopt;
-    for (auto flag : queueTypes) {
-      if (queue_family_properties.queueCount > 0 && (queue_family_properties.queueFlags & flag)) {
-        used_flag = flag;
-        break;
-      }
-    }
-    if (used_flag.has_value()) {
-      result[*used_flag] = idx;
-      queueTypes.erase(*used_flag);
+       ranges::views::enumerate(queue_family_properties_list)) {
+
+    const auto iter = std::ranges::find_if(queueTypes, [&](auto flag) {
+      return (queue_family_properties.queueCount > 0
+              && (queue_family_properties.queueFlags & flag));
+    });
+    if (iter != queueTypes.end()) {
+      result[*iter] = idx;
+      queueTypes.erase(iter);
     }
   }
   if (!queueTypes.empty()) {
