@@ -4,152 +4,143 @@
 
 #include "RenderPassBuilder.h"
 
-pf::vulkan::details::AttachmentDescriptionBuilder::AttachmentDescriptionBuilder(
-    std::string name, pf::vulkan::RenderPassBuilder &parent)
+namespace pf::vulkan {
+
+details::AttachmentDescriptionBuilder::AttachmentDescriptionBuilder(std::string name,
+                                                                    RenderPassBuilder &parent)
     : parent(parent), name(std::move(name)) {}
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::format(vk::Format format) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::format(vk::Format format) {
   description.setFormat(format);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::initialLayout(vk::ImageLayout layout) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::initialLayout(vk::ImageLayout layout) {
   description.setInitialLayout(layout);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::finalLayout(vk::ImageLayout layout) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::finalLayout(vk::ImageLayout layout) {
   description.setFinalLayout(layout);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::samples(vk::SampleCountFlagBits sampleCount) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::samples(vk::SampleCountFlagBits sampleCount) {
   description.setSamples(sampleCount);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::loadOp(vk::AttachmentLoadOp attLoadOp) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::loadOp(vk::AttachmentLoadOp attLoadOp) {
   description.setLoadOp(attLoadOp);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::stencilLoadOp(vk::AttachmentLoadOp stLoadOp) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::stencilLoadOp(vk::AttachmentLoadOp stLoadOp) {
   description.setStencilLoadOp(stLoadOp);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::stencilStoreOp(vk::AttachmentStoreOp stStoreOp) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::stencilStoreOp(vk::AttachmentStoreOp stStoreOp) {
   description.setStencilStoreOp(stStoreOp);
   return *this;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::flags(
-    vk::AttachmentDescriptionFlagBits descFlags) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::flags(vk::AttachmentDescriptionFlagBits descFlags) {
   description.setFlags(descFlags);
   return *this;
 }
-pf::vulkan::RenderPassBuilder &pf::vulkan::details::AttachmentDescriptionBuilder::attachmentDone() {
+RenderPassBuilder &details::AttachmentDescriptionBuilder::attachmentDone() {
   parent.attachDescriptions[name] = description;
   return parent;
 }
-pf::vulkan::details::AttachmentDescriptionBuilder &
-pf::vulkan::details::AttachmentDescriptionBuilder::storeOp(vk::AttachmentStoreOp attStoreOp) {
+details::AttachmentDescriptionBuilder &
+details::AttachmentDescriptionBuilder::storeOp(vk::AttachmentStoreOp attStoreOp) {
   description.setStoreOp(attStoreOp);
   return *this;
 }
-pf::vulkan::details::SubPassBuilder::SubPassBuilder(std::string name,
-                                                    pf::vulkan::RenderPassBuilder &parent)
+details::SubPassBuilder::SubPassBuilder(std::string name, RenderPassBuilder &parent)
     : name(std::move(name)), parent(parent) {}
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::flags(const vk::SubpassDescriptionFlags &flags_) {
+details::SubPassBuilder &details::SubPassBuilder::flags(const vk::SubpassDescriptionFlags &flags_) {
   data.description.setFlags(flags_);
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::colorAttachment(std::string attachmentName) {
+details::SubPassBuilder &details::SubPassBuilder::colorAttachment(std::string attachmentName) {
   data.colorAttachmentNames.emplace_back(std::move(attachmentName));
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::inputAttachment(std::string attachmentName) {
+details::SubPassBuilder &details::SubPassBuilder::inputAttachment(std::string attachmentName) {
   data.inputAttachmentNames.emplace_back(std::move(attachmentName));
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::depthStencilAttachment(std::string attachmentName) {
+details::SubPassBuilder &
+details::SubPassBuilder::depthStencilAttachment(std::string attachmentName) {
   data.depthStencilAttachmentName = std::move(attachmentName);
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::resolveAttachment(std::string attachmentName) {
+details::SubPassBuilder &details::SubPassBuilder::resolveAttachment(std::string attachmentName) {
   data.resolveAttachmentNames.emplace_back(std::move(attachmentName));
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::preserveAttachment(std::string attachmentName) {
+details::SubPassBuilder &details::SubPassBuilder::preserveAttachment(std::string attachmentName) {
   data.preserveAttachmentNames.emplace_back(std::move(attachmentName));
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassBuilder::pipelineBindPoint(vk::PipelineBindPoint bindPoint) {
+details::SubPassBuilder &
+details::SubPassBuilder::pipelineBindPoint(vk::PipelineBindPoint bindPoint) {
   data.description.setPipelineBindPoint(bindPoint);
   return *this;
 }
-pf::vulkan::RenderPassBuilder &pf::vulkan::details::SubPassBuilder::subpassDone() {
+RenderPassBuilder &details::SubPassBuilder::subpassDone() {
   parent.subpasses[name] = std::move(data);
   return parent;
 }
-pf::vulkan::details::SubPassDependencyBuilder pf::vulkan::details::SubPassBuilder::dependency() {
+details::SubPassDependencyBuilder details::SubPassBuilder::dependency() {
   return SubPassDependencyBuilder(*this);
 }
-pf::vulkan::details::SubPassDependencyBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::srcSubpass(std::string name) {
+details::SubPassDependencyBuilder &details::SubPassDependencyBuilder::srcSubpass(std::string name) {
   data.srcSubpassName = std::move(name);
   return *this;
 }
-pf::vulkan::details::SubPassDependencyBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::dstSubpass(std::string name) {
+details::SubPassDependencyBuilder &details::SubPassDependencyBuilder::dstSubpass(std::string name) {
   data.dstSubpassName = std::move(name);
   return *this;
 }
-pf::vulkan::details::SubPassDependencyBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::srcStageMask(
-    const vk::PipelineStageFlags &stageFlags) {
+details::SubPassDependencyBuilder &
+details::SubPassDependencyBuilder::srcStageMask(const vk::PipelineStageFlags &stageFlags) {
   data.dependency.setSrcStageMask(stageFlags);
   return *this;
 }
-pf::vulkan::details::SubPassDependencyBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::dstStageMask(
-    const vk::PipelineStageFlags &stageFlags) {
+details::SubPassDependencyBuilder &
+details::SubPassDependencyBuilder::dstStageMask(const vk::PipelineStageFlags &stageFlags) {
   data.dependency.setDstStageMask(stageFlags);
   return *this;
 }
-pf::vulkan::details::SubPassDependencyBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::srcAccessFlags(const vk::AccessFlags &accessFlags) {
+details::SubPassDependencyBuilder &
+details::SubPassDependencyBuilder::srcAccessFlags(const vk::AccessFlags &accessFlags) {
   data.dependency.setSrcAccessMask(accessFlags);
   return *this;
 }
-pf::vulkan::details::SubPassDependencyBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::dstAccessFlags(const vk::AccessFlags &accessFlags) {
+details::SubPassDependencyBuilder &
+details::SubPassDependencyBuilder::dstAccessFlags(const vk::AccessFlags &accessFlags) {
   data.dependency.setDstAccessMask(accessFlags);
   return *this;
 }
-pf::vulkan::details::SubPassBuilder &
-pf::vulkan::details::SubPassDependencyBuilder::dependencyDone() {
+details::SubPassBuilder &details::SubPassDependencyBuilder::dependencyDone() {
   parent.data.dependencies.emplace_back(std::move(data));
   return parent;
 }
-pf::vulkan::details::SubPassDependencyBuilder::SubPassDependencyBuilder(
-    pf::vulkan::details::SubPassBuilder &parent)
+details::SubPassDependencyBuilder::SubPassDependencyBuilder(details::SubPassBuilder &parent)
     : parent(parent) {}
 
-pf::vulkan::details::AttachmentDescriptionBuilder
-pf::vulkan::RenderPassBuilder::attachment(std::string name) {
+RenderPassBuilder::RenderPassBuilder(std::shared_ptr<LogicalDevice> device)
+    : logicalDevice(std::move(device)) {}
+
+details::AttachmentDescriptionBuilder RenderPassBuilder::attachment(std::string name) {
   return details::AttachmentDescriptionBuilder(std::move(name), *this);
 }
 
 std::pair<std::vector<std::string>, vk::UniqueRenderPass>
-pf::vulkan::RenderPassBuilder::build(pf::vulkan::LogicalDevice &device) {
+RenderPassBuilder::build(LogicalDevice &device) {
   using namespace ranges;
 
   auto attachmentRefs = std::map<std::string, vk::AttachmentReference>();
@@ -223,22 +214,18 @@ pf::vulkan::RenderPassBuilder::build(pf::vulkan::LogicalDevice &device) {
                         device.getVkLogicalDevice().createRenderPassUnique(createInfo));
 }
 
-std::unique_ptr<pf::vulkan::RenderPass>
-pf::vulkan::RenderPassBuilder::buildUnique(pf::vulkan::LogicalDevice &device) {
-  return RenderPass::CreateUnique(*this, device);
+std::shared_ptr<RenderPass> RenderPassBuilder::build() {
+  return RenderPass::CreateShared(*this, std::move(logicalDevice));
 }
 
-std::shared_ptr<pf::vulkan::RenderPass>
-pf::vulkan::RenderPassBuilder::buildShared(pf::vulkan::LogicalDevice &device) {
-  return RenderPass::CreateShared(*this, device);
-}
-
-std::optional<uint32_t> pf::vulkan::RenderPassBuilder::getSubpassIdx(const std::string &name) {
+std::optional<uint32_t> RenderPassBuilder::getSubpassIdx(const std::string &name) {
   for (const auto [idx, pair] : ranges::views::enumerate(subpasses)) {
     if (pair.first == name) { return idx; }
   }
   return std::nullopt;
 }
-pf::vulkan::details::SubPassBuilder pf::vulkan::RenderPassBuilder::subpass(std::string name) {
+details::SubPassBuilder RenderPassBuilder::subpass(std::string name) {
   return details::SubPassBuilder(std::move(name), *this);
 }
+
+}// namespace pf::vulkan

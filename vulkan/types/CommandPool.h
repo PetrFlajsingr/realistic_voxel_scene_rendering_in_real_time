@@ -6,45 +6,12 @@
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
 
 #include "../concepts/PtrConstructable.h"
-#include "fwd.h"
+#include "CommandBuffer.h"
 #include "VulkanObject.h"
+#include "fwd.h"
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
-
-struct CommandPoolConfig {
-  vk::QueueFlagBits queueFamily;
-  vk::CommandPoolCreateFlagBits flags;
-  std::shared_ptr<LogicalDevice> device;
-  vk::Queue queue;
-};
-
-struct CommandBufferConfig {
-  vk::CommandBufferLevel level;
-  uint32_t count;
-};
-
-class CommandPool;
-class CommandBuffer : public VulkanObject, public PtrConstructable<CommandBuffer> {
- public:
-  explicit CommandBuffer(vk::UniqueCommandBuffer &&buffer);
-
-  CommandBuffer(const CommandBuffer &other) = delete;
-  CommandBuffer &operator=(const CommandBuffer &other) = delete;
-
-  void begin(vk::CommandBufferUsageFlagBits flag);
-  void end();
-
-  [[nodiscard]] const vk::CommandBuffer &getVkBuffer() const;
-
-  const vk::CommandBuffer &operator*() const;
-  vk::CommandBuffer const *operator->() const;
-
-  [[nodiscard]] std::string info() const override;
-
- private:
-  vk::UniqueCommandBuffer vkBuffer;
-};
 
 struct CommandSubmitConfig {
   std::vector<std::reference_wrapper<CommandBuffer>> commandBuffers;
@@ -53,9 +20,15 @@ struct CommandSubmitConfig {
   bool wait;
 };
 
+struct CommandPoolConfig {
+  vk::QueueFlagBits queueFamily;
+  vk::CommandPoolCreateFlagBits flags;
+  vk::Queue queue;
+};
+
 class CommandPool : public VulkanObject, public PtrConstructable<CommandPool> {
  public:
-  explicit CommandPool(CommandPoolConfig &&config);
+  explicit CommandPool(std::shared_ptr<LogicalDevice> device, CommandPoolConfig &&config);
 
   CommandPool(const CommandPool &other) = delete;
   CommandPool &operator=(const CommandPool &other) = delete;
@@ -75,11 +48,10 @@ class CommandPool : public VulkanObject, public PtrConstructable<CommandPool> {
   [[nodiscard]] std::string info() const override;
 
  private:
+  std::shared_ptr<LogicalDevice> logicalDevice;
   vk::UniqueCommandPool vkCommandPool;
-  std::shared_ptr<LogicalDevice> device;
   vk::Queue queue;
 };
-
 
 }// namespace pf::vulkan
 

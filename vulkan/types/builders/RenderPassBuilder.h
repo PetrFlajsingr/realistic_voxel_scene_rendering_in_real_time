@@ -6,7 +6,7 @@
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_RENDERPASSBUILDER_H
 
 #include "../../VulkanException.h"
-#include "../Device.h"
+#include "../PhysicalDevice.h"
 #include "../RenderPass.h"
 #include <map>
 #include <range/v3/view.hpp>
@@ -103,13 +103,14 @@ class RenderPassBuilder {
   friend class RenderPass;
 
  public:
+  explicit RenderPassBuilder(std::shared_ptr<LogicalDevice> device);
   details::AttachmentDescriptionBuilder attachment(std::string name);
   details::SubPassBuilder subpass(std::string name);
 
-  [[nodiscard]] std::unique_ptr<RenderPass> buildUnique(LogicalDevice &device);
-  [[nodiscard]] std::shared_ptr<RenderPass> buildShared(LogicalDevice &device);
+  [[nodiscard]] std::shared_ptr<RenderPass> build();
 
  private:
+  std::shared_ptr<LogicalDevice> logicalDevice;
   std::pair<std::vector<std::string>, vk::UniqueRenderPass>
   build(pf::vulkan::LogicalDevice &device);
 

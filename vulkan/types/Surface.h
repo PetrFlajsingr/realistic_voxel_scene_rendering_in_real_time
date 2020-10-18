@@ -12,22 +12,19 @@
 
 namespace pf::vulkan {
 
-template<window::Window Window>
-struct SurfaceConfig {
-  Instance &instance;
-  Window &window;
-};
+
 
 class Surface : public VulkanObject, public PtrConstructable<Surface> {
  public:
   template<window::Window Window>
-  explicit Surface(SurfaceConfig<Window> config)
-      : vkSurface(config.window.createVulkanSurface(config.instance.getInstance())) {}
+  explicit Surface(std::shared_ptr<Instance> inst, Window &window)
+      : instance(std::move(inst)), vkSurface(window.createVulkanSurface(*instance)) {}
 
   Surface(const Surface &other) = delete;
   Surface &operator=(const Surface &other) = delete;
 
   [[nodiscard]] const vk::SurfaceKHR &getSurface();
+  [[nodiscard]] Instance &getInstance();
 
   const vk::SurfaceKHR &operator*() const;
   vk::SurfaceKHR const *operator->() const;
@@ -35,6 +32,7 @@ class Surface : public VulkanObject, public PtrConstructable<Surface> {
   [[nodiscard]] std::string info() const override;
 
  private:
+  std::shared_ptr<Instance> instance;
   vk::UniqueSurfaceKHR vkSurface;
 };
 

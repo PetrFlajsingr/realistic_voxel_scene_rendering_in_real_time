@@ -16,25 +16,21 @@ HunterGate(
         SHA1 "64024b7b95b4c86d50ae05b926814448c93a70a0"
 )
 
-#find_program(CCACHE_PROGRAM ccache)
-#if (CCACHE_PROGRAM)
-#    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
-#endif ()
+find_program(CCACHE_PROGRAM ccache)
+if (CCACHE_PROGRAM)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+endif ()
 
 
 project(
         realistic_voxel_scene_rendering_in_real_time
         VERSION 0.1.0
-        LANGUAGES CXX
 )
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts -fconcepts-diagnostics-depth=10")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-type -fcoroutines")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -Wpedantic -Wno-unknown-pragmas")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function")
-
-#list(APPEND )
+list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
+        "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
+        "-Wpointer-arith" "-Wcast-qual" "-Wmissing-braces")
 
 find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIRS})
@@ -45,8 +41,6 @@ find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 include_directories(${GLFW_INCLUDE_DIRS})
 
-hunter_add_package(Microsoft.GSL)
-find_package(Microsoft.GSL CONFIG REQUIRED)
 hunter_add_package(imgui)
 find_package(imgui CONFIG REQUIRED)
 hunter_add_package(fmt)
@@ -102,6 +96,42 @@ CPMAddPackage(
         GITHUB_REPOSITORY ChaiScript/ChaiScript
         GIT_TAG v6.1.0
 )
+#CPMAddPackage(
+#        NAME glslang
+#        GITHUB_REPOSITORY KhronosGroup/glslang
+#        GIT_TAG 8.13.3743
+#)
+#CPMAddPackage(
+#        NAME spirvheaders
+#        GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
+#        GIT_TAG 1.5.3.reservations1
+#)
+#CPMAddPackage(
+#        NAME spirvtools
+#        GITHUB_REPOSITORY KhronosGroup/SPIRV-Tools
+#        GIT_TAG v2020.3
+#)
+#CPMAddPackage(
+#        NAME spirvreflect
+#        GITHUB_REPOSITORY KhronosGroup/SPIRV-Reflect
+#        GIT_TAG v1.0.0
+#)
+#set(SHADERC_SKIP_TESTS ON)
+#CPMAddPackage(
+#        NAME shaderc
+#        GITHUB_REPOSITORY google/shaderc
+#        GIT_TAG v2020.3
+#)
+hunter_add_package(glslang)
+find_package(glslang CONFIG REQUIRED)
+hunter_add_package(SPIRV-Headers)
+find_package(SPIRV-Headers CONFIG REQUIRED)
+hunter_add_package(SPIRV-Tools)
+find_package(SPIRV-Tools CONFIG REQUIRED)
+hunter_add_package(SPIRV-Reflect)
+find_package(SPIRV-Reflect CONFIG REQUIRED)
+hunter_add_package(shaderc)
+find_package(shaderc CONFIG REQUIRED)
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
@@ -129,7 +159,7 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         vulkan/VulkanException.cpp vulkan/VulkanException.h vulkan/DefaultDeviceSuitabilityScorer.cpp
         vulkan/DefaultDeviceSuitabilityScorer.h rendering/TriangleRenderer.cpp
         rendering/TriangleRenderer.h vulkan/types/SwapChain.cpp
-        vulkan/types/SwapChain.h vulkan/types/Device.cpp vulkan/types/Device.h vulkan/types/Instance.cpp
+        vulkan/types/SwapChain.h vulkan/types/PhysicalDevice.cpp vulkan/types/PhysicalDevice.h vulkan/types/Instance.cpp
         vulkan/types/Instance.h vulkan/types/VulkanCommon.h
         vulkan/types/Surface.h concepts/Renderer.h vulkan/types/ImageView.cpp vulkan/types/ImageView.h
         vulkan/types/Image.cpp vulkan/types/Image.h vulkan/types/RenderPass.cpp vulkan/types/RenderPass.h
@@ -139,11 +169,14 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         vulkan/types/DescriptorSetLayout.cpp vulkan/types/DescriptorSetLayout.h vulkan/types/CommandPool.cpp
         vulkan/types/CommandPool.h vulkan/types/FrameBuffer.cpp vulkan/types/FrameBuffer.h vulkan/types/VulkanObject.cpp
         vulkan/types/VulkanObject.h vulkan/types/Surface.cpp ui/events/EventDispatchImpl.cpp concepts/PtrConstructable.h
-        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h)
+        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h vulkan/types/Fence.cpp vulkan/types/Fence.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
+        spirvtools shaderc spirvheaders glslang spirvreflect
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_scene_rendering_in_real_time)
+
+target_compile_options(realistic_voxel_scene_rendering_in_real_time PRIVATE ${flags})
 
 

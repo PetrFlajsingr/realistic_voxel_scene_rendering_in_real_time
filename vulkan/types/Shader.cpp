@@ -3,12 +3,13 @@
 //
 
 #include "Shader.h"
-#include "Device.h"
+#include "PhysicalDevice.h"
 #include <fmt/format.h>
 #include <fstream>
 #include <magic_enum.hpp>
 
-vk::ShaderStageFlagBits pf::vulkan::ShaderTypeToVk(pf::vulkan::ShaderType type) {
+namespace pf::vulkan {
+vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type) {
   switch (type) {
     case ShaderType::Vertex: return vk::ShaderStageFlagBits::eVertex;
     case ShaderType::Fragment: return vk::ShaderStageFlagBits::eFragment;
@@ -17,7 +18,7 @@ vk::ShaderStageFlagBits pf::vulkan::ShaderTypeToVk(pf::vulkan::ShaderType type) 
   }
 }
 
-std::vector<uint8_t> pf::vulkan::readSpvFile(std::istream &istream) {
+std::vector<uint8_t> readSpvFile(std::istream &istream) {
   const auto fileSize = istream.tellg();
   auto buffer = std::vector<uint8_t>(fileSize);
   istream.seekg(0);
@@ -25,35 +26,46 @@ std::vector<uint8_t> pf::vulkan::readSpvFile(std::istream &istream) {
   return buffer;
 }
 
-std::vector<uint8_t> pf::vulkan::readSpvFile(std::istream &&istream) {
-  return readSpvFile(istream);
-}
+std::vector<uint8_t> readSpvFile(std::istream &&istream) { return readSpvFile(istream); }
 
-pf::vulkan::Shader::Shader(const pf::vulkan::ShaderConfigFile &config)
-    : Shader(ShaderConfigSrc{
-        .name = config.name,
-        .type = config.type,
-        .data = readSpvFile(std::ifstream(config.path, std::ios::ate | std::ios::binary)),
-        .logicalDevice = config.logicalDevice}) {}
+Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigFile &config)
+    : Shader(std::move(device),
+             ShaderConfigSrc{.name = config.name,
+                             .type = config.type,
+                             .data = readSpvFile(
+                                 std::ifstream(config.path, std::ios::ate | std::ios::binary))}) {}
 
-pf::vulkan::Shader::Shader(const pf::vulkan::ShaderConfigSrc &config) {
+Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigSrc &config)
+    : logicalDevice(std::move(device)) {
   auto create_info = vk::ShaderModuleCreateInfo();
   create_info.setCodeSize(config.data.size())
       .setPCode(reinterpret_cast<const uint32_t *>(config.data.data()));
   name = config.name;
   type = config.type;
-  vkShader = config.logicalDevice.getVkLogicalDevice().createShaderModuleUnique(create_info);
+  vkShader = logicalDevice->getVkLogicalDevice().createShaderModuleUnique(create_info);
 }
 
-const vk::ShaderModule &pf::vulkan::Shader::getShaderModule() { return vkShader.get(); }
+Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigStringSrc &config)
+    : logicalDevice(std::move(device)) {
+  name = config.name;
+  type = config.type;
+  throw std::runtime_error("Not implemented");
+}
 
-pf::vulkan::ShaderType pf::vulkan::Shader::getType() const { return type; }
+const vk::ShaderModule &Shader::getShaderModule() { return vkShader.get(); }
 
-vk::ShaderStageFlagBits pf::vulkan::Shader::getVkType() const { return ShaderTypeToVk(type); }
+ShaderType Shader::getType() const { return type; }
 
-const std::string &pf::vulkan::Shader::getName() const { return name; }
-std::string pf::vulkan::Shader::info() const {
+vk::ShaderStageFlagBits Shader::getVkType() const { return ShaderTypeToVk(type); }
+
+const std::string &Shader::getName() const { return name; }
+
+std::string Shader::info() const {
   return fmt::format("Vulkan shader unique name: {}, type: {}", name, magic_enum::enum_name(type));
 }
-const vk::ShaderModule &pf::vulkan::Shader::operator*() const { return *vkShader; }
-vk::ShaderModule const *pf::vulkan::Shader::operator->() const { return &*vkShader; }
+
+const vk::ShaderModule &Shader::operator*() const { return *vkShader; }
+
+vk::ShaderModule const *Shader::operator->() const { return &*vkShader; }
+
+}// namespace pf::vulkan

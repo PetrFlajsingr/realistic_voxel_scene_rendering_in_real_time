@@ -7,6 +7,7 @@
 
 #include "../exceptions/StackTraceException.h"
 
+namespace pf::vulkan {
 class VulkanException : public StackTraceException {
  public:
   explicit VulkanException(const std::string_view &message);
@@ -14,5 +15,5 @@ class VulkanException : public StackTraceException {
     return VulkanException(fmt::format(fmt, args...));
   }
 };
-
+}// namespace pf::vulkan
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKANEXCEPTION_H

@@ -3,36 +3,34 @@
 //
 
 #include "CommandPool.h"
-#include "Device.h"
+#include "PhysicalDevice.h"
 
-pf::vulkan::CommandPool::CommandPool(pf::vulkan::CommandPoolConfig &&config)
-    : queue(config.device->getQueue(config.queueFamily)) {
-  const auto queueFamilyIndex = config.device->getQueueIndices()[config.queueFamily];
+namespace pf::vulkan {
+CommandPool::CommandPool(std::shared_ptr<LogicalDevice> device, CommandPoolConfig &&config)
+    : logicalDevice(std::move(device)), queue(logicalDevice->getQueue(config.queueFamily)) {
+  const auto queueFamilyIndex = logicalDevice->getQueueIndices()[config.queueFamily];
   auto createInfo = vk::CommandPoolCreateInfo();
   createInfo.queueFamilyIndex = queueFamilyIndex;
   createInfo.flags = config.flags;
-  vkCommandPool = config.device->getVkLogicalDevice().createCommandPoolUnique(createInfo);
-  device = std::move(config.device);
+  vkCommandPool = logicalDevice->getVkLogicalDevice().createCommandPoolUnique(createInfo);
 }
 
-const vk::CommandPool &pf::vulkan::CommandPool::getCommandPool() const {
-  return vkCommandPool.get();
-}
+const vk::CommandPool &CommandPool::getCommandPool() const { return vkCommandPool.get(); }
 
-std::string pf::vulkan::CommandPool::info() const { return "Vulkan command pool unique"; }
+std::string CommandPool::info() const { return "Vulkan command pool unique"; }
 
-const vk::CommandPool &pf::vulkan::CommandPool::operator*() const { return *vkCommandPool; }
+const vk::CommandPool &CommandPool::operator*() const { return *vkCommandPool; }
 
-vk::CommandPool const *pf::vulkan::CommandPool::operator->() const { return &*vkCommandPool; }
+vk::CommandPool const *CommandPool::operator->() const { return &*vkCommandPool; }
 
-std::vector<std::shared_ptr<pf::vulkan::CommandBuffer>>
-pf::vulkan::CommandPool::createCommandBuffers(const CommandBufferConfig &config) {
+std::vector<std::shared_ptr<CommandBuffer>>
+CommandPool::createCommandBuffers(const CommandBufferConfig &config) {
   auto allocateInfo = vk::CommandBufferAllocateInfo();
   allocateInfo.commandBufferCount = config.count;
   allocateInfo.level = config.level;
   allocateInfo.commandPool = *vkCommandPool;
-  auto buffers = device->getVkLogicalDevice().allocateCommandBuffersUnique(allocateInfo);
-  auto result = std::vector<std::shared_ptr<pf::vulkan::CommandBuffer>>();
+  auto buffers = logicalDevice->getVkLogicalDevice().allocateCommandBuffersUnique(allocateInfo);
+  auto result = std::vector<std::shared_ptr<CommandBuffer>>();
   result.reserve(buffers.size());
   std::ranges::transform(buffers, std::back_inserter(result), [](auto &&buffer) {
     return CommandBuffer::CreateShared(std::move(buffer));
@@ -40,9 +38,9 @@ pf::vulkan::CommandPool::createCommandBuffers(const CommandBufferConfig &config)
   return result;
 }
 
-pf::vulkan::LogicalDevice &pf::vulkan::CommandPool::getDevice() const { return *device; }
+LogicalDevice &CommandPool::getDevice() const { return *logicalDevice; }
 
-void pf::vulkan::CommandPool::submitCommandBuffers(const CommandSubmitConfig &config) {
+void CommandPool::submitCommandBuffers(const CommandSubmitConfig &config) {
   auto buffers = std::vector<vk::CommandBuffer>();
   buffers.reserve(config.commandBuffers.size());
   std::ranges::transform(config.commandBuffers, std::back_inserter(buffers),
@@ -56,21 +54,4 @@ void pf::vulkan::CommandPool::submitCommandBuffers(const CommandSubmitConfig &co
   if (config.wait) { queue.waitIdle(); }
 }
 
-pf::vulkan::CommandBuffer::CommandBuffer(vk::UniqueCommandBuffer &&buffer)
-    : vkBuffer(std::move(buffer)) {}
-
-std::string pf::vulkan::CommandBuffer::info() const { return "Vulkan command buffer"; }
-
-void pf::vulkan::CommandBuffer::begin(vk::CommandBufferUsageFlagBits flag) {
-  auto beginInfo = vk::CommandBufferBeginInfo();
-  beginInfo.flags = flag;
-  vkBuffer->begin(beginInfo);
-}
-
-void pf::vulkan::CommandBuffer::end() { vkBuffer->end(); }
-
-const vk::CommandBuffer &pf::vulkan::CommandBuffer::getVkBuffer() const { return *vkBuffer; }
-
-const vk::CommandBuffer &pf::vulkan::CommandBuffer::operator*() const { return *vkBuffer; }
-
-vk::CommandBuffer const *pf::vulkan::CommandBuffer::operator->() const { return &*vkBuffer; }
+}// namespace pf::vulkan

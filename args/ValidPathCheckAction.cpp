@@ -4,7 +4,7 @@
 
 #include "ValidPathCheckAction.h"
 
-ValidPathCheckAction::ValidPathCheckAction(PathType type) : type(type) {}
+ValidPathCheckAction::ValidPathCheckAction(PathType pathType) : type(pathType) {}
 
 std::filesystem::path ValidPathCheckAction::operator()(std::string_view pathStr) const {
   auto path = std::filesystem::path(pathStr);

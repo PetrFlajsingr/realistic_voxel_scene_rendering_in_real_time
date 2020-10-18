@@ -4,10 +4,15 @@
 
 #include "Surface.h"
 
-const vk::SurfaceKHR &pf::vulkan::Surface::getSurface() { return vkSurface.get(); }
+namespace pf::vulkan {
+const vk::SurfaceKHR &Surface::getSurface() { return vkSurface.get(); }
 
-std::string pf::vulkan::Surface::info() const { return "Vulkan unique surface"; }
+std::string Surface::info() const { return "Vulkan unique surface"; }
 
-const vk::SurfaceKHR &pf::vulkan::Surface::operator*() const { return *vkSurface; }
+const vk::SurfaceKHR &Surface::operator*() const { return *vkSurface; }
 
-vk::SurfaceKHR const *pf::vulkan::Surface::operator->() const { return &*vkSurface; }
+vk::SurfaceKHR const *Surface::operator->() const { return &*vkSurface; }
+
+Instance &Surface::getInstance() { return *instance; }
+
+}// namespace pf::vulkan

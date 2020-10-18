@@ -4,7 +4,7 @@
 
 #include "Subscription.h"
 
-pf::events::Subscription::Subscription(pf::events::Subscription::Unsubscriber &&unsub)
-    : unsub(unsub) {}
+pf::events::Subscription::Subscription(pf::events::Subscription::Unsubscriber &&unsubscriber)
+    : unsub(unsubscriber) {}
 
 void pf::events::Subscription::unsubscribe() { unsub(); }

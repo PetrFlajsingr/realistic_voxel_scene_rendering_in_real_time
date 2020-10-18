@@ -19,7 +19,7 @@ class GraphicsPipelineBuilder {
   GraphicsPipelineBuilder &
   setVertAttributeDesc(const vk::VertexInputAttributeDescription &description);
   GraphicsPipelineBuilder &addShader(Shader &sh);
-  GraphicsPipelineBuilder &setTopology(vk::PrimitiveTopology &top);
+  GraphicsPipelineBuilder &setTopology(const vk::PrimitiveTopology &top);
   GraphicsPipelineBuilder &setPrimitiveRestart(bool enabled);
   GraphicsPipelineBuilder &setViewport(const vk::Viewport &vp);
   GraphicsPipelineBuilder &setScissor(const vk::Rect2D &scis);

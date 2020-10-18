@@ -18,22 +18,27 @@ struct ShaderConfigFile {
   std::string name;
   ShaderType type;
   std::string path;
-  LogicalDevice &logicalDevice;
 };
 
 struct ShaderConfigSrc {
   std::string name;
   ShaderType type;
   std::vector<uint8_t> data;
-  LogicalDevice &logicalDevice;
+};
+
+struct ShaderConfigStringSrc {
+  std::string name;
+  ShaderType type;
+  std::string src;
 };
 
 vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type);
 
 class Shader : public VulkanObject, public PtrConstructable<Shader> {
  public:
-  explicit Shader(const ShaderConfigFile &config);
-  explicit Shader(const ShaderConfigSrc &config);
+  explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigFile &config);
+  explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigSrc &config);
+  explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigStringSrc &config);
 
   Shader(const Shader &other) = delete;
   Shader &operator=(const Shader &other) = delete;
@@ -49,6 +54,7 @@ class Shader : public VulkanObject, public PtrConstructable<Shader> {
   [[nodiscard]] std::string info() const override;
 
  private:
+  std::shared_ptr<LogicalDevice> logicalDevice;
   vk::UniqueShaderModule vkShader;
   ShaderType type;
   std::string name;

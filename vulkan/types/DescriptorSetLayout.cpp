@@ -3,9 +3,12 @@
 //
 
 #include "DescriptorSetLayout.h"
-#include "Device.h"
+#include "PhysicalDevice.h"
 
-pf::vulkan::DescriptorSetLayout::DescriptorSetLayout(const DescriptorSetLayoutConfig &config) {
+namespace pf::vulkan {
+DescriptorSetLayout::DescriptorSetLayout(std::shared_ptr<LogicalDevice> device,
+                                         DescriptorSetLayoutConfig &&config)
+    : logicalDevice(std::move(device)) {
   auto bindings = std::vector<vk::DescriptorSetLayoutBinding>();
   for (const auto &bindingConfig : config.bindings) {
     auto binding = vk::DescriptorSetLayoutBinding();
@@ -17,19 +20,17 @@ pf::vulkan::DescriptorSetLayout::DescriptorSetLayout(const DescriptorSetLayoutCo
   }
   auto create_info = vk::DescriptorSetLayoutCreateInfo();
   create_info.setBindings(bindings);
-  vkSet = config.logicalDevice.getVkLogicalDevice().createDescriptorSetLayoutUnique(create_info);
+  vkSet = logicalDevice->getVkLogicalDevice().createDescriptorSetLayoutUnique(create_info);
 }
 
-const vk::DescriptorSetLayout &pf::vulkan::DescriptorSetLayout::getLayout() const {
-  return vkSet.get();
-}
+const vk::DescriptorSetLayout &DescriptorSetLayout::getLayout() const { return vkSet.get(); }
 
-std::string pf::vulkan::DescriptorSetLayout::info() const {
-  return "Vulkan descriptor set layout unique";
-}
+std::string DescriptorSetLayout::info() const { return "Vulkan descriptor set layout unique"; }
 
-const vk::DescriptorSetLayout &pf::vulkan::DescriptorSetLayout::operator*() const { return *vkSet; }
+const vk::DescriptorSetLayout &DescriptorSetLayout::operator*() const { return *vkSet; }
 
-vk::DescriptorSetLayout const *pf::vulkan::DescriptorSetLayout::operator->() const {
-  return &*vkSet;
-}
+vk::DescriptorSetLayout const *DescriptorSetLayout::operator->() const { return &*vkSet; }
+
+LogicalDevice &DescriptorSetLayout::getDevice() { return *logicalDevice; }
+
+}// namespace pf::vulkan

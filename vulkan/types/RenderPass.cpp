@@ -6,16 +6,20 @@
 #include "builders/RenderPassBuilder.h"
 #include <utility>
 
-pf::vulkan::RenderPass::RenderPass(pf::vulkan::RenderPassBuilder &builder, LogicalDevice &device) {
-  auto [subpassNames, uniqueLogicalDevice] = builder.build(device);
+namespace pf::vulkan {
+RenderPass::RenderPass(RenderPassBuilder &builder, std::shared_ptr<LogicalDevice> device)
+    : logicalDevice(std::move(device)) {
+  auto [subpassNames, uniqueLogicalDevice] = builder.build(*logicalDevice);
   RenderPass::subPassNames = subpassNames;
   vkRenderPass = std::move(uniqueLogicalDevice);
 }
 
-const vk::RenderPass &pf::vulkan::RenderPass::getRenderPass() const { return vkRenderPass.get(); }
+const vk::RenderPass &RenderPass::getRenderPass() const { return vkRenderPass.get(); }
 
-std::string pf::vulkan::RenderPass::info() const { return "Vulkan render pass unique"; }
+std::string RenderPass::info() const { return "Vulkan render pass unique"; }
 
-const vk::RenderPass &pf::vulkan::RenderPass::operator*() const { return *vkRenderPass; }
+const vk::RenderPass &RenderPass::operator*() const { return *vkRenderPass; }
 
-vk::RenderPass const *pf::vulkan::RenderPass::operator->() const { return &*vkRenderPass; }
+vk::RenderPass const *RenderPass::operator->() const { return &*vkRenderPass; }
+
+}// namespace pf::vulkan

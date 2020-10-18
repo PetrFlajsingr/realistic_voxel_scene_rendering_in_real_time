@@ -15,7 +15,7 @@ class RenderPassBuilder;
 class RenderPass : public VulkanObject, public PtrConstructable<RenderPass> {
  public:
   friend class RenderPassBuilder;
-  RenderPass(RenderPassBuilder &builder, LogicalDevice &device);
+  RenderPass(RenderPassBuilder &builder, std::shared_ptr<LogicalDevice> device);
 
   RenderPass(const RenderPass &other) = delete;
   RenderPass &operator=(const RenderPass &other) = delete;
@@ -30,6 +30,7 @@ class RenderPass : public VulkanObject, public PtrConstructable<RenderPass> {
  private:
   vk::UniqueRenderPass vkRenderPass;
   std::vector<std::string> subPassNames;
+  std::shared_ptr<LogicalDevice> logicalDevice;
 };
 
 }// namespace pf::vulkan

@@ -39,9 +39,15 @@ struct Version {
   }
 };
 
+namespace literals {
+Version operator""_v(const char *verStr, std::size_t);
+}
+
 inline uint32_t versionToUint32(const pf::vulkan::Version &version) {
   return VK_MAKE_VERSION(version.major, version.minor, version.patch);
 }
+
+std::vector<uint32_t> splitVersionString(const char *verStr);
 
 struct EngineInfo {
   std::string name;

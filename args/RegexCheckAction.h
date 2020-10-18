@@ -14,7 +14,7 @@ class RegexCheckAction {
   std::string_view operator()(std::string_view arg);
 
  private:
-  std::regex regex;
+  std::regex rgx;
 };
 
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_REGEXCHECKACTION_H

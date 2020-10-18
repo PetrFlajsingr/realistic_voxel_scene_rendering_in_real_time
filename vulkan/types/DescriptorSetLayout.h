@@ -21,24 +21,24 @@ struct DescriptorSetLayoutBindingConfig {
 
 struct DescriptorSetLayoutConfig {
   std::vector<DescriptorSetLayoutBindingConfig> bindings;
-  LogicalDevice &logicalDevice;
 };
 
 class DescriptorSetLayout : public VulkanObject, public PtrConstructable<DescriptorSetLayout> {
  public:
-  explicit DescriptorSetLayout(const DescriptorSetLayoutConfig &config);
+  explicit DescriptorSetLayout(std::shared_ptr<LogicalDevice> device, DescriptorSetLayoutConfig &&config);
 
   DescriptorSetLayout(const DescriptorSetLayout &other) = delete;
   DescriptorSetLayout &operator=(const DescriptorSetLayout &other) = delete;
 
   [[nodiscard]] const vk::DescriptorSetLayout &getLayout() const;
-
+  [[nodiscard]] LogicalDevice &getDevice();
   [[nodiscard]] std::string info() const override;
 
   const vk::DescriptorSetLayout &operator*() const;
   vk::DescriptorSetLayout const *operator->() const;
 
  private:
+  std::shared_ptr<LogicalDevice> logicalDevice;
   vk::UniqueDescriptorSetLayout vkSet;
 };
 

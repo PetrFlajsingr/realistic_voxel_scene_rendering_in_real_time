@@ -15,9 +15,6 @@ namespace pf::vulkan {
 class SwapChain;
 
 struct ImageViewConfig {
-  LogicalDevice &logicalDevice;
-  SwapChain &swapChain;
-  Image &image;
   vk::Format format;
   vk::ColorSpaceKHR colorSpace;
   vk::ImageViewType viewType;
@@ -26,7 +23,7 @@ struct ImageViewConfig {
 
 class ImageView : public VulkanObject, public PtrConstructable<ImageView> {
  public:
-  explicit ImageView(const ImageViewConfig &config);
+  explicit ImageView(std::shared_ptr<Image> img, const ImageViewConfig &config);
 
   ImageView(const ImageView &other) = delete;
   ImageView &operator=(const ImageView &other) = delete;
@@ -39,14 +36,17 @@ class ImageView : public VulkanObject, public PtrConstructable<ImageView> {
   [[nodiscard]] vk::Format getFormat() const;
   [[nodiscard]] vk::ColorSpaceKHR getColorSpace() const;
   [[nodiscard]] vk::ImageViewType getViewType() const;
+  [[nodiscard]] const vk::ImageSubresourceRange &getSubresourceRange() const;
 
   [[nodiscard]] std::string info() const override;
 
  private:
+  std::shared_ptr<Image> image;
   vk::UniqueImageView vkImageView;
   vk::Format format;
   vk::ColorSpaceKHR colorSpace;
   vk::ImageViewType viewType;
+  vk::ImageSubresourceRange subresourceRange;
 };
 
 }// namespace pf::vulkan

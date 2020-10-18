@@ -23,7 +23,7 @@ StackTraceException::StackTraceException(std::string_view message) {
 
   const auto padding = std::string(CAUSED_BY.size(), ' ');
   for (const auto &[idx, trace] : ranges::views::enumerate(traces)) {
-    ss << fmt::format("{}#{} {} ({}:{})\n", padding, idx, trace.location, trace.filename,
+    ss << fmt::format("{}#{} {} ({}:{})\n", padding, idx, trace.function, trace.file,
                       trace.lineN);
   }
   whatStacktrace = ss.str();
@@ -45,8 +45,8 @@ std::vector<TraceData> getTrace(std::size_t skipN) {
 
   return result;
 }
-TraceData::TraceData(std::string filename, std::string location, uint32_t lineN)
-    : filename(std::move(filename)), location(std::move(location)), lineN(lineN) {}
+TraceData::TraceData(std::string filename, std::string fncName, uint32_t lineNumber)
+    : file(std::move(filename)), function(std::move(fncName)), lineN(lineNumber) {}
 
 InvalidArgumentException::InvalidArgumentException(std::string_view message)
     : StackTraceException(message) {}

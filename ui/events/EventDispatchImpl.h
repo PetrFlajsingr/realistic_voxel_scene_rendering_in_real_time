@@ -15,6 +15,7 @@
 #include <queue>
 #include <unordered_map>
 #include <utility>
+#include <concepts>
 
 namespace pf::events {
 class EventDispatchImpl {

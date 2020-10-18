@@ -42,9 +42,9 @@ void createLogger(argparse::ArgumentParser &argument_parser) {
   pf::initGlobalLogger(loggerSettings);
 }
 
+
 int main(int argc, char *argv[]) {
   using namespace pf;
-
   auto argumentParser = createArgumentParser();
 
   try {
@@ -72,12 +72,12 @@ int main(int argc, char *argv[]) {
                              .window_settings = windowSettings});
     app.run();
   //} catch (const std::exception &exception) {
-  //  pf::logSrc(spdlog::level::critical, MAIN_TAG, "Application crash:");
-  //  pf::logSrc(spdlog::level::critical, MAIN_TAG, exception.what());
+  //  pf::log(spdlog::level::critical, MAIN_TAG, "Application crash:");
+  //  pf::log(spdlog::level::critical, MAIN_TAG, exception.what());
   //  throw;
   //  //return -1;
   //} catch (...) {
-  //  pf::logSrc(spdlog::level::critical, MAIN_TAG, "Unknown application crash.");
+  //  pf::log(spdlog::level::critical, MAIN_TAG, "Unknown application crash.");
   //  throw;
   //  //return -1;
   //}

@@ -25,13 +25,13 @@ struct DefaultDeviceSuitabilityScorer {
   explicit DefaultDeviceSuitabilityScorer(
       std::unordered_set<std::string> requiredExtensions,
       std::unordered_map<std::string, DeviceSuitabilityScore> optionalExtensions,
-      FeatureScoreFnc featureCheck);
+      FeatureScoreFnc featureChecker);
 
   DeviceSuitabilityScoreResult operator()(const vk::PhysicalDevice &device);
 
  private:
-  std::unordered_set<std::string> requiredExtensions;
-  std::unordered_map<std::string, DeviceSuitabilityScore> optionalExtensions;
+  std::unordered_set<std::string> reqExtensions;
+  std::unordered_map<std::string, DeviceSuitabilityScore> optExtensions;
   FeatureScoreFnc featureCheck;
 };
 static_assert(DeviceSuitabilityScorer<DefaultDeviceSuitabilityScorer>);

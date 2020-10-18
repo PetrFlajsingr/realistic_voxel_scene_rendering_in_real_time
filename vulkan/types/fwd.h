@@ -7,8 +7,9 @@
 
 namespace pf::vulkan {
   class CommandPool;
+  class CommandBuffer;
   class DescriptorSetLayout;
-  class Device;
+  class PhysicalDevice;
   class LogicalDevice;
   class FrameBuffer;
   class GraphicsPipeline;

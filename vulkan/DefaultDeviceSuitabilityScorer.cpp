@@ -4,21 +4,22 @@
 
 #include "DefaultDeviceSuitabilityScorer.h"
 
-pf::vulkan::DefaultDeviceSuitabilityScorer::DefaultDeviceSuitabilityScorer(
+namespace pf::vulkan {
+DefaultDeviceSuitabilityScorer::DefaultDeviceSuitabilityScorer(
     std::unordered_set<std::string> requiredExtensions,
     std::unordered_map<std::string, DeviceSuitabilityScore> optionalExtensions,
-    pf::vulkan::DefaultDeviceSuitabilityScorer::FeatureScoreFnc featureCheck)
-    : requiredExtensions(std::move(requiredExtensions)),
-      optionalExtensions(std::move(optionalExtensions)), featureCheck(std::move(featureCheck)) {}
+    DefaultDeviceSuitabilityScorer::FeatureScoreFnc featureChecker)
+    : reqExtensions(std::move(requiredExtensions)), optExtensions(std::move(optionalExtensions)),
+      featureCheck(std::move(featureChecker)) {}
 
-pf::vulkan::DeviceSuitabilityScoreResult
-pf::vulkan::DefaultDeviceSuitabilityScorer::operator()(const vk::PhysicalDevice &device) {
-  auto notFoundRequiredExt = requiredExtensions;
+DeviceSuitabilityScoreResult
+DefaultDeviceSuitabilityScorer::operator()(const vk::PhysicalDevice &device) {
+  auto notFoundRequiredExt = reqExtensions;
   auto score = std::size_t(0);
   for (const auto &extension : device.enumerateDeviceExtensionProperties()) {
     notFoundRequiredExt.erase(extension.extensionName);
-    if (optionalExtensions.contains(extension.extensionName)) {
-      score += optionalExtensions[extension.extensionName];
+    if (optExtensions.contains(extension.extensionName)) {
+      score += optExtensions[extension.extensionName];
     }
   }
   if (!notFoundRequiredExt.empty()) { return std::nullopt; }
@@ -29,3 +30,4 @@ pf::vulkan::DefaultDeviceSuitabilityScorer::operator()(const vk::PhysicalDevice 
   }
   return score;
 }
+}// namespace pf::vulkan

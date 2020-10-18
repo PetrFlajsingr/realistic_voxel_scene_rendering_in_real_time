@@ -38,9 +38,9 @@ class WindowData {
   [[nodiscard]] const Resolution &getResolution() const;
   void setResolution(const Resolution &res);
   [[nodiscard]] const std::string &getTitle() const;
-  void setTitle(const std::string &tit);
+  void setTitle(const std::string &windowTitle);
   [[nodiscard]] Mode getMode() const;
-  void setMode(Mode mode);
+  void setMode(Mode windowMode);
 
  protected:
   Resolution resolution;

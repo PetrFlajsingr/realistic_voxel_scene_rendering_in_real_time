@@ -3,74 +3,59 @@
 //
 
 #include "SwapChain.h"
-#include "Device.h"
+#include "../VulkanException.h"
 #include "Image.h"
 #include "ImageView.h"
+#include "PhysicalDevice.h"
 #include "Surface.h"
-#include "../VulkanException.h"
 #include <range/v3/view.hpp>
 
-std::vector<std::shared_ptr<pf::vulkan::ImageView>>
-pf::vulkan::SwapChain::createImageViews(pf::vulkan::LogicalDevice &dev) {
-  auto result = std::vector<std::shared_ptr<pf::vulkan::ImageView>>();
-  auto subResourceRange = vk::ImageSubresourceRange();
-  subResourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor)
-      .setBaseMipLevel(0)
-      .setLevelCount(1)
-      .setBaseArrayLayer(0)
-      .setLayerCount(1);
-  for (const auto &img : dev.getVkLogicalDevice().getSwapchainImagesKHR(*vkSwapChain)) {
-    auto imgRef = ImageRef(img);
-    auto config = ImageViewConfig{.logicalDevice = dev,
-                                  .swapChain = *this,
-                                  .image = imgRef,
-                                  .format = format,
-                                  .colorSpace = colorSpace,
-                                  .viewType = vk::ImageViewType::e2D,
-                                  .subResourceRange = subResourceRange};
-    result.emplace_back(ImageView::CreateShared(config));
-  }
-  return result;
-}
+namespace pf::vulkan {
+using namespace ranges;
 
-vk::Format pf::vulkan::SwapChain::getFormat() const { return format; }
+vk::Format SwapChain::getFormat() const { return format; }
 
-vk::ColorSpaceKHR pf::vulkan::SwapChain::getColorSpace() const { return colorSpace; }
+vk::ColorSpaceKHR SwapChain::getColorSpace() const { return colorSpace; }
 
-const vk::Extent2D &pf::vulkan::SwapChain::getExtent() const { return extent; }
+const vk::Extent2D &SwapChain::getExtent() const { return extent; }
 
-std::string pf::vulkan::SwapChain::info() const { return "Vulkan swapchain unique"; }
+std::string SwapChain::info() const { return "Vulkan swapchain unique"; }
 
-const vk::SwapchainKHR &pf::vulkan::SwapChain::operator*() const { return *vkSwapChain; }
+const vk::SwapchainKHR &SwapChain::operator*() const { return *vkSwapChain; }
 
-vk::SwapchainKHR const *pf::vulkan::SwapChain::operator->() const { return &*vkSwapChain; }
+vk::SwapchainKHR const *SwapChain::operator->() const { return &*vkSwapChain; }
 
-pf::vulkan::SwapChain::SwapChain(const pf::vulkan::SwapChainConfig &config) {
+SwapChain::SwapChain(std::shared_ptr<Surface> surf, std::shared_ptr<LogicalDevice> device,
+                     SwapChainConfig &&config)
+    : logicalDevice(std::move(device)), surface(std::move(surf)), formats(config.formats),
+      presentModes(config.presentModes), imageUsage(config.imageUsage),
+      sharingQueues(config.sharingQueues), imageArrayLayers(config.imageArrayLayers),
+      clipped(config.clipped), compositeAlpha(config.compositeAlpha) {
   log(spdlog::level::info, VK_TAG, "Creating vulkan swap chain.");
-  const auto surfaceFormats =
-      config.device.getPhysicalDevice().getSurfaceFormatsKHR(config.surface.getSurface());
+  auto &physicalDevice = logicalDevice->getPhysicalDevice();
+  const auto surfaceFormats = physicalDevice->getSurfaceFormatsKHR(surface->getSurface());
   const auto selectedSurfaceFormat = selectSurfaceFormat(config.formats, surfaceFormats);
   logFmt(spdlog::level::info, VK_TAG, "Surface format: {}, color space: {}.",
          vk::to_string(selectedSurfaceFormat.format),
          vk::to_string(selectedSurfaceFormat.colorSpace));
-  const auto surfacePresentModes =
-      config.device.getPhysicalDevice().getSurfacePresentModesKHR(config.surface.getSurface());
+  const auto surfacePresentModes = physicalDevice->getSurfacePresentModesKHR(surface->getSurface());
   const auto selectedPresentMode = selectPresentMode(config.presentModes, surfacePresentModes);
   logFmt(spdlog::level::info, VK_TAG, "Present mode: {}.", vk::to_string(selectedPresentMode));
-  const auto surfaceCapabilities =
-      config.device.getPhysicalDevice().getSurfaceCapabilitiesKHR(config.surface.getSurface());
+  const auto surfaceCapabilities = physicalDevice->getSurfaceCapabilitiesKHR(surface->getSurface());
   const auto selectedExtent = selectExtent(config.resolution, surfaceCapabilities);
   logFmt(spdlog::level::info, VK_TAG, "Extent: {}x{}.", selectedExtent.width,
          selectedExtent.height);
-  vkSwapChain = createSwapChainHandle(surfaceCapabilities, config, selectedSurfaceFormat,
-                                      selectedExtent, selectedPresentMode);
+  vkSwapChain = createSwapChainHandle(*surface, *logicalDevice, surfaceCapabilities, config,
+                                      selectedSurfaceFormat, selectedExtent, selectedPresentMode);
   format = selectedSurfaceFormat.format;
   colorSpace = selectedSurfaceFormat.colorSpace;
   extent = selectedExtent;
+  initImages();
 }
-vk::PresentModeKHR pf::vulkan::SwapChain::selectPresentMode(
-    const std::set<vk::PresentModeKHR> &present_modes,
-    const std::vector<vk::PresentModeKHR> &surface_present_modes) {
+
+vk::PresentModeKHR
+SwapChain::selectPresentMode(const std::set<vk::PresentModeKHR> &present_modes,
+                             const std::vector<vk::PresentModeKHR> &surface_present_modes) {
   if (const auto selected_present_mode = findFirstCommon(present_modes, surface_present_modes);
       selected_present_mode.has_value()) {
     return *selected_present_mode;
@@ -78,9 +63,8 @@ vk::PresentModeKHR pf::vulkan::SwapChain::selectPresentMode(
   throw VulkanException("none of the present modes is available.");
 }
 
-vk::Extent2D
-pf::vulkan::SwapChain::selectExtent(const std::pair<uint32_t, uint32_t> &resolution,
-                                    const vk::SurfaceCapabilitiesKHR &surfaceCapabilities) {
+vk::Extent2D SwapChain::selectExtent(const std::pair<uint32_t, uint32_t> &resolution,
+                                     const vk::SurfaceCapabilitiesKHR &surfaceCapabilities) {
   if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     return surfaceCapabilities.currentExtent;
   } else {
@@ -94,17 +78,16 @@ pf::vulkan::SwapChain::selectExtent(const std::pair<uint32_t, uint32_t> &resolut
 }
 
 vk::UniqueSwapchainKHR
-pf::vulkan::SwapChain::createSwapChainHandle(const vk::SurfaceCapabilitiesKHR &surfaceCapabilities,
-                                             const pf::vulkan::SwapChainConfig &config,
-                                             vk::SurfaceFormatKHR surfaceFormat,
-                                             vk::Extent2D extent, vk::PresentModeKHR presentMode) {
-  using namespace ranges;
+SwapChain::createSwapChainHandle(Surface &surface, LogicalDevice &logicalDevice,
+                                 const vk::SurfaceCapabilitiesKHR &surfaceCapabilities,
+                                 const SwapChainConfig &config, vk::SurfaceFormatKHR surfaceFormat,
+                                 vk::Extent2D extent, vk::PresentModeKHR presentMode) {
   auto imageCount = surfaceCapabilities.minImageCount + 1;
   if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount) {
     imageCount = surfaceCapabilities.maxImageCount;
   }
   auto createInfo = vk::SwapchainCreateInfoKHR{};
-  createInfo.setSurface(config.surface.getSurface())
+  createInfo.setSurface(surface.getSurface())
       .setMinImageCount(imageCount)
       .setImageFormat(surfaceFormat.format)
       .setImageExtent(extent)
@@ -123,12 +106,12 @@ pf::vulkan::SwapChain::createSwapChainHandle(const vk::SurfaceCapabilitiesKHR &s
   } else {
     createInfo.setImageSharingMode(vk::SharingMode::eExclusive);
   }
-  return config.logicalDevice.getVkLogicalDevice().createSwapchainKHRUnique(createInfo);
+  return logicalDevice.getVkLogicalDevice().createSwapchainKHRUnique(createInfo);
 }
 
-vk::SurfaceFormatKHR pf::vulkan::SwapChain::selectSurfaceFormat(
-    const std::set<vk::SurfaceFormatKHR> &formats,
-    const std::vector<vk::SurfaceFormatKHR> &surface_formats) {
+vk::SurfaceFormatKHR
+SwapChain::selectSurfaceFormat(const std::set<vk::SurfaceFormatKHR> &formats,
+                               const std::vector<vk::SurfaceFormatKHR> &surface_formats) {
   {
     if (const auto selectedFormat = findFirstCommon(formats, surface_formats);
         selectedFormat.has_value()) {
@@ -137,3 +120,80 @@ vk::SurfaceFormatKHR pf::vulkan::SwapChain::selectSurfaceFormat(
     throw VulkanException("none of the formats is available.");
   }
 }
+
+LogicalDevice &SwapChain::getLogicalDevice() { return *logicalDevice; }
+
+Surface &SwapChain::getSurface() { return *surface; }
+
+void SwapChain::initImages() {
+  const auto imgs = logicalDevice->getVkLogicalDevice().getSwapchainImagesKHR(*vkSwapChain);
+  images = imgs | views::transform([&](const auto &img) {
+             return ImageRef(logicalDevice,
+                             {.imageType = vk::ImageType::e2D,
+                              .format = format,
+                              .extent = {extent.width, extent.height, 1},
+                              .mipLevels = 1,
+                              .arrayLayers = 1,
+                              .sampleCount = vk::SampleCountFlagBits::e1,
+                              .tiling = vk::ImageTiling::eOptimal,
+                              .usage = vk::ImageUsageFlagBits::eTransferDst,
+                              .sharingQueues = {},
+                              .layout = vk::ImageLayout::ePresentSrcKHR},
+                             img);
+           })
+      | to_vector;
+  imageViews = images | views::transform([&](auto &image) {
+                 return image.createImageView(*this, colorSpace, vk::ImageViewType::e2D, {});
+               })
+      | to_vector;
+}
+
+const std::vector<ImageRef> &SwapChain::getImages() const { return images; }
+
+void SwapChain::swap() {
+  if (hasExtentChanged()) { logicalDevice->wait(); }
+}
+
+bool SwapChain::hasExtentChanged() {
+  const auto surfaceCapabilities =
+      logicalDevice->getPhysicalDevice()->getSurfaceCapabilitiesKHR(**surface);
+  return surfaceCapabilities.currentExtent.width != images[0].getExtent().width
+      || surfaceCapabilities.currentExtent.height != images[0].getExtent().height;
+}
+
+void SwapChain::rebuildSwapChain(std::pair<uint32_t, uint32_t> resolution) {
+  log(spdlog::level::info, VK_TAG, "Creating vulkan swap chain.");
+  auto &physicalDevice = logicalDevice->getPhysicalDevice();
+  const auto surfaceFormats = physicalDevice->getSurfaceFormatsKHR(surface->getSurface());
+  const auto selectedSurfaceFormat = selectSurfaceFormat(formats, surfaceFormats);
+  logFmt(spdlog::level::info, VK_TAG, "Surface format: {}, color space: {}.",
+         vk::to_string(selectedSurfaceFormat.format),
+         vk::to_string(selectedSurfaceFormat.colorSpace));
+  const auto surfacePresentModes = physicalDevice->getSurfacePresentModesKHR(surface->getSurface());
+  const auto selectedPresentMode = selectPresentMode(presentModes, surfacePresentModes);
+  logFmt(spdlog::level::info, VK_TAG, "Present mode: {}.", vk::to_string(selectedPresentMode));
+  const auto surfaceCapabilities = physicalDevice->getSurfaceCapabilitiesKHR(surface->getSurface());
+  const auto selectedExtent = selectExtent(resolution, surfaceCapabilities);
+  logFmt(spdlog::level::info, VK_TAG, "Extent: {}x{}.", selectedExtent.width,
+         selectedExtent.height);
+
+  auto config = SwapChainConfig{.formats = {},
+                                .presentModes = {},
+                                .resolution = {},
+                                .imageUsage = imageUsage,
+                                .sharingQueues = sharingQueues,
+                                .imageArrayLayers = imageArrayLayers,
+                                .clipped = clipped,
+                                .oldSwapChain = *vkSwapChain,
+                                .compositeAlpha = compositeAlpha};
+  vkSwapChain = createSwapChainHandle(*surface, *logicalDevice, surfaceCapabilities, config,
+                                      selectedSurfaceFormat, selectedExtent, selectedPresentMode);
+  format = selectedSurfaceFormat.format;
+  colorSpace = selectedSurfaceFormat.colorSpace;
+  extent = selectedExtent;
+  initImages();
+}
+
+const std::vector<std::shared_ptr<ImageView>> &SwapChain::getImageViews() const { return imageViews; }
+
+}// namespace pf::vulkan

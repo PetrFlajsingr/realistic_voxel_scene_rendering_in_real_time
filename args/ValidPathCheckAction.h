@@ -10,7 +10,7 @@
 enum class PathType { File, Directory };
 
 struct ValidPathCheckAction {
-  explicit ValidPathCheckAction(PathType type);
+  explicit ValidPathCheckAction(PathType pathType);
   std::filesystem::path operator()(std::string_view pathStr) const;
   const PathType type;
 };

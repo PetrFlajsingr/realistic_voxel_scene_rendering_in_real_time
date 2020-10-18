@@ -5,17 +5,17 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H
 
-#include "SwapChain.h"
-#include "Surface.h"
-#include "Shader.h"
-#include "RenderPass.h"
-#include "Instance.h"
-#include "ImageView.h"
-#include "Image.h"
-#include "GraphicsPipeline.h"
-#include "FrameBuffer.h"
-#include "Device.h"
-#include "DescriptorSetLayout.h"
 #include "CommandPool.h"
+#include "DescriptorSetLayout.h"
+#include "FrameBuffer.h"
+#include "GraphicsPipeline.h"
+#include "Image.h"
+#include "ImageView.h"
+#include "Instance.h"
+#include "PhysicalDevice.h"
+#include "RenderPass.h"
+#include "Shader.h"
+#include "Surface.h"
+#include "SwapChain.h"
 
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H

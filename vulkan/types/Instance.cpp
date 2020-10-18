@@ -7,7 +7,9 @@
 #include <range/v3/view.hpp>
 #include <utility>
 
-pf::vulkan::Instance::Instance(pf::vulkan::InstanceConfig config) {
+namespace pf::vulkan {
+
+Instance::Instance(InstanceConfig config) {
   log(spdlog::level::info, VK_TAG, "Creating vulkan instance.");
   const auto appInfo = vk::ApplicationInfo(
       config.appName.c_str(), versionToUint32(config.appVersion), config.engineInfo.name.c_str(),
@@ -56,34 +58,31 @@ pf::vulkan::Instance::Instance(pf::vulkan::InstanceConfig config) {
   log(spdlog::level::info, VK_TAG, "Vulkan instance created.");
 }
 
-const vk::Instance &pf::vulkan::Instance::getInstance() { return vkInstance.get(); }
+const vk::Instance &Instance::getInstance() { return vkInstance.get(); }
 
 std::optional<std::reference_wrapper<const vk::DebugUtilsMessengerEXT>>
-pf::vulkan::Instance::getDebugMessenger() {
+Instance::getDebugMessenger() {
   if (debugMessenger.has_value()) { return debugMessenger->get(); }
   return std::nullopt;
 }
 
-pf::vulkan::Instance::~Instance() {
+Instance::~Instance() {
   if (debugMessenger.has_value()) { debugMessenger->release(); }
   vkInstance.release();
 }
 
-void pf::vulkan::Instance::setDebugCallback(const pf::vulkan::VulkanDebugCallback &callback) {
-  debugCallback = callback;
-}
+void Instance::setDebugCallback(const VulkanDebugCallback &callback) { debugCallback = callback; }
 
-void pf::vulkan::Instance::setVkInstance(vk::UniqueInstance &&instance) {
-  vkInstance = std::move(instance);
-}
+void Instance::setVkInstance(vk::UniqueInstance &&instance) { vkInstance = std::move(instance); }
 
-void pf::vulkan::Instance::setDebugMessenger(DynamicUniqueDebugUtilsMessengerEXT &&messenger) {
+void Instance::setDebugMessenger(DynamicUniqueDebugUtilsMessengerEXT &&messenger) {
   debugMessenger = std::move(messenger);
 }
 
-VkBool32 pf::vulkan::Instance::cVulkanDebugCallback(
-    VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT msgTypeFlags,
-    const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *user_data) {
+VkBool32 Instance::cVulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+                                        VkDebugUtilsMessageTypeFlagsEXT msgTypeFlags,
+                                        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                        void *user_data) {
   auto self = reinterpret_cast<Instance *>(user_data);
   return self->debugCallback(DebugCallbackData::fromVk(*pCallbackData),
                              static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(severity),
@@ -91,8 +90,11 @@ VkBool32 pf::vulkan::Instance::cVulkanDebugCallback(
       ? VK_TRUE
       : VK_FALSE;
 }
-std::string pf::vulkan::Instance::info() const { return "Vulkan instance unique"; }
+std::string Instance::info() const { return "Vulkan instance unique"; }
 
-const vk::Instance &pf::vulkan::Instance::operator*() const { return *vkInstance; }
+const vk::Instance &Instance::operator*() const { return *vkInstance; }
 
-vk::Instance const *pf::vulkan::Instance::operator->() const { return &*vkInstance; }
+vk::Instance const *Instance::operator->() const { return &*vkInstance; }
+
+
+}// namespace pf::vulkan

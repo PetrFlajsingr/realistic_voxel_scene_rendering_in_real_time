@@ -13,6 +13,7 @@
 #include <GLFW/glfw3.h>
 #include <array>
 #include <unordered_map>
+#include <concepts>
 
 namespace pf {
 class GlfwWindow final : public window::WindowData, public events::EventDispatchImpl {

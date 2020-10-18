@@ -11,7 +11,11 @@ namespace pf::events {
 class Subscription {
  public:
   using Unsubscriber = std::function<void()>;
-  explicit Subscription(Unsubscriber &&unsub);
+  explicit Subscription(Unsubscriber &&unsubscriber);
+  Subscription(const Subscription &) = delete;
+  Subscription &operator=(const Subscription &) = delete;
+  Subscription(Subscription &&) = default;
+  Subscription &operator=(Subscription &&) = default;
 
   void unsubscribe();
 

@@ -4,30 +4,37 @@
 
 #include "ImageView.h"
 #include "Image.h"
-#include "Device.h"
+#include "PhysicalDevice.h"
 
-pf::vulkan::ImageView::ImageView(const ImageViewConfig &config) {
+namespace pf::vulkan {
+ImageView::ImageView(std::shared_ptr<Image> img, const ImageViewConfig &config)
+    : image(std::move(img)) {
   auto createInfo = vk::ImageViewCreateInfo{};
-  createInfo.setImage(config.image.getImage())
+  createInfo.setImage(**image)
       .setViewType(config.viewType)
       .setFormat(config.format)
       .setSubresourceRange(config.subResourceRange);
-  vkImageView = config.logicalDevice.getVkLogicalDevice().createImageViewUnique(createInfo);
+  vkImageView = image->getLogicalDevice().getVkLogicalDevice().createImageViewUnique(createInfo);
   format = config.format;
   colorSpace = config.colorSpace;
   viewType = config.viewType;
+  subresourceRange = config.subResourceRange;
 }
 
-const vk::ImageView &pf::vulkan::ImageView::getImageView() { return vkImageView.get(); }
+const vk::ImageView &ImageView::getImageView() { return vkImageView.get(); }
 
-std::string pf::vulkan::ImageView::info() const { return "Vulkan image view unique"; }
+std::string ImageView::info() const { return "Vulkan image view unique"; }
 
-const vk::ImageView &pf::vulkan::ImageView::operator*() const { return *vkImageView; }
+const vk::ImageView &ImageView::operator*() const { return *vkImageView; }
 
-vk::ImageView const *pf::vulkan::ImageView::operator->() const { return &*vkImageView; }
+vk::ImageView const *ImageView::operator->() const { return &*vkImageView; }
 
-vk::Format pf::vulkan::ImageView::getFormat() const { return format; }
+vk::Format ImageView::getFormat() const { return format; }
 
-vk::ColorSpaceKHR pf::vulkan::ImageView::getColorSpace() const { return colorSpace; }
+vk::ColorSpaceKHR ImageView::getColorSpace() const { return colorSpace; }
 
-vk::ImageViewType pf::vulkan::ImageView::getViewType() const { return viewType; }
+vk::ImageViewType ImageView::getViewType() const { return viewType; }
+
+const vk::ImageSubresourceRange &ImageView::getSubresourceRange() const { return subresourceRange; }
+
+}// namespace pf::vulkan

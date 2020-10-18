@@ -26,10 +26,10 @@ class StackTraceException : public std::exception {
 };
 
 struct TraceData {
-  std::string filename;
-  std::string location;
+  std::string file;
+  std::string function;
   uint32_t lineN;
-  TraceData(std::string filename, std::string location, uint32_t lineN);
+  TraceData(std::string filename, std::string fncName, uint32_t lineNumber);
 };
 
 class InvalidArgumentException : public StackTraceException {

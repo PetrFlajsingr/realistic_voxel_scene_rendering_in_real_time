@@ -24,8 +24,8 @@ void pf::window::WindowData::setResolution(const pf::window::Resolution &res) {
 
 const std::string &pf::window::WindowData::getTitle() const { return title; }
 
-void pf::window::WindowData::setTitle(const std::string &tit) { WindowData::title = tit; }
+void pf::window::WindowData::setTitle(const std::string &windowTitle) { title = windowTitle; }
 
 pf::window::Mode pf::window::WindowData::getMode() const { return mode; }
 
-void pf::window::WindowData::setMode(window::Mode mode) { WindowData::mode = mode; }
+void pf::window::WindowData::setMode(window::Mode windowMode) { mode = windowMode; }

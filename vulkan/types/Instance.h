@@ -8,6 +8,8 @@
 #include "../concepts/PtrConstructable.h"
 #include "VulkanCommon.h"
 #include "VulkanObject.h"
+#include "PhysicalDevice.h"
+#include "../DefaultDeviceSuitabilityScorer.h"
 #include <unordered_set>
 #include <vulkan/vulkan.hpp>
 
@@ -23,7 +25,9 @@ struct InstanceConfig {
   std::optional<VulkanDebugCallback> callback;
 };
 
-class Instance : public VulkanObject, public PtrConstructable<Instance> {
+class Instance : public VulkanObject,
+                 public PtrConstructable<Instance>,
+                 public std::enable_shared_from_this<Instance> {
  public:
   explicit Instance(InstanceConfig config);
 
@@ -41,6 +45,9 @@ class Instance : public VulkanObject, public PtrConstructable<Instance> {
   [[nodiscard]] std::optional<std::reference_wrapper<const vk::DebugUtilsMessengerEXT>>
   getDebugMessenger();
 
+  template<DeviceSuitabilityScorer DeviceScorer>
+  [[nodiscard]] std::shared_ptr<PhysicalDevice> selectDevice(DeviceScorer &&scorer);
+
   ~Instance() override;
 
   static VKAPI_ATTR VkBool32 VKAPI_CALL cVulkanDebugCallback(
@@ -54,6 +61,11 @@ class Instance : public VulkanObject, public PtrConstructable<Instance> {
   vk::UniqueInstance vkInstance;
   std::optional<DynamicUniqueDebugUtilsMessengerEXT> debugMessenger = std::nullopt;
 };
+
+template<DeviceSuitabilityScorer DeviceScorer>
+std::shared_ptr<PhysicalDevice> Instance::selectDevice(DeviceScorer &&scorer) {
+  return PhysicalDevice::CreateShared(shared_from_this(), std::forward<DeviceScorer>(scorer));
+}
 
 }// namespace pf::vulkan
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_INSTANCE_H
