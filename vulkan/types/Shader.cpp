@@ -28,6 +28,25 @@ std::vector<uint8_t> readSpvFile(std::istream &istream) {
 
 std::vector<uint8_t> readSpvFile(std::istream &&istream) { return readSpvFile(istream); }
 
+shaderc_shader_kind toShaderc(ShaderType type) {
+  switch (type) {
+    case ShaderType::Vertex: return shaderc_vertex_shader;
+    case ShaderType::Fragment: return shaderc_fragment_shader;
+    case ShaderType::Compute: return shaderc_compute_shader;
+    case ShaderType::Geometry: return shaderc_geometry_shader;
+    case ShaderType::TessControl: return shaderc_tess_control_shader;
+    case ShaderType::TessEval: return shaderc_tess_evaluation_shader;
+    case ShaderType::RayGen: return shaderc_raygen_shader;
+    case ShaderType::AnyHit: return shaderc_anyhit_shader;
+    case ShaderType::ClosestHit: return shaderc_closesthit_shader;
+    case ShaderType::Miss: return shaderc_miss_shader;
+    case ShaderType::Intersection: return shaderc_intersection_shader;
+    case ShaderType::Callable: return shaderc_callable_shader;
+    case ShaderType::Task: return shaderc_task_shader;
+    case ShaderType::Mesg: return shaderc_mesh_shader;
+  }
+}
+
 Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigFile &config)
     : Shader(std::move(device),
              ShaderConfigSrc{.name = config.name,
@@ -37,19 +56,24 @@ Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigFile &co
 
 Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigSrc &config)
     : logicalDevice(std::move(device)) {
-  auto create_info = vk::ShaderModuleCreateInfo();
-  create_info.setCodeSize(config.data.size())
+  auto createInfo = vk::ShaderModuleCreateInfo();
+  createInfo.setCodeSize(config.data.size())
       .setPCode(reinterpret_cast<const uint32_t *>(config.data.data()));
   name = config.name;
   type = config.type;
-  vkShader = logicalDevice->getVkLogicalDevice().createShaderModuleUnique(create_info);
+  vkShader = logicalDevice->getVkLogicalDevice().createShaderModuleUnique(createInfo);
 }
 
 Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigStringSrc &config)
     : logicalDevice(std::move(device)) {
   name = config.name;
   type = config.type;
-  throw std::runtime_error("Not implemented");
+  auto compiler = glsl::Compiler(config.name, config.src, toShaderc(config.type), config.macros,
+                                 config.replaceMacros);
+  const auto binary = compiler.compile(config.optimization);
+  auto createInfo = vk::ShaderModuleCreateInfo();
+  createInfo.setCode(binary);
+  vkShader = logicalDevice->getVkLogicalDevice().createShaderModuleUnique(createInfo);
 }
 
 const vk::ShaderModule &Shader::getShaderModule() { return vkShader.get(); }

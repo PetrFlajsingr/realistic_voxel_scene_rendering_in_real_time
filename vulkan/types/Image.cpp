@@ -14,17 +14,13 @@ Image::Image(std::shared_ptr<LogicalDevice> device, ImageConfig &&config)
       sharingQueues(std::move(config.sharingQueues)), logicalDevice(std::move(device)) {}
 
 std::shared_ptr<ImageView>
-Image::createImageView(SwapChain &swapChain, vk::ColorSpaceKHR colorSpace,
-                       vk::ImageViewType viewType,
+Image::createImageView(vk::ColorSpaceKHR colorSpace, vk::ImageViewType viewType,
                        const vk::ImageSubresourceRange &subResourceRange) {
-  auto imageViewConfig = ImageViewConfig{.logicalDevice = *logicalDevice,
-                                         .swapChain = swapChain,
-                                         .image = *this,
-                                         .format = format,
+  auto imageViewConfig = ImageViewConfig{.format = format,
                                          .colorSpace = colorSpace,
                                          .viewType = viewType,
                                          .subResourceRange = subResourceRange};
-  return ImageView::CreateShared(imageViewConfig);
+  return ImageView::CreateShared(shared_from_this(), imageViewConfig);
 }
 
 vk::ImageType Image::getImageType() const { return imageType; }

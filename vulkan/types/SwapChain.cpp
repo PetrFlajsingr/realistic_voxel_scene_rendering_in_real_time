@@ -143,7 +143,7 @@ void SwapChain::initImages() {
            })
       | to_vector;
   imageViews = images | views::transform([&](auto &image) {
-                 return image.createImageView(*this, colorSpace, vk::ImageViewType::e2D, {});
+                 return image.createImageView(colorSpace, vk::ImageViewType::e2D, {});
                })
       | to_vector;
 }

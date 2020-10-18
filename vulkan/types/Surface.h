@@ -8,6 +8,7 @@
 #include "../concepts/PtrConstructable.h"
 #include "../concepts/Window.h"
 #include "fwd.h"
+#include "Instance.h"
 #include "VulkanObject.h"
 
 namespace pf::vulkan {
@@ -18,7 +19,7 @@ class Surface : public VulkanObject, public PtrConstructable<Surface> {
  public:
   template<window::Window Window>
   explicit Surface(std::shared_ptr<Instance> inst, Window &window)
-      : instance(std::move(inst)), vkSurface(window.createVulkanSurface(*instance)) {}
+      : instance(std::move(inst)), vkSurface(window.createVulkanSurface(**instance)) {}
 
   Surface(const Surface &other) = delete;
   Surface &operator=(const Surface &other) = delete;

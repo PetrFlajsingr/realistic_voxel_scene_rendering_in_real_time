@@ -40,8 +40,7 @@ class TriangleRenderer {
                                           const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
                          return debugCallback(data, severity, type_flags);
                        }});
-    vkSurface = vulkan::Surface::CreateShared(
-        SurfaceConfig<Window>{.instance = *vkInstance, .window = window});
+    vkSurface = Surface::CreateShared(vkInstance, window);
     vkDevice = vkInstance->selectDevice(
         DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
     vkLogicalDevice = vkDevice->createLogicalDevice(

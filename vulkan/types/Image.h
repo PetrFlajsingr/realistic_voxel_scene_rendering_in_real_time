@@ -26,7 +26,7 @@ struct ImageConfig {
   vk::ImageLayout layout;
 };
 
-class Image : public VulkanObject {
+class Image : public VulkanObject, public std::enable_shared_from_this<Image> {
  public:
   explicit Image(std::shared_ptr<LogicalDevice> device, ImageConfig &&config);
   [[nodiscard]] virtual const vk::Image &getVkImage() const = 0;
@@ -35,7 +35,7 @@ class Image : public VulkanObject {
   vk::Image const *operator->() const;
 
   [[nodiscard]] std::shared_ptr<ImageView>
-  createImageView(SwapChain &swapChain, vk::ColorSpaceKHR colorSpace, vk::ImageViewType viewType,
+  createImageView(vk::ColorSpaceKHR colorSpace, vk::ImageViewType viewType,
                   const vk::ImageSubresourceRange &subResourceRange);
   [[nodiscard]] vk::ImageType getImageType() const;
   [[nodiscard]] vk::Format getFormat() const;

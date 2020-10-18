@@ -5,14 +5,32 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
 #include "../concepts/PtrConstructable.h"
-#include "fwd.h"
+#include "../glsl/GlslCompiler.h"
 #include "VulkanObject.h"
+#include "fwd.h"
 #include <istream>
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
 // TODO: more shader types
-enum class ShaderType { Vertex, Fragment, Compute };
+enum class ShaderType {
+  Vertex,
+  Fragment,
+  Compute,
+  Geometry,
+  TessControl,
+  TessEval,
+  RayGen,
+  AnyHit,
+  ClosestHit,
+  Miss,
+  Intersection,
+  Callable,
+  Task,
+  Mesg
+};
+
+shaderc_shader_kind toShaderc(ShaderType type);
 
 struct ShaderConfigFile {
   std::string name;
@@ -30,6 +48,9 @@ struct ShaderConfigStringSrc {
   std::string name;
   ShaderType type;
   std::string src;
+  glsl::MacroDefs macros;
+  glsl::ReplaceMacroDefs replaceMacros;
+  glsl::Optimization optimization;
 };
 
 vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type);

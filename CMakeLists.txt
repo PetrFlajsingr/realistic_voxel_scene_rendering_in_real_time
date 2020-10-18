@@ -26,11 +26,48 @@ project(
         realistic_voxel_scene_rendering_in_real_time
         VERSION 0.1.0
 )
+add_compile_definitions(GLFW_INCLUDE_VULKAN
+        GLM_FORCE_RADIANS
+        GLM_FORCE_DEPTH_ZERO_TO_ONE
+        GLM_ENABLE_EXPERIMENTAL
+        GLM_FORCE_SWIZZLE
+        VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE)
 
 set(CMAKE_CXX_STANDARD 20)
 list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
-        "-Wpointer-arith" "-Wcast-qual" "-Wmissing-braces")
+        "-Wpointer-arith" "-Wcast-qual" "-Wmissing-braces" "-Wno-type-limits")
+
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+    message(" ")
+    message("CMAKE IN DEBUG MODE")
+    message(" ")
+elseif(CMAKE_BUILD_TYPE MATCHES Release)
+    message(" ")
+    message("CMAKE IN RELEASE MODE")
+    message(" ")
+    list(APPEND flags "-o3")
+elseif(CMAKE_BUILD_TYPE MATCHES ASAN)
+    message(" ")
+    message("CMAKE IN ADDRESS SANITISE MODE")
+    message(" ")
+    list(APPEND flags "-fno-omit-frame-pointer" "-fsanitize=address")
+elseif(CMAKE_BUILD_TYPE MATCHES LSAN)
+    message(" ")
+    message("CMAKE IN LEAK SANITISE MODE")
+    message(" ")
+    list(APPEND flags "-fno-omit-frame-pointer" "-fsanitize=leak")
+elseif(CMAKE_BUILD_TYPE MATCHES UBSAN)
+    message(" ")
+    message("CMAKE IN UNDEFINED SANITISE MODE")
+    message(" ")
+    list(APPEND flags "-fsanitize=undefined")
+elseif(CMAKE_BUILD_TYPE MATCHES TSAN)
+    message(" ")
+    message("CMAKE IN THREAD SANITISE MODE")
+    message(" ")
+    list(APPEND flags "-fsanitize=thread")
+endif ()
 
 find_package(Vulkan REQUIRED)
 include_directories(${Vulkan_INCLUDE_DIRS})
@@ -40,6 +77,10 @@ set(LD_LIBRARY_PATH "/usr/lib")
 find_package(PkgConfig REQUIRED)
 pkg_search_module(GLFW REQUIRED glfw3)
 include_directories(${GLFW_INCLUDE_DIRS})
+
+set(RANGE_V3_TESTS OFF)
+set(SHADERC_SKIP_TESTS ON)
+set(SPIRV_CROSS_ENABLE_TESTS OFF)
 
 hunter_add_package(imgui)
 find_package(imgui CONFIG REQUIRED)
@@ -96,54 +137,39 @@ CPMAddPackage(
         GITHUB_REPOSITORY ChaiScript/ChaiScript
         GIT_TAG v6.1.0
 )
-#CPMAddPackage(
-#        NAME glslang
-#        GITHUB_REPOSITORY KhronosGroup/glslang
-#        GIT_TAG 8.13.3743
-#)
-#CPMAddPackage(
-#        NAME spirvheaders
-#        GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
-#        GIT_TAG 1.5.3.reservations1
-#)
-#CPMAddPackage(
-#        NAME spirvtools
-#        GITHUB_REPOSITORY KhronosGroup/SPIRV-Tools
-#        GIT_TAG v2020.3
-#)
-#CPMAddPackage(
-#        NAME spirvreflect
-#        GITHUB_REPOSITORY KhronosGroup/SPIRV-Reflect
-#        GIT_TAG v1.0.0
-#)
-#set(SHADERC_SKIP_TESTS ON)
-#CPMAddPackage(
-#        NAME shaderc
-#        GITHUB_REPOSITORY google/shaderc
-#        GIT_TAG v2020.3
-#)
-hunter_add_package(glslang)
-find_package(glslang CONFIG REQUIRED)
-hunter_add_package(SPIRV-Headers)
-find_package(SPIRV-Headers CONFIG REQUIRED)
-hunter_add_package(SPIRV-Tools)
-find_package(SPIRV-Tools CONFIG REQUIRED)
-hunter_add_package(SPIRV-Reflect)
-find_package(SPIRV-Reflect CONFIG REQUIRED)
-hunter_add_package(shaderc)
-find_package(shaderc CONFIG REQUIRED)
+
+CPMAddPackage(
+        NAME glslang
+        GITHUB_REPOSITORY KhronosGroup/glslang
+        GIT_TAG master-tot
+)
+CPMAddPackage(
+        NAME spirvheaders
+        GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
+        GIT_TAG 1.5.3.reservations1
+)
+CPMAddPackage(
+        NAME spirvtools
+        GITHUB_REPOSITORY KhronosGroup/SPIRV-Tools
+        GIT_TAG v2020.4
+)
+CPMAddPackage(
+        NAME spirvcross
+        GITHUB_REPOSITORY KhronosGroup/SPIRV-Cross
+        GIT_TAG 2020-09-17
+)
+CPMAddPackage(
+        NAME shaderc
+        GITHUB_REPOSITORY google/shaderc
+        GIT_TAG v2020.3
+)
+
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
 endif ()
 include_directories(${CMAKE_SOURCE_DIR}/third_party/)
 
-add_compile_definitions(GLFW_INCLUDE_VULKAN
-        GLM_FORCE_RADIANS
-        GLM_FORCE_DEPTH_ZERO_TO_ONE
-        GLM_ENABLE_EXPERIMENTAL
-        GLM_FORCE_SWIZZLE
-        VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE)
 
 
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
@@ -169,11 +195,11 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         vulkan/types/DescriptorSetLayout.cpp vulkan/types/DescriptorSetLayout.h vulkan/types/CommandPool.cpp
         vulkan/types/CommandPool.h vulkan/types/FrameBuffer.cpp vulkan/types/FrameBuffer.h vulkan/types/VulkanObject.cpp
         vulkan/types/VulkanObject.h vulkan/types/Surface.cpp ui/events/EventDispatchImpl.cpp concepts/PtrConstructable.h
-        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h vulkan/types/Fence.cpp vulkan/types/Fence.h)
+        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h vulkan/types/Fence.cpp vulkan/types/Fence.h vulkan/glsl/GlslCompiler.cpp vulkan/glsl/GlslCompiler.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
-        spirvtools shaderc spirvheaders glslang spirvreflect
+        shaderc glslang
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_scene_rendering_in_real_time)
 
