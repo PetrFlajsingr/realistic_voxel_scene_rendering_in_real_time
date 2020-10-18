@@ -2,7 +2,7 @@
 // Created by petr on 10/18/20.
 //
 
-#include "GlslCompiler.h"
+#include "Compiler.h"
 
 namespace pf::glsl {
 

@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
 #include "../concepts/PtrConstructable.h"
-#include "../glsl/GlslCompiler.h"
+#include "../glsl/Compiler.h"
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <istream>
