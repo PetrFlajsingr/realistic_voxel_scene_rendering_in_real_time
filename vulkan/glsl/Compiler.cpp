@@ -10,7 +10,8 @@ Compiler::Compiler(std::string srcName, std::string src, shaderc_shader_kind typ
                    const MacroDefs &macros, const ReplaceMacroDefs &replaceMacros)
     : name(std::move(srcName)), source(std::move(src)), kind(type) {
   for (const auto &macro : macros) { options.AddMacroDefinition(macro); }
-  for (const auto &[macro, value] : replaceMacros) { options.AddMacroDefinition(macro, value); }
+  for (const auto &[macro, value] : replaceMacros) { options.AddMacroDefinition(macro, value);}
+  options.SetTargetSpirv(shaderc_spirv_version_1_4);
 }
 
 std::string Compiler::preprocess() {
@@ -54,7 +55,7 @@ BinaryData Compiler::toBinary(Optimization optimization) {
         options.SetOptimizationLevel(shaderc_optimization_level_performance);
         break;
     }
-    auto result = compiler.CompileGlslToSpvAssembly(source, kind, name.c_str(), options);
+    auto result = compiler.CompileGlslToSpv(source, kind, name.c_str(), options);
     binaryData = {result.cbegin(), result.cend()};
     currentStep = CompilationStep::Binary;
   } else if (currentStep != CompilationStep::Binary) {

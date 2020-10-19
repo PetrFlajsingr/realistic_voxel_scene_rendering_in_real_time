@@ -7,10 +7,13 @@
 
 #include "../concepts/PtrConstructable.h"
 #include "../concepts/Window.h"
+#include "../concepts/OneOf.h"
+#include "CommandPool.h"
+#include "DescriptorSetLayout.h"
 #include "Image.h"
 #include "SwapChain.h"
 #include "VulkanObject.h"
-#include "CommandPool.h"
+#include "Shader.h"
 #include "fwd.h"
 #include <range/v3/action.hpp>
 #include <range/v3/view.hpp>
@@ -54,6 +57,12 @@ class LogicalDevice : public VulkanObject,
   [[nodiscard]] std::shared_ptr<SwapChain> createSwapChain(std::shared_ptr<Surface> surface,
                                                            SwapChainConfig &&config);
   [[nodiscard]] std::shared_ptr<CommandPool> createCommandPool(CommandPoolConfig &&config);
+  [[nodiscard]] std::shared_ptr<DescriptorSetLayout>
+  createDescriptorSetLayout(DescriptorSetLayoutConfig &&config);
+  template <OneOf<ShaderConfigFile, ShaderConfigSrc, ShaderConfigGlslSrc, ShaderConfigGlslFile> T>
+  [[nodiscard]] std::shared_ptr<Shader> createShader(T &&config) {
+    return Shader::CreateShared(shared_from_this(), std::move(config));
+  }
 
   [[nodiscard]] PhysicalDevice &getPhysicalDevice() const;
 

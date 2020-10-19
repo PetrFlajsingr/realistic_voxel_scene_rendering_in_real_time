@@ -4,6 +4,7 @@
 
 #include "SwapChain.h"
 #include "../VulkanException.h"
+#include "FrameBuffer.h"
 #include "Image.h"
 #include "ImageView.h"
 #include "PhysicalDevice.h"
@@ -50,7 +51,6 @@ SwapChain::SwapChain(std::shared_ptr<Surface> surf, std::shared_ptr<LogicalDevic
   format = selectedSurfaceFormat.format;
   colorSpace = selectedSurfaceFormat.colorSpace;
   extent = selectedExtent;
-  initImages();
 }
 
 vk::PresentModeKHR
@@ -125,30 +125,37 @@ LogicalDevice &SwapChain::getLogicalDevice() { return *logicalDevice; }
 
 Surface &SwapChain::getSurface() { return *surface; }
 
-void SwapChain::initImages() {
+void SwapChain::initImagesAndImageViews() {
   const auto imgs = logicalDevice->getVkLogicalDevice().getSwapchainImagesKHR(*vkSwapChain);
-  images = imgs | views::transform([&](const auto &img) {
-             return ImageRef(logicalDevice,
-                             {.imageType = vk::ImageType::e2D,
-                              .format = format,
-                              .extent = {extent.width, extent.height, 1},
-                              .mipLevels = 1,
-                              .arrayLayers = 1,
-                              .sampleCount = vk::SampleCountFlagBits::e1,
-                              .tiling = vk::ImageTiling::eOptimal,
-                              .usage = vk::ImageUsageFlagBits::eTransferDst,
-                              .sharingQueues = {},
-                              .layout = vk::ImageLayout::ePresentSrcKHR},
-                             img);
-           })
+  images =
+      imgs | views::transform([&](const auto &img) {
+        return ImageRef::CreateShared(logicalDevice,
+                                      ImageConfig{.imageType = vk::ImageType::e2D,
+                                                  .format = format,
+                                                  .extent = {extent.width, extent.height, 1},
+                                                  .mipLevels = 1,
+                                                  .arrayLayers = 1,
+                                                  .sampleCount = vk::SampleCountFlagBits::e1,
+                                                  .tiling = vk::ImageTiling::eOptimal,
+                                                  .usage = vk::ImageUsageFlagBits::eTransferDst,
+                                                  .sharingQueues = {},
+                                                  .layout = vk::ImageLayout::ePresentSrcKHR},
+                                      img);
+      })
       | to_vector;
+  auto subresourceRange = vk::ImageSubresourceRange();
+  subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+  subresourceRange.baseMipLevel = 0;
+  subresourceRange.levelCount = 1;
+  subresourceRange.baseArrayLayer = 0;
+  subresourceRange.layerCount = 1;
   imageViews = images | views::transform([&](auto &image) {
-                 return image.createImageView(colorSpace, vk::ImageViewType::e2D, {});
+                 return image->createImageView(colorSpace, vk::ImageViewType::e2D, subresourceRange);
                })
       | to_vector;
 }
 
-const std::vector<ImageRef> &SwapChain::getImages() const { return images; }
+const std::vector<std::shared_ptr<ImageRef>> &SwapChain::getImages() const { return images; }
 
 void SwapChain::swap() {
   if (hasExtentChanged()) { logicalDevice->wait(); }
@@ -157,8 +164,8 @@ void SwapChain::swap() {
 bool SwapChain::hasExtentChanged() {
   const auto surfaceCapabilities =
       logicalDevice->getPhysicalDevice()->getSurfaceCapabilitiesKHR(**surface);
-  return surfaceCapabilities.currentExtent.width != images[0].getExtent().width
-      || surfaceCapabilities.currentExtent.height != images[0].getExtent().height;
+  return surfaceCapabilities.currentExtent.width != images[0]->getExtent().width
+      || surfaceCapabilities.currentExtent.height != images[0]->getExtent().height;
 }
 
 void SwapChain::rebuildSwapChain(std::pair<uint32_t, uint32_t> resolution) {
@@ -191,9 +198,24 @@ void SwapChain::rebuildSwapChain(std::pair<uint32_t, uint32_t> resolution) {
   format = selectedSurfaceFormat.format;
   colorSpace = selectedSurfaceFormat.colorSpace;
   extent = selectedExtent;
-  initImages();
+  initImagesAndImageViews();
+  initFrameBuffers();
 }
 
-const std::vector<std::shared_ptr<ImageView>> &SwapChain::getImageViews() const { return imageViews; }
+const std::vector<std::shared_ptr<ImageView>> &SwapChain::getImageViews() const {
+  return imageViews;
+}
+
+void SwapChain::initFrameBuffers() {
+  frameBuffers = imageViews | views::transform([this](const auto &) {
+                   return FrameBuffer::CreateShared(shared_from_this());
+                 })
+      | to_vector;
+}
+
+void SwapChain::init() {
+  initImagesAndImageViews();
+  initFrameBuffers();
+}
 
 }// namespace pf::vulkan

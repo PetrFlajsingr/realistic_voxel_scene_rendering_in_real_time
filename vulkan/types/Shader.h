@@ -44,13 +44,22 @@ struct ShaderConfigSrc {
   std::vector<uint8_t> data;
 };
 
-struct ShaderConfigStringSrc {
+struct ShaderConfigGlslFile {
+  std::string name;
+  ShaderType type;
+  std::string path;
+  glsl::MacroDefs macros;
+  glsl::ReplaceMacroDefs replaceMacros = {};
+  glsl::Optimization optimization = {};
+};
+
+struct ShaderConfigGlslSrc {
   std::string name;
   ShaderType type;
   std::string src;
   glsl::MacroDefs macros;
-  glsl::ReplaceMacroDefs replaceMacros;
-  glsl::Optimization optimization;
+  glsl::ReplaceMacroDefs replaceMacros = {};
+  glsl::Optimization optimization = {};
 };
 
 vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type);
@@ -59,7 +68,8 @@ class Shader : public VulkanObject, public PtrConstructable<Shader> {
  public:
   explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigFile &config);
   explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigSrc &config);
-  explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigStringSrc &config);
+  explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigGlslSrc &config);
+  explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigGlslFile &config);
 
   Shader(const Shader &other) = delete;
   Shader &operator=(const Shader &other) = delete;
@@ -81,8 +91,8 @@ class Shader : public VulkanObject, public PtrConstructable<Shader> {
   std::string name;
 };
 
-std::vector<uint8_t> readSpvFile(std::istream &istream);
-std::vector<uint8_t> readSpvFile(std::istream &&istream);
+std::vector<uint8_t> readSpvFile(std::ifstream &istream);
+std::vector<uint8_t> readSpvFile(std::ifstream &&istream);
 
 }// namespace pf::vulkan
 

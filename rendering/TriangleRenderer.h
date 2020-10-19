@@ -7,9 +7,11 @@
 
 #include "../concepts/Window.h"
 #include "../logging/loggers.h"
+#include "../vulkan/types/DescriptorSetLayout.h"
 #include "../vulkan/types/Instance.h"
 #include "../vulkan/types/PhysicalDevice.h"
 #include "../vulkan/types/RenderPass.h"
+#include "../vulkan/types/Shader.h"
 #include "../vulkan/types/Surface.h"
 #include "../vulkan/types/SwapChain.h"
 #include "../vulkan/types/VulkanCommon.h"
@@ -116,6 +118,38 @@ class TriangleRenderer {
                     .subpassDone()
                     .build();
     // clang-format on
+
+    //vertShader = vkLogicalDevice->createShader(ShaderConfigFile{
+    //    .name = "Triangle vert",
+    //    .type = ShaderType::Vertex,
+    //    .path =
+    //    "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/cmake-build-debug/shaders/triangle.vert.spv"});
+    //fragShader = vkLogicalDevice->createShader(ShaderConfigFile{
+    //    .name = "Triangle frag",
+    //    .type = ShaderType::Fragment,
+    //    .path =
+    //    "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/cmake-build-debug/shaders/triangle.frag.spv"});
+
+
+      vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
+        .name = "Triangle vert",
+        .type = ShaderType::Vertex,
+        .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/shaders/"
+                "triangle.vert",
+        .macros = {},
+        .replaceMacros = {}});
+
+    fragShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
+        .name = "Triangle frag",
+        .type = ShaderType::Fragment,
+        .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/shaders/"
+                "triangle.frag",
+        .macros = {},
+        .replaceMacros = {}});
+
+
+    vkCommandPool = vkLogicalDevice->createCommandPool(
+        {.queueFamily = vk::QueueFlagBits::eGraphics, .flags = {}});
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
   }
 
@@ -134,6 +168,11 @@ class TriangleRenderer {
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
   std::shared_ptr<vulkan::SwapChain> vkSwapChain;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
+  std::shared_ptr<vulkan::CommandPool> vkCommandPool;
+  std::vector<std::shared_ptr<vulkan::FrameBuffer>> vkFrameBuffers;
+
+  std::shared_ptr<vulkan::Shader> vertShader;
+  std::shared_ptr<vulkan::Shader> fragShader;
 };
 
 }// namespace pf

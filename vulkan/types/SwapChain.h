@@ -27,10 +27,14 @@ struct SwapChainConfig {
   vk::CompositeAlphaFlagBitsKHR compositeAlpha;
 };
 
-class SwapChain : public VulkanObject, public PtrConstructable<SwapChain> {
+class SwapChain : public VulkanObject,
+                  public PtrConstructable<SwapChain>,
+                  public std::enable_shared_from_this<SwapChain> {
  public:
   explicit SwapChain(std::shared_ptr<Surface> surf, std::shared_ptr<LogicalDevice> device,
                      pf::vulkan::SwapChainConfig &&config);
+
+  void init();
 
   SwapChain(const SwapChain &) = delete;
   SwapChain &operator=(const SwapChain &) = delete;
@@ -46,7 +50,7 @@ class SwapChain : public VulkanObject, public PtrConstructable<SwapChain> {
 
   [[nodiscard]] std::string info() const override;
 
-  [[nodiscard]] const std::vector<ImageRef> &getImages() const;
+  [[nodiscard]] const std::vector<std::shared_ptr<ImageRef>> &getImages() const;
   [[nodiscard]] const std::vector<std::shared_ptr<ImageView>> &getImageViews() const;
 
   void swap();
@@ -70,7 +74,8 @@ class SwapChain : public VulkanObject, public PtrConstructable<SwapChain> {
                         vk::SurfaceFormatKHR surfaceFormat, vk::Extent2D extent,
                         vk::PresentModeKHR presentMode);
 
-  void initImages();
+  void initImagesAndImageViews();
+  void initFrameBuffers();
 
   bool hasExtentChanged();
 
@@ -91,8 +96,9 @@ class SwapChain : public VulkanObject, public PtrConstructable<SwapChain> {
   bool clipped;
   vk::CompositeAlphaFlagBitsKHR compositeAlpha;
 
-  std::vector<ImageRef> images;
+  std::vector<std::shared_ptr<ImageRef>> images;
   std::vector<std::shared_ptr<ImageView>> imageViews;
+  std::vector<std::shared_ptr<FrameBuffer>> frameBuffers;
 };
 }// namespace pf::vulkan
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H

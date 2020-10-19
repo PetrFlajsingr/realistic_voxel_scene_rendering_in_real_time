@@ -13,11 +13,6 @@
 
 namespace pf::vulkan {
 
-struct FrameBufferConfig {
-  uint32_t width;
-  uint32_t height;
-  uint32_t layers;
-};
 
 namespace details {
 class FrameBufferInstance : public VulkanObject {
@@ -43,7 +38,7 @@ class FrameBufferInstance : public VulkanObject {
 
 class FrameBuffer : public VulkanObject, public PtrConstructable<FrameBuffer> {
  public:
-  explicit FrameBuffer(std::shared_ptr<SwapChain> swap, FrameBufferConfig &&config);
+  explicit FrameBuffer(std::shared_ptr<SwapChain> swap);
 
   FrameBuffer(const FrameBuffer &other) = delete;
   FrameBuffer &operator=(const FrameBuffer &other) = delete;

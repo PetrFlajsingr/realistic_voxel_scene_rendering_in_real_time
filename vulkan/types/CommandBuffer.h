@@ -19,7 +19,7 @@ struct CommandBufferConfig {
 
 class CommandBuffer : public VulkanObject, public PtrConstructable<CommandBuffer> {
  public:
-  explicit CommandBuffer(vk::UniqueCommandBuffer &&buffer);
+  explicit CommandBuffer(std::shared_ptr<CommandPool> pool, vk::UniqueCommandBuffer &&buffer);
 
   CommandBuffer(const CommandBuffer &other) = delete;
   CommandBuffer &operator=(const CommandBuffer &other) = delete;

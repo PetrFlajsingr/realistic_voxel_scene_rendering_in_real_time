@@ -37,9 +37,9 @@ details::FrameBufferInstance::FrameBufferInstance(FrameBuffer &parent, RenderPas
 
 std::string details::FrameBufferInstance::info() const { return "Frame buffer accessor"; }
 
-FrameBuffer::FrameBuffer(std::shared_ptr<SwapChain> swap, FrameBufferConfig &&config)
-    : swapChain(std::move(swap)), width(config.width), height(config.height), layers(config.layers),
-      attachments(swapChain->getImageViews()) {}
+FrameBuffer::FrameBuffer(std::shared_ptr<SwapChain> swap)
+    : swapChain(std::move(swap)), width(swapChain->getExtent().width),
+      height(swapChain->getExtent().height), layers(1), attachments(swapChain->getImageViews()) {}
 
 std::string FrameBuffer::info() const { return "Vulkan frame buffer unique"; }
 

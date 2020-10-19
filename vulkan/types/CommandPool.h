@@ -23,10 +23,11 @@ struct CommandSubmitConfig {
 struct CommandPoolConfig {
   vk::QueueFlagBits queueFamily;
   vk::CommandPoolCreateFlagBits flags;
-  vk::Queue queue;
 };
 
-class CommandPool : public VulkanObject, public PtrConstructable<CommandPool> {
+class CommandPool : public VulkanObject,
+                    public PtrConstructable<CommandPool>,
+                    public std::enable_shared_from_this<CommandPool> {
  public:
   explicit CommandPool(std::shared_ptr<LogicalDevice> device, CommandPoolConfig &&config);
 

@@ -32,8 +32,8 @@ CommandPool::createCommandBuffers(const CommandBufferConfig &config) {
   auto buffers = logicalDevice->getVkLogicalDevice().allocateCommandBuffersUnique(allocateInfo);
   auto result = std::vector<std::shared_ptr<CommandBuffer>>();
   result.reserve(buffers.size());
-  std::ranges::transform(buffers, std::back_inserter(result), [](auto &&buffer) {
-    return CommandBuffer::CreateShared(std::move(buffer));
+  std::ranges::transform(buffers, std::back_inserter(result), [this](auto &&buffer) {
+    return CommandBuffer::CreateShared(shared_from_this(), std::move(buffer));
   });
   return result;
 }

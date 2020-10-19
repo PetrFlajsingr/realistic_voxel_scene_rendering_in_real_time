@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 3.17)
 include("cmake/HunterGate.cmake")
-include("cmake/CPM.cmake")
+set(CPM_SOURCE_CACHE ${CMAKE_SOURCE_DIR}/.cache)
 include(FetchContent)
+
+set(CPM_DOWNLOAD_LOCATION "${CMAKE_SOURCE_DIR}/cmake/CPM.cmake")
+set(CPM_DOWNLOAD_VERSION 0.27.4)
+
+if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION} AND CPM_VERSION STREQUAL CPM_DOWNLOAD_VERSION))
+    message(STATUS "Downloading CPM.cmake")
+    file(DOWNLOAD https://github.com/TheLartians/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake ${CPM_DOWNLOAD_LOCATION})
+endif()
+
+include(${CPM_DOWNLOAD_LOCATION})
 
 function(print_all_vars)
     get_cmake_property(_variableNames VARIABLES)
@@ -137,6 +147,13 @@ CPMAddPackage(
         GITHUB_REPOSITORY ChaiScript/ChaiScript
         GIT_TAG v6.1.0
 )
+CPMAddPackage(
+        NAME cppcoro
+        GITHUB_REPOSITORY dutow/cppcoro
+        GIT_TAG 4b1951ff3c25fea78198a5c0aabb50589946b694
+)
+
+include_directories(${cppcoro_SOURCE_DIR}/include)
 
 CPMAddPackage(
         NAME glslang
@@ -195,11 +212,11 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         vulkan/types/DescriptorSetLayout.cpp vulkan/types/DescriptorSetLayout.h vulkan/types/CommandPool.cpp
         vulkan/types/CommandPool.h vulkan/types/FrameBuffer.cpp vulkan/types/FrameBuffer.h vulkan/types/VulkanObject.cpp
         vulkan/types/VulkanObject.h vulkan/types/Surface.cpp ui/events/EventDispatchImpl.cpp concepts/PtrConstructable.h
-        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h vulkan/types/Fence.cpp vulkan/types/Fence.h vulkan/glsl/Compiler.cpp vulkan/glsl/Compiler.h)
+        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h vulkan/types/Fence.cpp vulkan/types/Fence.h vulkan/glsl/Compiler.cpp vulkan/glsl/Compiler.h concepts/OneOf.h)
 target_link_libraries(realistic_voxel_scene_rendering_in_real_time
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
-        shaderc glslang
+        shaderc glslang cppcoro
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_scene_rendering_in_real_time)
 

@@ -6,7 +6,8 @@
 
 namespace pf::vulkan {
 
-CommandBuffer::CommandBuffer(vk::UniqueCommandBuffer &&buffer) : vkBuffer(std::move(buffer)) {}
+CommandBuffer::CommandBuffer(std::shared_ptr<CommandPool> pool, vk::UniqueCommandBuffer &&buffer)
+    : vkBuffer(std::move(buffer)), commandPool(std::move(pool)) {}
 
 std::string CommandBuffer::info() const { return "Vulkan command buffer"; }
 
@@ -26,7 +27,5 @@ vk::CommandBuffer const *CommandBuffer::operator->() const { return &*vkBuffer; 
 
 CommandPool &CommandBuffer::getCommandPool() { return *commandPool; }
 
-void CommandBuffer::reset() {
-  vkBuffer.reset();
-}
+void CommandBuffer::reset() { vkBuffer.reset(); }
 }// namespace pf::vulkan

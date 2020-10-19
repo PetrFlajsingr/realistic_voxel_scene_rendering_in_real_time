@@ -44,15 +44,20 @@ std::shared_ptr<ImageUnique> LogicalDevice::createImage(ImageConfig &&config) {
 
 std::shared_ptr<SwapChain> LogicalDevice::createSwapChain(std::shared_ptr<Surface> surface,
                                                           SwapChainConfig &&config) {
-  return SwapChain::CreateShared(std::move(surface), shared_from_this(), std::move(config));
+  auto result = SwapChain::CreateShared(std::move(surface), shared_from_this(), std::move(config));
+  result->init();
+  return result;
 }
 
 std::shared_ptr<CommandPool> LogicalDevice::createCommandPool(CommandPoolConfig &&config) {
   return CommandPool::CreateShared(shared_from_this(), std::move(config));
 }
 
-void LogicalDevice::wait() {
-  vkLogicalDevice->waitIdle();
+void LogicalDevice::wait() { vkLogicalDevice->waitIdle(); }
+
+std::shared_ptr<DescriptorSetLayout>
+LogicalDevice::createDescriptorSetLayout(DescriptorSetLayoutConfig &&config) {
+  return DescriptorSetLayout::CreateShared(shared_from_this(), std::move(config));
 }
 
 }// namespace pf::vulkan

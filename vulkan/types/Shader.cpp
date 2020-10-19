@@ -18,15 +18,22 @@ vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type) {
   }
 }
 
-std::vector<uint8_t> readSpvFile(std::istream &istream) {
-  const auto fileSize = istream.tellg();
+std::vector<uint8_t> readSpvFile(std::ifstream &istream) {
+  if (!istream.is_open()) { throw StackTraceException("failed to open file!"); }
+  const auto fileSize = static_cast<size_t>(istream.tellg());
   auto buffer = std::vector<uint8_t>(fileSize);
   istream.seekg(0);
   istream.read(reinterpret_cast<char *>(buffer.data()), fileSize);
+  istream.close();
   return buffer;
 }
 
-std::vector<uint8_t> readSpvFile(std::istream &&istream) { return readSpvFile(istream); }
+std::vector<uint8_t> readSpvFile(std::ifstream &&istream) { return readSpvFile(istream); }
+
+std::string readFile(const std::string &path) {
+  auto stream = std::ifstream(path);
+  return std::string((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+}
 
 shaderc_shader_kind toShaderc(ShaderType type) {
   switch (type) {
@@ -44,6 +51,7 @@ shaderc_shader_kind toShaderc(ShaderType type) {
     case ShaderType::Callable: return shaderc_callable_shader;
     case ShaderType::Task: return shaderc_task_shader;
     case ShaderType::Mesg: return shaderc_mesh_shader;
+    default: throw StackTraceException("Invalid shader type");
   }
 }
 
@@ -64,7 +72,7 @@ Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigSrc &con
   vkShader = logicalDevice->getVkLogicalDevice().createShaderModuleUnique(createInfo);
 }
 
-Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigStringSrc &config)
+Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigGlslSrc &config)
     : logicalDevice(std::move(device)) {
   name = config.name;
   type = config.type;
@@ -75,6 +83,15 @@ Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigStringSr
   createInfo.setCode(binary);
   vkShader = logicalDevice->getVkLogicalDevice().createShaderModuleUnique(createInfo);
 }
+
+Shader::Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigGlslFile &config)
+    : Shader(std::move(device),
+             ShaderConfigGlslSrc{.name = config.name,
+                                 .type = config.type,
+                                 .src = readFile(config.path),
+                                 .macros = config.macros,
+                                 .replaceMacros = config.replaceMacros,
+                                 .optimization = config.optimization}) {}
 
 const vk::ShaderModule &Shader::getShaderModule() { return vkShader.get(); }
 
