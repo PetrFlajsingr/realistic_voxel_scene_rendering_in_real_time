@@ -5,9 +5,9 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_DESCRIPTORSETLAYOUT_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_DESCRIPTORSETLAYOUT_H
 
-#include "../concepts/PtrConstructable.h"
-#include "fwd.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
+#include "fwd.h"
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
@@ -23,7 +23,7 @@ struct DescriptorSetLayoutConfig {
   std::vector<DescriptorSetLayoutBindingConfig> bindings;
 };
 
-class DescriptorSetLayout : public VulkanObject, public PtrConstructable<DescriptorSetLayout> {
+class DescriptorSetLayout : public VulkanObject, public PtrConstructible<DescriptorSetLayout> {
  public:
   explicit DescriptorSetLayout(std::shared_ptr<LogicalDevice> device, DescriptorSetLayoutConfig &&config);
 

@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H
 
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <set>
@@ -28,7 +28,7 @@ struct SwapChainConfig {
 };
 
 class SwapChain : public VulkanObject,
-                  public PtrConstructable<SwapChain>,
+                  public PtrConstructible<SwapChain>,
                   public std::enable_shared_from_this<SwapChain> {
  public:
   explicit SwapChain(std::shared_ptr<Surface> surf, std::shared_ptr<LogicalDevice> device,

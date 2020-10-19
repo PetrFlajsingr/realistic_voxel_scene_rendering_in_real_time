@@ -5,13 +5,13 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GRAPHICSPIPELINE_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GRAPHICSPIPELINE_H
 
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
 
-class GraphicsPipeline : public VulkanObject, public PtrConstructable<GraphicsPipeline> {
+class GraphicsPipeline : public VulkanObject, public PtrConstructible<GraphicsPipeline> {
  public:
   // TODO: builder only
   explicit GraphicsPipeline(vk::UniquePipeline &&pipeline);

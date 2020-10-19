@@ -7,7 +7,7 @@
 
 #include "../DefaultDeviceSuitabilityScorer.h"
 #include "../VulkanException.h"
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "../concepts/Window.h"
 #include "../logging/loggers.h"
 #include "LogicalDevice.h"
@@ -34,7 +34,7 @@ buildQueueCreateInfo(const std::unordered_set<uint32_t> &queueIndices,
 }// namespace details
 
 class PhysicalDevice : public VulkanObject,
-                       public PtrConstructable<PhysicalDevice>,
+                       public PtrConstructible<PhysicalDevice>,
                        public std::enable_shared_from_this<PhysicalDevice> {
  public:
   template<DeviceSuitabilityScorer DeviceScorer>

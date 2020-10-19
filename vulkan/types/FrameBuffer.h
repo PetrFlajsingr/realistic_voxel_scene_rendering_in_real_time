@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FRAMEBUFFER_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FRAMEBUFFER_H
 
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <unordered_map>
@@ -36,7 +36,7 @@ class FrameBufferInstance : public VulkanObject {
 };
 }// namespace details
 
-class FrameBuffer : public VulkanObject, public PtrConstructable<FrameBuffer> {
+class FrameBuffer : public VulkanObject, public PtrConstructible<FrameBuffer> {
  public:
   explicit FrameBuffer(std::shared_ptr<SwapChain> swap);
 

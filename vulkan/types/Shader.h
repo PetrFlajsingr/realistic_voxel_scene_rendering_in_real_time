@@ -4,7 +4,7 @@
 
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "../glsl/Compiler.h"
 #include "VulkanObject.h"
 #include "fwd.h"
@@ -64,7 +64,7 @@ struct ShaderConfigGlslSrc {
 
 vk::ShaderStageFlagBits ShaderTypeToVk(ShaderType type);
 
-class Shader : public VulkanObject, public PtrConstructable<Shader> {
+class Shader : public VulkanObject, public PtrConstructible<Shader> {
  public:
   explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigFile &config);
   explicit Shader(std::shared_ptr<LogicalDevice> device, const ShaderConfigSrc &config);

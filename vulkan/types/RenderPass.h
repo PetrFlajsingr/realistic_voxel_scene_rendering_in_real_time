@@ -5,14 +5,14 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_RENDERPASS_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_RENDERPASS_H
 
-#include "../concepts/PtrConstructable.h"
-#include "fwd.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
+#include "fwd.h"
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
 class RenderPassBuilder;
-class RenderPass : public VulkanObject, public PtrConstructable<RenderPass> {
+class RenderPass : public VulkanObject, public PtrConstructible<RenderPass> {
  public:
   friend class RenderPassBuilder;
   RenderPass(RenderPassBuilder &builder, std::shared_ptr<LogicalDevice> device);

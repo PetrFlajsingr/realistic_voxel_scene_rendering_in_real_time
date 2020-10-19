@@ -17,5 +17,7 @@
 #include "Shader.h"
 #include "Surface.h"
 #include "SwapChain.h"
+#include "Buffer.h"
+#include "BufferView.h"
 
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H

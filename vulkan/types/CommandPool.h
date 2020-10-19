@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
 
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "CommandBuffer.h"
 #include "VulkanObject.h"
 #include "fwd.h"
@@ -26,7 +26,7 @@ struct CommandPoolConfig {
 };
 
 class CommandPool : public VulkanObject,
-                    public PtrConstructable<CommandPool>,
+                    public PtrConstructible<CommandPool>,
                     public std::enable_shared_from_this<CommandPool> {
  public:
   explicit CommandPool(std::shared_ptr<LogicalDevice> device, CommandPoolConfig &&config);

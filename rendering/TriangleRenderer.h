@@ -119,18 +119,6 @@ class TriangleRenderer {
                     .build();
     // clang-format on
 
-    //vertShader = vkLogicalDevice->createShader(ShaderConfigFile{
-    //    .name = "Triangle vert",
-    //    .type = ShaderType::Vertex,
-    //    .path =
-    //    "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/cmake-build-debug/shaders/triangle.vert.spv"});
-    //fragShader = vkLogicalDevice->createShader(ShaderConfigFile{
-    //    .name = "Triangle frag",
-    //    .type = ShaderType::Fragment,
-    //    .path =
-    //    "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/cmake-build-debug/shaders/triangle.frag.spv"});
-
-
       vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle vert",
         .type = ShaderType::Vertex,
@@ -146,7 +134,6 @@ class TriangleRenderer {
                 "triangle.frag",
         .macros = {},
         .replaceMacros = {}});
-
 
     vkCommandPool = vkLogicalDevice->createCommandPool(
         {.queueFamily = vk::QueueFlagBits::eGraphics, .flags = {}});

@@ -22,6 +22,8 @@ namespace pf::vulkan {
   class Shader;
   class Surface;
   class SwapChain;
+  class Buffer;
+  class BufferView;
 }
 
 #endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FWD_H

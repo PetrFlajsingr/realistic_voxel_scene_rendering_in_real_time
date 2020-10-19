@@ -5,11 +5,11 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_INSTANCE_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_INSTANCE_H
 
-#include "../concepts/PtrConstructable.h"
+#include "../DefaultDeviceSuitabilityScorer.h"
+#include "../concepts/PtrConstructible.h"
+#include "PhysicalDevice.h"
 #include "VulkanCommon.h"
 #include "VulkanObject.h"
-#include "PhysicalDevice.h"
-#include "../DefaultDeviceSuitabilityScorer.h"
 #include <unordered_set>
 #include <vulkan/vulkan.hpp>
 
@@ -26,7 +26,7 @@ struct InstanceConfig {
 };
 
 class Instance : public VulkanObject,
-                 public PtrConstructable<Instance>,
+                 public PtrConstructible<Instance>,
                  public std::enable_shared_from_this<Instance> {
  public:
   explicit Instance(InstanceConfig config);

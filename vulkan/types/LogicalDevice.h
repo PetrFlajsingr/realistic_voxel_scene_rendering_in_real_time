@@ -5,15 +5,15 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGICALDEVICE_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGICALDEVICE_H
 
-#include "../concepts/PtrConstructable.h"
-#include "../concepts/Window.h"
 #include "../concepts/OneOf.h"
+#include "../concepts/PtrConstructible.h"
+#include "../concepts/Window.h"
 #include "CommandPool.h"
 #include "DescriptorSetLayout.h"
 #include "Image.h"
+#include "Shader.h"
 #include "SwapChain.h"
 #include "VulkanObject.h"
-#include "Shader.h"
 #include "fwd.h"
 #include <range/v3/action.hpp>
 #include <range/v3/view.hpp>
@@ -35,7 +35,7 @@ struct LogicalDeviceConfig {
 };
 
 class LogicalDevice : public VulkanObject,
-                      public PtrConstructable<LogicalDevice>,
+                      public PtrConstructible<LogicalDevice>,
                       public std::enable_shared_from_this<LogicalDevice> {
  public:
   LogicalDevice(const std::shared_ptr<PhysicalDevice> &device, vk::UniqueDevice &&vkLogicalDevice,

@@ -5,9 +5,9 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGEVIEW_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGEVIEW_H
 
-#include "../concepts/PtrConstructable.h"
-#include "fwd.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
+#include "fwd.h"
 #include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
@@ -21,7 +21,7 @@ struct ImageViewConfig {
   vk::ImageSubresourceRange subResourceRange;
 };
 
-class ImageView : public VulkanObject, public PtrConstructable<ImageView> {
+class ImageView : public VulkanObject, public PtrConstructible<ImageView> {
  public:
   explicit ImageView(std::shared_ptr<Image> img, const ImageViewConfig &config);
 

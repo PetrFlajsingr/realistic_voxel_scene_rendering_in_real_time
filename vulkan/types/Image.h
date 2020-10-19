@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGE_H
 #define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGE_H
 
-#include "../concepts/PtrConstructable.h"
+#include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <unordered_set>
@@ -62,7 +62,7 @@ class Image : public VulkanObject, public std::enable_shared_from_this<Image> {
   std::shared_ptr<LogicalDevice> logicalDevice;
 };
 
-class ImageRef : public Image, public PtrConstructable<ImageRef> {
+class ImageRef : public Image, public PtrConstructible<ImageRef> {
  public:
   using Image::operator*;
   using Image::operator->;
@@ -75,7 +75,7 @@ class ImageRef : public Image, public PtrConstructable<ImageRef> {
 };
 
 class ImageUnique : public Image,
-                    public PtrConstructable<ImageUnique>,
+                    public PtrConstructible<ImageUnique>,
                     public std::enable_shared_from_this<ImageUnique> {
  public:
   using Image::operator*;
