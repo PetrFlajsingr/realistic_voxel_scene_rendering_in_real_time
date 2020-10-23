@@ -7,16 +7,16 @@
 #include <fmt/format.h>
 #include <magic_enum.hpp>
 
-pf::GlfwWindow::GlfwWindow(const window::WindowSettings &settings) : window::WindowData(settings) {}
+namespace pf::window {
+GlfwWindow::GlfwWindow(const WindowSettings &settings) : WindowData(settings) {}
 
-std::optional<std::string> pf::GlfwWindow::init() {
+std::optional<std::string> GlfwWindow::init() {
   if (glfwInit() == GLFW_FALSE) { return "glfwInit failed"; }
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   handle = glfwCreateWindow(resolution.width, resolution.height, title.c_str(), nullptr, nullptr);
   glfwSetWindowUserPointer(handle, this);
-  // TODO: resizing
-  //glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+  glfwSetFramebufferSizeCallback(handle, resizeCallback);
   glfwSetMouseButtonCallback(handle, mouseButtonCallback);
   glfwSetCursorPosCallback(handle, mousePositionCallback);
   glfwSetScrollCallback(handle, mouseWheelCallback);
@@ -24,7 +24,7 @@ std::optional<std::string> pf::GlfwWindow::init() {
   return std::nullopt;
 }
 
-void pf::GlfwWindow::mainLoop() {
+void GlfwWindow::mainLoop() {
   while (!glfwWindowShouldClose(handle)) {
     glfwPollEvents();
     onFrame();
@@ -32,17 +32,17 @@ void pf::GlfwWindow::mainLoop() {
   }
 }
 
-std::ostream &pf::operator<<(std::ostream &os, const pf::GlfwWindow &window) {
+std::ostream &operator<<(std::ostream &os, const GlfwWindow &window) {
   os << fmt::format("GLFW window\n\ttitle: {}\n\tresolution: {}\n\tmode: {}", window.getTitle(),
                     window.getResolution(), magic_enum::enum_name(window.getMode()));
   return os;
 }
 
-pf::GlfwWindow::~GlfwWindow() {
+GlfwWindow::~GlfwWindow() {
   glfwDestroyWindow(handle);
   glfwTerminate();
 }
-void pf::GlfwWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, int) {
+void GlfwWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, int) {
   auto self = reinterpret_cast<GlfwWindow *>(glfwGetWindowUserPointer(window));
   const auto mouseButton = glfwButtonToEvents(button);
   if (!mouseButton.has_value()) { return; }
@@ -54,7 +54,7 @@ void pf::GlfwWindow::mouseButtonCallback(GLFWwindow *window, int button, int act
   self->notifyMouse(eventType, mouseButton.value(), cursorPosition, std::make_pair(0.0, 0.0));
 }
 
-void pf::GlfwWindow::mousePositionCallback(GLFWwindow *window, double xpos, double ypos) {
+void GlfwWindow::mousePositionCallback(GLFWwindow *window, double xpos, double ypos) {
   auto self = reinterpret_cast<GlfwWindow *>(glfwGetWindowUserPointer(window));
 
   const auto cursorPosition = std::pair<double, double>(xpos, ypos);
@@ -64,7 +64,7 @@ void pf::GlfwWindow::mousePositionCallback(GLFWwindow *window, double xpos, doub
   self->cursorPosition = cursorPosition;
 }
 
-void pf::GlfwWindow::mouseWheelCallback(GLFWwindow *window, double xpos, double ypos) {
+void GlfwWindow::mouseWheelCallback(GLFWwindow *window, double xpos, double ypos) {
   auto self = reinterpret_cast<GlfwWindow *>(glfwGetWindowUserPointer(window));
 
   const auto cursorPosition = std::pair<double, double>(xpos, ypos);
@@ -73,14 +73,14 @@ void pf::GlfwWindow::mouseWheelCallback(GLFWwindow *window, double xpos, double 
   self->cursorPosition = cursorPosition;
 }
 
-void pf::GlfwWindow::keyCallback(GLFWwindow *window, int key, int, int action, int) {
+void GlfwWindow::keyCallback(GLFWwindow *window, int key, int, int action, int) {
   auto self = reinterpret_cast<GlfwWindow *>(glfwGetWindowUserPointer(window));
   const auto eventType = glfwKeyEventToEvents(action);
   if (!eventType.has_value()) { return; }
   const auto keyChar = static_cast<char>(key);
   self->notifyKey(eventType.value(), keyChar);
 }
-vk::UniqueSurfaceKHR pf::GlfwWindow::createVulkanSurface(const vk::Instance &instance) {
+vk::UniqueSurfaceKHR GlfwWindow::createVulkanSurface(const vk::Instance &instance) {
   auto surface = VkSurfaceKHR{};
   if (const auto res = glfwCreateWindowSurface(instance, handle, nullptr, &surface);
       res != VK_SUCCESS) {
@@ -92,14 +92,19 @@ vk::UniqueSurfaceKHR pf::GlfwWindow::createVulkanSurface(const vk::Instance &ins
       vk::ObjectDestroy<vk::Instance, VULKAN_HPP_DEFAULT_DISPATCHER_TYPE>(instance);
   return vk::UniqueSurfaceKHR(surface, surfaceDeleter);
 }
-std::unordered_set<std::string> pf::GlfwWindow::requiredVulkanExtensions() {
+std::unordered_set<std::string> GlfwWindow::requiredVulkanExtensions() {
   auto extensionCount = uint32_t{};
   const char **extensions;
   extensions = glfwGetRequiredInstanceExtensions(&extensionCount);
   return std::unordered_set<std::string>(extensions, extensions + extensionCount);
 }
 
-std::optional<pf::events::MouseButton> pf::glfwButtonToEvents(int button) {
+void GlfwWindow::resizeCallback(GLFWwindow *window, int width, int height) {
+  auto self = reinterpret_cast<GlfwWindow *>(glfwGetWindowUserPointer(window));
+  self->resizeFnc({static_cast<std::size_t>(width), static_cast<std::size_t>(height)});
+}
+
+std::optional<events::MouseButton> glfwButtonToEvents(int button) {
   switch (button) {
     case GLFW_MOUSE_BUTTON_LEFT: return events::MouseButton::Left;
     case GLFW_MOUSE_BUTTON_MIDDLE: return events::MouseButton::Middle;
@@ -107,11 +112,13 @@ std::optional<pf::events::MouseButton> pf::glfwButtonToEvents(int button) {
     default: return std::nullopt;
   }
 }
-std::optional<pf::events::KeyEventType> pf::glfwKeyEventToEvents(int key_event) {
+std::optional<events::KeyEventType> glfwKeyEventToEvents(int key_event) {
   switch (key_event) {
     case GLFW_PRESS: return events::KeyEventType::Pressed;
     case GLFW_REPEAT: return events::KeyEventType::Repeat;
     case GLFW_RELEASE: return events::KeyEventType::Up;
     default: return std::nullopt;
   }
+}
+
 }

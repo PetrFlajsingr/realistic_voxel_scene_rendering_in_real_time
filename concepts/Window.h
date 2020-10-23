@@ -50,10 +50,12 @@ class WindowData {
 
 template<typename T>
 concept Window = std::constructible_from<T, WindowSettings> &&requires(
-    T t, std::function<void()> callback, Resolution res, Mode mod, std::string title) {
+    T t, std::function<void()> callback, Resolution res, Mode mod, std::string title,
+    std::function<void(Resolution)> resizeCallback) {
   { t.init() }
   ->std::same_as<std::optional<std::string>>;
   {t.setMainLoopCallback(callback)};
+  {t.setResizeCallback(resizeCallback)};
   {t.mainLoop()};
   {t.setResolution(res)};
   {t.setMode(mod)};
