@@ -17,7 +17,14 @@ void ImGuiContainer::addChild(std::shared_ptr<ImGuiElement> child) {
 }
 
 void ImGuiContainer::removeChild(const std::string &name) { children.erase(name); }
-const std::map<std::string, std::shared_ptr<ImGuiElement>> &ImGuiContainer::getChildren() const {
+const std::map<std::string, std::shared_ptr<ImGuiElement>> &ImGuiContainer::getChildren()  {
+  std::ranges::for_each(childrenToRemove, [this] (const auto &name) {
+    removeChild(name);
+  });
+  childrenToRemove.clear();
   return children;
+}
+void ImGuiContainer::enqueueChildRemoval(const std::string &name) {
+  childrenToRemove.emplace_back(name);
 }
 }// namespace pf::ui

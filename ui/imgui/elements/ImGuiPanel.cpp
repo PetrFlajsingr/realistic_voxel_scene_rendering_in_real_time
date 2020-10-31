@@ -10,7 +10,8 @@
 namespace pf::ui {
 
 ImGuiPanel::ImGuiPanel(const std::string &elementName, std::string title, const ImVec2 &panelSize)
-    : ImGuiContainer(elementName), title(std::move(title)), size(panelSize) {}
+    : ImGuiElement(elementName), ImGuiContainer(elementName), title(std::move(title)),
+      size(panelSize) {}
 
 void ImGuiPanel::render() {
   ImGui::BeginChild(title.c_str(), size);

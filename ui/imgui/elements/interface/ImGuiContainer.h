@@ -12,7 +12,7 @@
 #include <string>
 
 namespace pf::ui {
-class ImGuiContainer : public ImGuiElement {
+class ImGuiContainer : public virtual ImGuiElement {
  public:
   explicit ImGuiContainer(const std::string &elementName);
   template<typename T, typename... Args>
@@ -25,6 +25,8 @@ class ImGuiContainer : public ImGuiElement {
   void addChild(std::shared_ptr<ImGuiElement> child);
   void removeChild(const std::string &name);
 
+  void enqueueChildRemoval(const std::string &name);
+
   template<std::derived_from<ImGuiElement> T>
   [[nodiscard]] std::shared_ptr<T> childByName(const std::string &name) {
     if (const auto iter = children.find(name); iter != children.end()) {
@@ -36,10 +38,11 @@ class ImGuiContainer : public ImGuiElement {
     throw StackTraceException::fmt("Child not found: '{}' in '{}'", name, getName());
   }
 
-  [[nodiscard]] const std::map<std::string, std::shared_ptr<ImGuiElement>> &getChildren() const;
+  [[nodiscard]] const std::map<std::string, std::shared_ptr<ImGuiElement>> &getChildren();
 
  private:
   std::map<std::string, std::shared_ptr<ImGuiElement>> children;
+  std::vector<std::string> childrenToRemove;
 };
 
 }// namespace pf::ui

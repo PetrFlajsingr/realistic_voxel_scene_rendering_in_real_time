@@ -6,6 +6,7 @@
 #define VOXEL_RENDER_IMGUIBASE_H
 
 #include "../vulkan/types/CommandBuffer.h"
+#include "elements/ImGuiDialog.h"
 #include "elements/interface/ImGuiContainer.h"
 #include <imgui.h>
 namespace pf::ui {
@@ -18,10 +19,13 @@ class ImGuiInterface : public ImGuiContainer {
 
   [[nodiscard]] ImGuiIO &getIo() const;
 
+  std::shared_ptr<ImGuiDialog> createDialog(const std::string &elementName,
+                                            const std::string &caption, Modal modal = Modal::Yes);
+
  private:
   static ImGuiIO &baseInit(ImGuiConfigFlags flags);
   ImGuiIO &io;
 };
 
-}
+}// namespace pf::ui
 #endif//VOXEL_RENDER_IMGUIBASE_H

@@ -4,12 +4,12 @@
 
 #include "ImGuiWindow.h"
 #include <algorithm>
-#include <utility>
 #include <imgui.h>
+#include <utility>
 namespace pf::ui {
 
 ImGuiWindow::ImGuiWindow(const std::string &elementName, std::string title)
-    : ImGuiContainer(elementName), title(std::move(title)) {}
+    : ImGuiElement(elementName), ImGuiContainer(elementName), title(std::move(title)) {}
 
 void ImGuiWindow::render() {
   ImGui::Begin(title.c_str());
