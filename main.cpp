@@ -45,7 +45,6 @@ void createLogger(argparse::ArgumentParser &argument_parser) {
   pf::initGlobalLogger(loggerSettings);
 }
 
-#include "threading/ThreadPool.h"
 
 int main(int argc, char *argv[]) {
   using namespace pf;

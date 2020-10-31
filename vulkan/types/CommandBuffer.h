@@ -34,19 +34,24 @@ struct DrawCommand {
 class CommandBufferRecording {
  public:
   explicit CommandBufferRecording(CommandBuffer &buffer);
+  CommandBufferRecording(const CommandBufferRecording&) = delete;
+  CommandBufferRecording &operator=(const CommandBufferRecording&) = delete;
+  CommandBufferRecording(CommandBufferRecording &&other)  noexcept;
+  CommandBufferRecording &operator=(CommandBufferRecording &&other)  noexcept;
   ~CommandBufferRecording();
 
-  CommandBufferRecording & beginRenderPass(ClearFrameBuffersCommand &&cmd);
-  CommandBufferRecording & endRenderPass();
+  CommandBufferRecording &beginRenderPass(ClearFrameBuffersCommand &&cmd);
+  CommandBufferRecording &endRenderPass();
+  [[nodiscard]] CommandBuffer &getCommandBuffer();
 
-  CommandBufferRecording & bindPipeline(vk::PipelineBindPoint bindPoint, GraphicsPipeline &pipeline);
-  CommandBufferRecording & draw(DrawCommand &&cmd);
-
+  CommandBufferRecording &bindPipeline(vk::PipelineBindPoint bindPoint, GraphicsPipeline &pipeline);
+  CommandBufferRecording &draw(DrawCommand &&cmd);
 
   void end();
+
  private:
   bool isValid = true;
-  CommandBuffer &owner;
+  std::reference_wrapper<CommandBuffer> owner;
 };
 
 struct CommandSubmitConfig {
@@ -66,8 +71,6 @@ class CommandBuffer : public VulkanObject, public PtrConstructible<CommandBuffer
   CommandBuffer &operator=(const CommandBuffer &other) = delete;
 
   CommandBufferRecording begin(vk::CommandBufferUsageFlagBits flag);
-  void reset();
-
   [[nodiscard]] CommandPool &getCommandPool();
 
   [[nodiscard]] const vk::CommandBuffer &getVkBuffer() const;
@@ -84,6 +87,6 @@ class CommandBuffer : public VulkanObject, public PtrConstructible<CommandBuffer
   std::shared_ptr<CommandPool> commandPool;
   bool isRecording = false;
 };
-}
+}// namespace pf::vulkan
 
 #endif//VOXEL_RENDER_COMMANDBUFFER_H

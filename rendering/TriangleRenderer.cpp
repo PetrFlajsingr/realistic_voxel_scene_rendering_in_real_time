@@ -55,3 +55,10 @@ vk::Format pf::TriangleRenderer::getDepthFormat() {
   }
   throw std::runtime_error("failed to find supported format!");
 }
+pf::TriangleRenderer::~TriangleRenderer() {
+  if (vkLogicalDevice == nullptr) {
+    return;
+  }
+  log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
+  vkLogicalDevice->wait();
+}

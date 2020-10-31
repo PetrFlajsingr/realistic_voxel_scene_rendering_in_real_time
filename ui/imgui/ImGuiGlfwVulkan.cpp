@@ -18,24 +18,24 @@ void checkVkResult(VkResult err) {
 }// namespace details
 
 ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
+                                 std::shared_ptr<vulkan::RenderPass> pass,
                                  std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
                                  ImGuiConfigFlags flags)
-    : ImGuiBase(flags), logicalDevice(std::move(device)), surface(std::move(surf)),
-      swapChain(std::move(swapCh))  {
+    : ImGuiBase(flags), logicalDevice(std::move(device)), renderPass(std::move(pass)),
+      surface(std::move(surf)), swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
   const auto imageCount = swapChain->getImageViews().size();
 
   setupDescriptorPool();
-  setupRenderPass();
   ImGui_ImplGlfw_InitForVulkan(handle, true);
-  ImGui_ImplVulkan_InitInfo init_info = {};
+  auto init_info = ImGui_ImplVulkan_InitInfo();
   init_info.Instance = *physicalDevice.getInstance();
   init_info.PhysicalDevice = *physicalDevice;
   init_info.Device = **logicalDevice;
   init_info.QueueFamily = logicalDevice->getQueueIndices()[vk::QueueFlagBits::eGraphics];
-  init_info.Queue = logicalDevice->getQueue(vk::QueueFlagBits::eGraphics);
+  init_info.Queue = logicalDevice->getPresentQueue();
   init_info.PipelineCache = VK_NULL_HANDLE;
   init_info.DescriptorPool = **descriptorPool;
   init_info.Allocator = nullptr;
@@ -46,9 +46,8 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
 
   uploadFonts();
 
-  swapChain->addRebuildListener([&] {
-    ImGui_ImplVulkan_SetMinImageCount(swapChain->getImageViews().size());
-  });
+  swapChain->addRebuildListener(
+      [&] { ImGui_ImplVulkan_SetMinImageCount(swapChain->getImageViews().size()); });
 }
 
 void ImGuiGlfwVulkan::setupDescriptorPool() {
@@ -70,34 +69,6 @@ void ImGuiGlfwVulkan::setupDescriptorPool() {
   descriptorPool = logicalDevice->createDescriptorPool(std::move(descPoolConfig));
 }
 
-void ImGuiGlfwVulkan::setupRenderPass() {
-  // clang-format off
-  renderPass = vulkan::RenderPassBuilder(logicalDevice)
-                  .attachment("a1")
-                    .format(swapChain->getFormat())
-                    .samples(vk::SampleCountFlagBits::e1)
-                    .loadOp(vk::AttachmentLoadOp::eLoad)
-                    .storeOp(vk::AttachmentStoreOp::eStore)
-                    .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                    .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                    .initialLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                    .finalLayout(vk::ImageLayout::ePresentSrcKHR)
-                  .attachmentDone()
-                  .subpass("s1")
-                    .colorAttachment("a1")
-                    .dependency()
-                      .srcSubpass()
-                      .dstSubpass("s1")
-                      .srcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                      .dstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                      .srcAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
-                      .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
-                    .dependencyDone()
-                  .subpassDone()
-                  .build();
-  // clang-format on
-}
-
 void ImGuiGlfwVulkan::uploadFonts() {
   auto commandPoolConfig = vulkan::CommandPoolConfig();
   commandPoolConfig.queueFamily = vk::QueueFlagBits::eGraphics;
@@ -112,12 +83,16 @@ void ImGuiGlfwVulkan::uploadFonts() {
   ImGui_ImplVulkan_CreateFontsTexture(**commandBuffer);
   recorder.end();
 
+  auto fence = logicalDevice->createFence({.flags = {}});
 
-  // TODO
-  /*auto commandSubmitConfig = vulkan::MultiCommandSubmitConfig();
-  commandSubmitConfig.commandBuffers = {*commandBuffer};
-  commandSubmitConfig.wait = true;
-  commandPool->submitCommandBuffers(commandSubmitConfig);*/
+  commandPool->submitCommandBuffers({.commandBuffers = {*commandBuffer},
+                                     .waitSemaphores = {},
+                                     .signalSemaphores = {},
+                                     .flags = {},
+                                     .fence = *fence,
+                                     .wait = true});
+
+  logicalDevice->wait();
 
   ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
@@ -125,8 +100,19 @@ void ImGuiGlfwVulkan::render() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
-  ImGui::ShowTestWindow();
+  ImGui::ShowDemoWindow();
   ImGui::Render();
+}
+
+ImGuiGlfwVulkan::~ImGuiGlfwVulkan() {
+  logicalDevice->wait();
+  ImGui_ImplVulkan_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+}
+
+void ImGuiGlfwVulkan::addToCommandBuffer(vulkan::CommandBufferRecording &recording) {
+  ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *recording.getCommandBuffer());
 }
 
 }// namespace pf::ui

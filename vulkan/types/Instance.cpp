@@ -35,6 +35,7 @@ Instance::Instance(InstanceConfig config) {
   if (validationLayersEnabled) {
     log(spdlog::level::info, VK_TAG, "Validation layers are enabled.");
     config.requiredWindowExtensions.emplace(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    config.requiredWindowExtensions.emplace("VK_EXT_debug_report");
     debugCallback = config.callback.value();
   }
 

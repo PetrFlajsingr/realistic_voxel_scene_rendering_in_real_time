@@ -23,6 +23,12 @@ using namespace pf::vulkan::literals;
 namespace pf {
 class TriangleRenderer {
  public:
+  TriangleRenderer() = default;
+  TriangleRenderer(TriangleRenderer &&other) = default;
+  TriangleRenderer &operator=(TriangleRenderer &&other) = default;
+  TriangleRenderer(const TriangleRenderer &) = delete;
+  TriangleRenderer &operator=(const TriangleRenderer &) = delete;
+
   template<pf::ui::Window Window>
   void init(Window &window) {
     using namespace vulkan;
@@ -145,27 +151,17 @@ class TriangleRenderer {
                     .build(vkRenderPass);
     // clang-format on
 
+    imgui =
+        std::make_unique<ui::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                              window.getHandle(), ImGuiConfigFlags{});
+
     vkCommandPool = vkLogicalDevice->createCommandPool(
-        {.queueFamily = vk::QueueFlagBits::eGraphics, .flags = {}});
+        {.queueFamily = vk::QueueFlagBits::eGraphics,
+         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
     vkCommandBuffers = vkCommandPool->createCommandBuffers(
         {.level = vk::CommandBufferLevel::ePrimary,
          .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
-
-    for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
-      auto clearValues = std::vector<vk::ClearValue>(2);
-      clearValues[0].setColor({std::array<float, 4>{0.f, 1.f, 0.f, 0.f}});
-      clearValues[1].setDepthStencil({1.f, 0});
-      vkCommandBuffers[i]
-          ->begin(vk::CommandBufferUsageFlagBits::eRenderPassContinue)
-          .beginRenderPass({.renderPass = *vkRenderPass,
-                            .frameBuffer = *vkSwapChain->getFrameBuffers()[i],
-                            .clearValues = clearValues,
-                            .extent = vkSwapChain->getExtent()})
-          .bindPipeline(vk::PipelineBindPoint::eGraphics, *vkGraphicsPipeline)
-          .draw({3, 1, 0, 0})
-          .endRenderPass();
-    }
 
     std::ranges::generate_n(std::back_inserter(renderSemaphores),
                             vkSwapChain->getFrameBuffers().size(),
@@ -173,14 +169,40 @@ class TriangleRenderer {
     std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(), [&] {
       return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
     });
-
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
 
     window.setMainLoopCallback([&] { render(); });
   }
 
+  void updateCommandBuffer() {
+    for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
+      auto clearValues = std::vector<vk::ClearValue>(2);
+      clearValues[0].setColor({std::array<float, 4>{0.f, 1.f, 0.f, 0.f}});
+      clearValues[1].setDepthStencil({1.f, 0});
+      auto recorder =
+          vkCommandBuffers[i]->begin(vk::CommandBufferUsageFlagBits::eRenderPassContinue);
+      recorder
+          .beginRenderPass({.renderPass = *vkRenderPass,
+                            .frameBuffer = *vkSwapChain->getFrameBuffers()[i],
+                            .clearValues = clearValues,
+                            .extent = vkSwapChain->getExtent()})
+          .bindPipeline(vk::PipelineBindPoint::eGraphics, *vkGraphicsPipeline)
+          .draw({3, 1, 0, 0});
+      imgui->addToCommandBuffer(recorder);
+
+      recorder.endRenderPass();
+    }
+  }
+
+  ~TriangleRenderer();
+
   void render() {
     vkSwapChain->swap();
+
+    imgui->render();
+
+    updateCommandBuffer();
+
     auto &semaphore = vkSwapChain->getCurrentSemaphore();
     auto &fence = vkSwapChain->getCurrentFence();
     const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
@@ -192,7 +214,7 @@ class TriangleRenderer {
          .signalSemaphores = {*renderSemaphores[frameIndex]},
          .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
          .fence = fence,
-         .wait = false});
+         .wait = true});
 
     vkSwapChain->present(vulkan::PresentConfig{.waitSemaphores = {*renderSemaphores[frameIndex]},
                                                .presentQueue = vkLogicalDevice->getPresentQueue()});
@@ -221,6 +243,10 @@ class TriangleRenderer {
 
   std::shared_ptr<vulkan::Shader> vertShader;
   std::shared_ptr<vulkan::Shader> fragShader;
+
+  std::unique_ptr<ui::ImGuiBase> imgui;
+
+  bool isMoved = false;
 };
 
 }// namespace pf

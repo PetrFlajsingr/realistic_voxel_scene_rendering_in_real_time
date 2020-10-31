@@ -16,15 +16,18 @@ namespace pf::ui {
 
 class ImGuiGlfwVulkan : public ImGuiBase {
  public:
-  ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
+  ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device, std::shared_ptr<vulkan::RenderPass> pass,
                   std::shared_ptr<vulkan::Surface> surf, std::shared_ptr<vulkan::SwapChain> swapCh,
                   GLFWwindow *handle, ImGuiConfigFlags flags);
+
+  void addToCommandBuffer(vulkan::CommandBufferRecording &recording) override;
+
+  ~ImGuiGlfwVulkan() override;
 
   void render() override;
 
  private:
   void setupDescriptorPool();
-  void setupRenderPass();
   void uploadFonts();
   std::shared_ptr<vulkan::DescriptorPool> descriptorPool;
   std::shared_ptr<vulkan::LogicalDevice> logicalDevice;

@@ -17,7 +17,10 @@ concept Iterable = requires(T t) {
 template<typename T, typename ValueType>
 concept Iterable_of = Iterable<T> &&requires(T t) {
   { *std::begin(t) }
-  ->std::same_as<ValueType>;
+  ->std::convertible_to<ValueType>;
 };
+
+template <Iterable T>
+using IterableValueType = decltype(*std::begin(std::declval<T>()));
 
 #endif//VOXEL_RENDER_ITERABLE_H

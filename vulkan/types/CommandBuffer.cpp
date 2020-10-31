@@ -13,14 +13,14 @@
 namespace pf::vulkan {
 
 CommandBufferRecording::CommandBufferRecording(CommandBuffer &buffer) : owner(buffer) {
-  owner.isRecording = true;
+  owner.get().isRecording = true;
 }
 
 void CommandBufferRecording::end() {
   if (!isValid) { throw VulkanException("Command buffer recording has been ended already"); }
   isValid = false;
-  owner->end();
-  owner.isRecording = false;
+  owner.get()->end();
+  owner.get().isRecording = false;
 }
 
 CommandBufferRecording::~CommandBufferRecording() {
@@ -33,22 +33,36 @@ CommandBufferRecording &CommandBufferRecording::beginRenderPass(ClearFrameBuffer
   renderPassInfo.renderArea = vk::Rect2D{{0, 0}, cmd.extent};
   renderPassInfo.setClearValues(cmd.clearValues);
   renderPassInfo.framebuffer = *cmd.frameBuffer.get(cmd.renderPass);
-  owner->beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+  owner.get()->beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
   return *this;
 }
 
 CommandBufferRecording &CommandBufferRecording::endRenderPass() {
-  owner->endRenderPass();
+  owner.get()->endRenderPass();
   return *this;
 }
 
 CommandBufferRecording &CommandBufferRecording::bindPipeline(vk::PipelineBindPoint bindPoint,
                                                              GraphicsPipeline &pipeline) {
-  owner->bindPipeline(bindPoint, *pipeline);
+  owner.get()->bindPipeline(bindPoint, *pipeline);
   return *this;
 }
 CommandBufferRecording &CommandBufferRecording::draw(DrawCommand &&cmd) {
-  owner->draw(cmd.vertexCount, cmd.instanceCount, cmd.vertexOffset, cmd.instanceOffset);
+  owner.get()->draw(cmd.vertexCount, cmd.instanceCount, cmd.vertexOffset, cmd.instanceOffset);
+  return *this;
+}
+CommandBuffer &CommandBufferRecording::getCommandBuffer() {
+  return owner.get();
+}
+CommandBufferRecording::CommandBufferRecording(CommandBufferRecording &&other) noexcept
+    : owner(other.owner)  {
+  other.isValid = false;
+  isValid = true;
+}
+CommandBufferRecording &CommandBufferRecording::operator=(CommandBufferRecording &&other) noexcept {
+  other.isValid = false;
+  owner = other.owner;
+  isValid = true;
   return *this;
 }
 
@@ -72,7 +86,6 @@ const vk::CommandBuffer &CommandBuffer::operator*() const { return *vkBuffer; }
 vk::CommandBuffer const *CommandBuffer::operator->() const { return &*vkBuffer; }
 
 CommandPool &CommandBuffer::getCommandPool() { return *commandPool; }
-void CommandBuffer::reset() { vkBuffer.reset(); }
 
 void CommandBuffer::submit(CommandSubmitConfig &&config) {
   commandPool->submitCommandBuffers({.commandBuffers = {*this},
