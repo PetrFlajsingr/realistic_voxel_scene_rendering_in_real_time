@@ -2,12 +2,12 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SOMELEVELSSINK_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SOMELEVELSSINK_H
+#ifndef VOXEL_RENDER_SOMELEVELSSINK_H
+#define VOXEL_RENDER_SOMELEVELSSINK_H
 
 #include "../concepts/Iterable.h"
-#include "../utils.h"
 #include "spdlog/sinks/sink.h"
+#include "../utils/algorithms.h"
 
 template<std::derived_from<spdlog::sinks::sink> Sink>
 class SomeLevelsSink : public Sink {
@@ -29,4 +29,4 @@ class SomeLevelsSink : public Sink {
   std::vector<spdlog::level::level_enum> allowed_levels;
 };
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SOMELEVELSSINK_H
+#endif//VOXEL_RENDER_SOMELEVELSSINK_H

@@ -2,8 +2,8 @@
 // Created by petr on 9/23/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_STACKTRACEEXCEPTION_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_STACKTRACEEXCEPTION_H
+#ifndef VOXEL_RENDER_STACKTRACEEXCEPTION_H
+#define VOXEL_RENDER_STACKTRACEEXCEPTION_H
 
 #include "fmt/format.h"
 #include <exception>
@@ -44,4 +44,6 @@ class NotImplementedException : public StackTraceException {
 
 std::vector<TraceData> getTrace(std::size_t skipN = 0);
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_STACKTRACEEXCEPTION_H
+std::string traceToString(const std::vector<TraceData> &traceData);
+
+#endif//VOXEL_RENDER_STACKTRACEEXCEPTION_H

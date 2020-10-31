@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GLFWWINDOW_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GLFWWINDOW_H
+#ifndef VOXEL_RENDER_GLFWWINDOW_H
+#define VOXEL_RENDER_GLFWWINDOW_H
 
 #include "../concepts/Window.h"
 #include "../coroutines/Sequence.h"
@@ -15,7 +15,7 @@
 #include <concepts>
 #include <unordered_map>
 
-namespace pf::window {
+namespace pf::ui {
 class GlfwWindow final : public WindowData, public events::EventDispatchImpl {
  public:
   explicit GlfwWindow(const WindowSettings &settings);
@@ -28,6 +28,8 @@ class GlfwWindow final : public WindowData, public events::EventDispatchImpl {
 
   vk::UniqueSurfaceKHR createVulkanSurface(const vk::Instance &instance);
   static std::unordered_set<std::string> requiredVulkanExtensions();
+
+  GLFWwindow *getHandle() const;
 
  private:
   static void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods);
@@ -46,5 +48,5 @@ std::optional<events::KeyEventType> glfwKeyEventToEvents(int key_event);
 
 std::ostream &operator<<(std::ostream &os, const GlfwWindow &window);
 static_assert(Window<GlfwWindow>);
-}// namespace pf::window
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_GLFWWINDOW_H
+}// namespace pf::ui
+#endif//VOXEL_RENDER_GLFWWINDOW_H

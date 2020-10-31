@@ -2,8 +2,8 @@
 // Created by petr on 9/25/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKANEXCEPTION_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKANEXCEPTION_H
+#ifndef VOXEL_RENDER_VULKANEXCEPTION_H
+#define VOXEL_RENDER_VULKANEXCEPTION_H
 
 #include "../exceptions/StackTraceException.h"
 
@@ -16,4 +16,4 @@ class VulkanException : public StackTraceException {
   }
 };
 }// namespace pf::vulkan
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_VULKANEXCEPTION_H
+#endif//VOXEL_RENDER_VULKANEXCEPTION_H

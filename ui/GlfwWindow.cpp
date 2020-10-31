@@ -7,7 +7,7 @@
 #include <fmt/format.h>
 #include <magic_enum.hpp>
 
-namespace pf::window {
+namespace pf::ui {
 GlfwWindow::GlfwWindow(const WindowSettings &settings) : WindowData(settings) {}
 
 std::optional<std::string> GlfwWindow::init() {
@@ -103,6 +103,7 @@ void GlfwWindow::resizeCallback(GLFWwindow *window, int width, int height) {
   auto self = reinterpret_cast<GlfwWindow *>(glfwGetWindowUserPointer(window));
   self->resizeFnc({static_cast<std::size_t>(width), static_cast<std::size_t>(height)});
 }
+GLFWwindow *GlfwWindow::getHandle() const { return handle; }
 
 std::optional<events::MouseButton> glfwButtonToEvents(int button) {
   switch (button) {
@@ -121,4 +122,4 @@ std::optional<events::KeyEventType> glfwKeyEventToEvents(int key_event) {
   }
 }
 
-}
+}// namespace pf::ui

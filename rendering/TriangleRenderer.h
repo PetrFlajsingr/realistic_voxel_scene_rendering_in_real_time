@@ -2,20 +2,20 @@
 // Created by petr on 9/26/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TRIANGLERENDERER_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TRIANGLERENDERER_H
+#ifndef VOXEL_RENDER_TRIANGLERENDERER_H
+#define VOXEL_RENDER_TRIANGLERENDERER_H
 
 #include "../concepts/Window.h"
+#include "../coroutines/Sequence.h"
 #include "../logging/loggers.h"
-#include "../vulkan/types/DescriptorSetLayout.h"
-#include "../vulkan/types/Instance.h"
-#include "../vulkan/types/PhysicalDevice.h"
-#include "../vulkan/types/RenderPass.h"
-#include "../vulkan/types/Shader.h"
-#include "../vulkan/types/Surface.h"
-#include "../vulkan/types/SwapChain.h"
-#include "../vulkan/types/VulkanCommon.h"
+#include "../ui/imgui/ImGuiGlfwVulkan.h"
+#include "../utils/common_enums.h"
+#include "../vulkan/types/builders/GraphicsPipelineBuilder.h"
 #include "../vulkan/types/builders/RenderPassBuilder.h"
+#include "../vulkan/types/types.h"
+#include "imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 #include <range/v3/view.hpp>
 
 using namespace pf::vulkan::literals;
@@ -23,7 +23,7 @@ using namespace pf::vulkan::literals;
 namespace pf {
 class TriangleRenderer {
  public:
-  template<pf::window::Window Window>
+  template<pf::ui::Window Window>
   void init(Window &window) {
     using namespace vulkan;
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
@@ -75,51 +75,28 @@ class TriangleRenderer {
     vkRenderPass = RenderPassBuilder(vkLogicalDevice)
                     .attachment("color")
                        .format(vkSwapChain->getFormat())
-                       .samples(vk::SampleCountFlagBits::e2)
+                       .samples(vk::SampleCountFlagBits::e1)
                        .loadOp(vk::AttachmentLoadOp::eClear)
                        .storeOp(vk::AttachmentStoreOp::eStore)
                        .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
                        .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                        .initialLayout(vk::ImageLayout::eUndefined)
-                       .finalLayout(vk::ImageLayout::eColorAttachmentOptimal)
-                    .attachmentDone()
-                    .attachment("depth")
-                      .format(getDepthFormat())
-                      .samples(vk::SampleCountFlagBits::e2)
-                      .loadOp(vk::AttachmentLoadOp::eClear)
-                      .storeOp(vk::AttachmentStoreOp::eDontCare)
-                      .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                      .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                      .initialLayout(vk::ImageLayout::eUndefined)
-                      .finalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                    .attachmentDone()
-                    .attachment("color_resolve")
-                      .format(vkSwapChain->getFormat())
-                      .samples(vk::SampleCountFlagBits::e1)
-                      .loadOp(vk::AttachmentLoadOp::eClear)
-                      .storeOp(vk::AttachmentStoreOp::eStore)
-                      .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-                      .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-                      .initialLayout(vk::ImageLayout::eUndefined)
-                      .finalLayout(vk::ImageLayout::ePresentSrcKHR)
+                       .finalLayout(vk::ImageLayout::ePresentSrcKHR)
                     .attachmentDone()
                     .subpass("main")
                       .pipelineBindPoint(vk::PipelineBindPoint::eGraphics)
                       .colorAttachment("color")
-                      .colorAttachment("depth")
-                      .colorAttachment("color_resolve")
                       .dependency()
                         .srcSubpass()
                         .dstSubpass("main")
                         .srcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
                         .dstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-                        .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite)
+                        .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
                       .dependencyDone()
                     .subpassDone()
                     .build();
     // clang-format on
-
-      vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
+    vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle vert",
         .type = ShaderType::Vertex,
         .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/shaders/"
@@ -134,18 +111,98 @@ class TriangleRenderer {
                 "triangle.frag",
         .macros = {},
         .replaceMacros = {}});
+    // clang-format off
+    vkGraphicsPipeline = GraphicsPipelineBuilder()
+                    .shader(*vertShader, "main")
+                    .shader(*fragShader, "main")
+                    .topology(vk::PrimitiveTopology::eTriangleList)
+                    .primitiveRestart(Enabled::No)
+                    .viewport({0.f,
+                                   0.f,
+                                   static_cast<float>(vkSwapChain->getExtent().width),
+                                   static_cast<float>(vkSwapChain->getExtent().height),
+                                   0.f,
+                                   1.f})
+                    .scissor({{0, 0},
+                                  vkSwapChain->getExtent()})
+                    .depthClamp(Enabled::No)
+                    .rastDiscard(Enabled::No)
+                    .polygonMode(vk::PolygonMode::eFill)
+                    .lineWidth(1.f)
+                    .cullMode(vk::CullModeFlagBits::eBack)
+                    .frontFace(vk::FrontFace::eClockwise)
+                    .depthBias(Enabled::No)
+                    .setMsSampleShading(Enabled::No)
+                    .rasterizationSamples(vk::SampleCountFlagBits::e1)
+                    .blend(Enabled::No)
+                    .blendColorMask(vk::ColorComponentFlagBits::eR
+                                    | vk::ColorComponentFlagBits::eG
+                                    | vk::ColorComponentFlagBits::eB
+                                    | vk::ColorComponentFlagBits::eA)
+                    .blendLogicOpEnabled(Enabled::No)
+                    .blendLogicOp(vk::LogicOp::eCopy)
+                    .blendConstants({{0.f, 0.f, 0.f, 0.f}})
+                    .build(vkRenderPass);
+    // clang-format on
 
     vkCommandPool = vkLogicalDevice->createCommandPool(
         {.queueFamily = vk::QueueFlagBits::eGraphics, .flags = {}});
+
+    vkCommandBuffers = vkCommandPool->createCommandBuffers(
+        {.level = vk::CommandBufferLevel::ePrimary,
+         .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
+
+    for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
+      auto clearValues = std::vector<vk::ClearValue>(2);
+      clearValues[0].setColor({std::array<float, 4>{0.f, 1.f, 0.f, 0.f}});
+      clearValues[1].setDepthStencil({1.f, 0});
+      vkCommandBuffers[i]
+          ->begin(vk::CommandBufferUsageFlagBits::eRenderPassContinue)
+          .beginRenderPass({.renderPass = *vkRenderPass,
+                            .frameBuffer = *vkSwapChain->getFrameBuffers()[i],
+                            .clearValues = clearValues,
+                            .extent = vkSwapChain->getExtent()})
+          .bindPipeline(vk::PipelineBindPoint::eGraphics, *vkGraphicsPipeline)
+          .draw({3, 1, 0, 0})
+          .endRenderPass();
+    }
+
+    std::ranges::generate_n(std::back_inserter(renderSemaphores),
+                            vkSwapChain->getFrameBuffers().size(),
+                            [&] { return vkLogicalDevice->createSemaphore(); });
+    std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(), [&] {
+      return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+    });
+
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
+
+    window.setMainLoopCallback([&] { render(); });
   }
 
-  void render() {}
+  void render() {
+    vkSwapChain->swap();
+    auto &semaphore = vkSwapChain->getCurrentSemaphore();
+    auto &fence = vkSwapChain->getCurrentFence();
+    const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
+    const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
+
+    fence.reset();
+    vkCommandBuffers[commandBufferIndex]->submit(
+        {.waitSemaphores = {semaphore},
+         .signalSemaphores = {*renderSemaphores[frameIndex]},
+         .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+         .fence = fence,
+         .wait = false});
+
+    vkSwapChain->present(vulkan::PresentConfig{.waitSemaphores = {*renderSemaphores[frameIndex]},
+                                               .presentQueue = vkLogicalDevice->getPresentQueue()});
+    vkSwapChain->frameDone();
+  }
 
  private:
-  bool debugCallback(const vulkan::DebugCallbackData &data,
-                     vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                     const vk::DebugUtilsMessageTypeFlagsEXT &);
+  static bool debugCallback(const vulkan::DebugCallbackData &data,
+                            vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                            const vk::DebugUtilsMessageTypeFlagsEXT &);
 
   vk::Format getDepthFormat();
 
@@ -155,12 +212,16 @@ class TriangleRenderer {
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
   std::shared_ptr<vulkan::SwapChain> vkSwapChain;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
+  std::shared_ptr<vulkan::GraphicsPipeline> vkGraphicsPipeline;
   std::shared_ptr<vulkan::CommandPool> vkCommandPool;
-  std::vector<std::shared_ptr<vulkan::FrameBuffer>> vkFrameBuffers;
+  std::vector<std::shared_ptr<vulkan::CommandBuffer>> vkCommandBuffers;
+
+  std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
+  std::vector<std::shared_ptr<vulkan::Fence>> fences;
 
   std::shared_ptr<vulkan::Shader> vertShader;
   std::shared_ptr<vulkan::Shader> fragShader;
 };
 
 }// namespace pf
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TRIANGLERENDERER_H
+#endif//VOXEL_RENDER_TRIANGLERENDERER_H

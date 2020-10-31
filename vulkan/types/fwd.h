@@ -2,8 +2,8 @@
 // Created by petr on 10/16/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FWD_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FWD_H
+#ifndef VOXEL_RENDER_FWD_H
+#define VOXEL_RENDER_FWD_H
 
 namespace pf::vulkan {
   class CommandPool;
@@ -24,6 +24,9 @@ namespace pf::vulkan {
   class SwapChain;
   class Buffer;
   class BufferView;
+  class DescriptorPool;
+  class Semaphore;
+  class Fence;
 }
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FWD_H
+#endif//VOXEL_RENDER_FWD_H

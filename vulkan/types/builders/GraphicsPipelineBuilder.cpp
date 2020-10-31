@@ -3,194 +3,279 @@
 //
 
 #include "GraphicsPipelineBuilder.h"
+#include "../GraphicsPipeline.h"
+#include "../LogicalDevice.h"
+#include "../RenderPass.h"
 
 namespace pf::vulkan {
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::vertexInBindDescription(
+    const vk::VertexInputBindingDescription &description) {
+  bindingDescriptions.emplace_back(description);
+  return *this;
+}
 
-GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setVertBindingDesc(const vk::VertexInputBindingDescription &description) {
-  bindingDescription = description;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setVertAttributeDesc(
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::vertexInAttrDescription(
     const vk::VertexInputAttributeDescription &description) {
-  inputAttributeDescription = description;
+  inputAttributeDescriptions.emplace_back(description);
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::addShader(Shader &sh) {
-  auto create_info = vk::PipelineShaderStageCreateInfo();
-  create_info.setStage(sh.getVkType())
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::shader(Shader &sh, const std::string &name) {
+  auto createInfo = vk::PipelineShaderStageCreateInfo();
+  createInfo.setStage(sh.getVkType())
       .setModule(sh.getShaderModule())
-      .setPName(sh.getName().c_str());
-  shaderStages.emplace_back(std::move(create_info));
+      .setPName(name.c_str());
+  shaderStages.emplace_back(std::move(createInfo));
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setTopology(const vk::PrimitiveTopology &top) {
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::topology(vk::PrimitiveTopology top) {
   primitiveTopology = top;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setPrimitiveRestart(bool enabled) {
-  primitiveRestartEnable = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::primitiveRestart(Enabled enabled) {
+  primitiveRestartEnable = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setViewport(const vk::Viewport &vp) {
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::viewport(const vk::Viewport &vp) {
   viewports.emplace_back(vp);
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setScissor(const vk::Rect2D &scis) {
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::scissor(const vk::Rect2D &scis) {
   scissors.emplace_back(scis);
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthClamp(bool enabled) {
-  depthClampEnabled = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthClamp(Enabled enabled) {
+  depthClampEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setRastDiscard(bool enabled) {
-  rasterizerDiscardEnabled = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::rastDiscard(Enabled enabled) {
+  rasterizerDiscardEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setPolygonMode(vk::PolygonMode mode) {
-  polygonMode = mode;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::polygonMode(vk::PolygonMode mode) {
+  polygonMode_ = mode;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setLineWidth(float width) {
-  lineWidth = width;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::lineWidth(float width) {
+  assert(width > 0);
+  lineWidth_ = width;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setCullMode(const vk::CullModeFlags &mode) {
-  cullMode = mode;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::cullMode(const vk::CullModeFlags &mode) {
+  cullMode_ = mode;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setFrontFace(vk::FrontFace face) {
-  frontFace = face;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::frontFace(vk::FrontFace face) {
+  frontFace_ = face;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthBias(bool enabled) {
-  depthBiasEnabled = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthBias(Enabled enabled) {
+  depthBiasEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthBiasConstFactor(float factor) {
-  depthBiasConstFactor = factor;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthBiasConstFactor(float factor) {
+  depthBiasConstFactor_ = factor;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthBiasClamp(float clamp) {
-  depthBiasClamp = clamp;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthBiasClamp(float clamp) {
+  depthBiasClamp_ = clamp;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthBiasSlopeFactor(float factor) {
-  depthBiasSlopeFactor = factor;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthBiasSlopeFactor(float factor) {
+  depthBiasSlopeFactor_ = factor;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setMsSampleShading(bool enabled) {
-  msSampleShadingEnabled = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::setMsSampleShading(Enabled enabled) {
+  msSampleShadingEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setMsSamples(vk::SampleCountFlagBits count) {
-  msSampleCount = count;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::msSampleCount(vk::SampleCountFlagBits count) {
+  msSampleCount_ = count;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setMsMinSampleShading(float min) {
-  msMinSampleShading = min;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::msMinSampleShading(float min) {
+  msMinSampleShading_ = min;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setMsSampleMask(vk::SampleMask mask) {
-  msSampleMask = mask;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::msSampleMask(vk::SampleMask mask) {
+  msSampleMask_ = mask;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setMsAlphaToOne(bool enabled) {
-  msAlphaToOne = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::msAlphaToOne(Enabled enabled) {
+  msAlphaToOneEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlend(bool enabled) {
-  blendEnabled = enabled;
-  return *this;
-}
-GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setBlendColorMask(const vk::ColorComponentFlags &components) {
-  blendColorMask = components;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlendSrcFactor(vk::BlendFactor factor) {
-  blendSrcFactor = factor;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlendDstFactor(vk::BlendFactor factor) {
-  blendDstFactor = factor;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlendColorOp(vk::BlendOp op) {
-  blendColorOp = op;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blend(Enabled enabled) {
+  blendEnabled = enabled == Enabled::Yes;
   return *this;
 }
 GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setBlendSrcAlphaBlendFactor(vk::BlendFactor factor) {
-  blendSrcAlphaBlendFactor = factor;
+GraphicsPipelineBuilder::blendColorMask(const vk::ColorComponentFlags &components) {
+  blendColorMask_ = components;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendSrcFactor(vk::BlendFactor factor) {
+  blendSrcFactor_ = factor;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendDstFactor(vk::BlendFactor factor) {
+  blendDstFactor_ = factor;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendColorOp(vk::BlendOp op) {
+  blendColorOp_ = op;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendSrcAlphaBlendFactor(vk::BlendFactor factor) {
+  blendSrcAlphaBlendFactor_ = factor;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendDstAlphaBlendFactor(vk::BlendFactor factor) {
+  blendDstAlphaBlendFactor_ = factor;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendAlphaBlendOp(vk::BlendOp op) {
+  blendAlphaBlendOp_ = op;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendLogicOpEnabled(Enabled enabled) {
+  blendLogicOpEnabled_ = enabled == Enabled::Yes;
+  return *this;
+}
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::blendLogicOp(vk::LogicOp op) {
+  blendLogicOp_ = op;
   return *this;
 }
 GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setBlendDstAlphaBlendFactor(vk::BlendFactor factor) {
-  blendDstAlphaBlendFactor = factor;
+GraphicsPipelineBuilder::blendConstants(const std::array<float, 4> &constants) {
+  blendConstants_ = constants;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlendAlphaBlendOp(vk::BlendOp op) {
-  blendAlphaBlendOp = op;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::dynamicState(vk::DynamicState state) {
+  dynamicState_ = state;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlendLogicOpEnabled(bool enabled) {
-  blendLogicOpEnabled = enabled;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthWrite(Enabled enabled) {
+  depthWriteEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setBlendLogicOp(vk::LogicOp op) {
-  blendLogicOp = op;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthCompareOp(vk::CompareOp op) {
+  depthCompareOp_ = op;
   return *this;
 }
-GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setBlendConstants(const std::array<float, 4> &constants) {
-  blendConstants = constants;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthBoundTest(Enabled enabled) {
+  depthBoundTestEnabled = enabled == Enabled::Yes;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDynamicState(vk::DynamicState state) {
-  dynamicState = state;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthMin(float min) {
+  depthMin_ = min;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthWrite(bool enabled) {
-  depthWriteEnabled = enabled;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthCompareOp(vk::CompareOp op) {
-  depthCompareOp = op;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthBoundTest(bool enabled) {
-  depthBoundTestEnabled = enabled;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthMin(float min) {
-  depthMin = min;
-  return *this;
-}
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDepthMax(float max) {
-  depthMax = max;
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::depthMax(float max) {
+  depthMax_ = max;
   return *this;
 }
 GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setDepthFront(const std::vector<vk::StencilOpState> &states) {
+GraphicsPipelineBuilder::depthFront(const std::vector<vk::StencilOpState> &states) {
   depthFrontStates = states;
   return *this;
 }
 GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setDepthBack(const std::vector<vk::StencilOpState> &states) {
+GraphicsPipelineBuilder::depthBack(const std::vector<vk::StencilOpState> &states) {
   depthBackStates = states;
   return *this;
 }
-GraphicsPipelineBuilder &GraphicsPipelineBuilder::setDescriptorSetLayouts(
+GraphicsPipelineBuilder &GraphicsPipelineBuilder::descriptorSetLayouts(
     const std::vector<std::reference_wrapper<DescriptorSetLayout>> &layouts) {
-  descriptorSetLayouts = layouts;
+  descriptorSetLayouts_ = layouts;
+  return *this;
+}
+
+GraphicsPipelineBuilder &
+GraphicsPipelineBuilder::pushConstRange(const std::vector<vk::PushConstantRange> &range) {
+  pushConstRange_ = range;
   return *this;
 }
 GraphicsPipelineBuilder &
-GraphicsPipelineBuilder::setPushConstRange(const std::vector<vk::PushConstantRange> &range) {
-  pushConstRange = range;
+GraphicsPipelineBuilder::rasterizationSamples(vk::SampleCountFlagBits samples) {
+  rasterizationSamples_ = samples;
   return *this;
+}
+std::shared_ptr<GraphicsPipeline>
+GraphicsPipelineBuilder::build(std::shared_ptr<RenderPass> renderPass) {
+  auto vertexInputStateCreateInfo = vk::PipelineVertexInputStateCreateInfo();
+  vertexInputStateCreateInfo.setVertexAttributeDescriptions(inputAttributeDescriptions);
+  vertexInputStateCreateInfo.setVertexBindingDescriptions(bindingDescriptions);
+
+  auto vertexAssemblyStateCreateInfo = vk::PipelineInputAssemblyStateCreateInfo();
+  vertexAssemblyStateCreateInfo.topology = primitiveTopology;
+  vertexAssemblyStateCreateInfo.primitiveRestartEnable = primitiveRestartEnable;
+
+  auto viewportStateCreateInfo = vk::PipelineViewportStateCreateInfo();
+  viewportStateCreateInfo.setViewports(viewports);
+  viewportStateCreateInfo.setScissors(scissors);
+
+  auto rasterizationStateCreateInfo = vk::PipelineRasterizationStateCreateInfo();
+  rasterizationStateCreateInfo.depthClampEnable = depthClampEnabled;
+  rasterizationStateCreateInfo.rasterizerDiscardEnable = rasterizerDiscardEnabled;
+  rasterizationStateCreateInfo.polygonMode = polygonMode_;
+  rasterizationStateCreateInfo.lineWidth = lineWidth_;
+  rasterizationStateCreateInfo.cullMode = cullMode_;
+  rasterizationStateCreateInfo.frontFace = frontFace_;
+  rasterizationStateCreateInfo.depthBiasEnable = depthBiasEnabled;
+  rasterizationStateCreateInfo.depthBiasClamp = depthBiasClamp_;
+  rasterizationStateCreateInfo.depthBiasConstantFactor = depthBiasConstFactor_;
+  rasterizationStateCreateInfo.depthBiasSlopeFactor = depthBiasSlopeFactor_;
+
+  auto multisampleStateCreateInfo = vk::PipelineMultisampleStateCreateInfo();
+  // TODO multisampleStateCreateInfo.alphaToCoverageEnable =
+  multisampleStateCreateInfo.alphaToOneEnable = msAlphaToOneEnabled;
+  multisampleStateCreateInfo.sampleShadingEnable = msSampleShadingEnabled;
+  multisampleStateCreateInfo.minSampleShading = msMinSampleShading_;
+  multisampleStateCreateInfo.rasterizationSamples = rasterizationSamples_;
+
+  // TODO: multiple
+  auto colorBlendAttState = vk::PipelineColorBlendAttachmentState();
+  colorBlendAttState.blendEnable = blendEnabled;
+  colorBlendAttState.alphaBlendOp = blendAlphaBlendOp_;
+  colorBlendAttState.colorBlendOp = blendColorOp_;
+  colorBlendAttState.colorWriteMask = blendColorMask_;
+  colorBlendAttState.srcAlphaBlendFactor = blendSrcAlphaBlendFactor_;
+  colorBlendAttState.dstAlphaBlendFactor = blendDstAlphaBlendFactor_;
+  auto colorBlendAttachments = std::vector{colorBlendAttState};
+
+  auto colorBlendStateCreateInfo = vk::PipelineColorBlendStateCreateInfo();
+  colorBlendStateCreateInfo.logicOpEnable = blendLogicOpEnabled_;
+  colorBlendStateCreateInfo.logicOp = blendLogicOp_;
+  colorBlendStateCreateInfo.setAttachments(colorBlendAttachments);
+  colorBlendStateCreateInfo.setBlendConstants(blendConstants_);
+
+  // TODO
+  auto pipelineLayoutCreateInfo = vk::PipelineLayoutCreateInfo();
+  pipelineLayoutCreateInfo.setSetLayouts({});
+  pipelineLayoutCreateInfo.setPushConstantRanges({});
+
+  auto pipelineLayout =
+      renderPass->getLogicalDevice()->createPipelineLayoutUnique(pipelineLayoutCreateInfo);
+
+  auto graphicsPipelineCreateInfo = vk::GraphicsPipelineCreateInfo();
+  graphicsPipelineCreateInfo.setStages(shaderStages);
+  graphicsPipelineCreateInfo.pVertexInputState = &vertexInputStateCreateInfo;
+  graphicsPipelineCreateInfo.pInputAssemblyState = &vertexAssemblyStateCreateInfo;
+  graphicsPipelineCreateInfo.pViewportState = &viewportStateCreateInfo;
+  graphicsPipelineCreateInfo.pRasterizationState = &rasterizationStateCreateInfo;
+  graphicsPipelineCreateInfo.pMultisampleState = &multisampleStateCreateInfo;
+  graphicsPipelineCreateInfo.pColorBlendState = &colorBlendStateCreateInfo;
+  graphicsPipelineCreateInfo.layout = *pipelineLayout;
+  graphicsPipelineCreateInfo.renderPass = **renderPass;
+  graphicsPipelineCreateInfo.subpass = 0;
+
+  // TODO: cache
+  //auto pipelineCacheCreateInfo = vk::PipelineCacheCreateInfo();
+  //auto cache = renderPass->getLogicalDevice()->createPipelineCacheUnique(pipelineCacheCreateInfo);
+  auto graphicsPipeline = renderPass->getLogicalDevice()->createGraphicsPipelineUnique(
+      nullptr, graphicsPipelineCreateInfo);
+  return GraphicsPipeline::CreateShared(std::move(graphicsPipeline), std::move(pipelineLayout),
+                                        std::move(renderPass));
 }
 
 }// namespace pf::vulkan

@@ -23,8 +23,7 @@ StackTraceException::StackTraceException(std::string_view message) {
 
   const auto padding = std::string(CAUSED_BY.size(), ' ');
   for (const auto &[idx, trace] : ranges::views::enumerate(traces)) {
-    ss << fmt::format("{}#{} {} ({}:{})\n", padding, idx, trace.function, trace.file,
-                      trace.lineN);
+    ss << fmt::format("{}#{} {} ({}:{})\n", padding, idx, trace.function, trace.file, trace.lineN);
   }
   whatStacktrace = ss.str();
 }
@@ -43,6 +42,13 @@ std::vector<TraceData> getTrace(std::size_t skipN) {
     result.emplace_back(trace.source.filename, trace.object_function, trace.source.line);
   }
 
+  return result;
+}
+std::string traceToString(const std::vector<TraceData> &traceData) {
+  auto result = ""s;
+  for (const auto &[idx, trace] : ranges::views::enumerate(traceData)) {
+    result += fmt::format("{} {} ({}:{})\n", idx, trace.function, trace.file, trace.lineN);
+  }
   return result;
 }
 TraceData::TraceData(std::string filename, std::string fncName, uint32_t lineNumber)

@@ -2,10 +2,9 @@
 // Created by petr on 9/23/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGGERS_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGGERS_H
+#ifndef VOXEL_RENDER_LOGGERS_H
+#define VOXEL_RENDER_LOGGERS_H
 
-#include "../utils.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "spdlog/spdlog.h"
@@ -49,4 +48,4 @@ void logSrc(
 
 }// namespace pf
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGGERS_H
+#endif//VOXEL_RENDER_LOGGERS_H

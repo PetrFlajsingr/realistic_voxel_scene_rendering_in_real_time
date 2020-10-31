@@ -7,6 +7,9 @@
 #include "ui/GlfwWindow.h"
 #include <filesystem>
 #include <toml.hpp>
+#include <experimental/array>
+
+// TODO: change include guards - pragma once?
 
 argparse::ArgumentParser createArgumentParser() {
   auto argumentParser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
@@ -42,6 +45,7 @@ void createLogger(argparse::ArgumentParser &argument_parser) {
   pf::initGlobalLogger(loggerSettings);
 }
 
+#include "threading/ThreadPool.h"
 
 int main(int argc, char *argv[]) {
   using namespace pf;
@@ -60,14 +64,14 @@ int main(int argc, char *argv[]) {
 
     createLogger(argumentParser);
     auto resolutionConfig = config["ui"]["window"];
-    const auto windowSettings = window::WindowSettings{
+    const auto windowSettings = ui::WindowSettings{
         .resolution = {static_cast<std::size_t>(resolutionConfig["width"].as_integer()),
                        static_cast<std::size_t>(resolutionConfig["height"].as_integer())},
         .title = "test",
-        .mode = window::Mode::Windowed};
+        .mode = ui::Mode::Windowed};
 
-    auto app = application<GlfwWindow, pf::TriangleRenderer>(
-        pf::TriangleRenderer(),
+    auto app = application<ui::GlfwWindow, TriangleRenderer>(
+        TriangleRenderer(),
         application_settings{.debug = argumentParser.get<bool>("-d"),
                              .window_settings = windowSettings});
     app.run();

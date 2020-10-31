@@ -22,12 +22,12 @@ vk::Framebuffer const *details::FrameBufferInstance::operator->() const { return
 
 details::FrameBufferInstance::FrameBufferInstance(FrameBuffer &parent, RenderPass &renderPass,
                                                   SwapChain &swapChain, uint32_t width,
-                                                  uint32_t height, uint32_t layers)
+                                                  uint32_t height, uint32_t layers,
+                                                  std::size_t imageIdx)
     : owner(parent) {
   auto createInfo = vk::FramebufferCreateInfo();
   createInfo.renderPass = *renderPass;
-  auto attachments = swapChain.getImageViews()
-      | views::transform([](auto &imageView) { return **imageView; }) | to_vector;
+  auto attachments = std::vector{**swapChain.getImageViews()[imageIdx]};
   createInfo.setAttachments(attachments);
   createInfo.width = width;
   createInfo.height = height;
@@ -37,9 +37,10 @@ details::FrameBufferInstance::FrameBufferInstance(FrameBuffer &parent, RenderPas
 
 std::string details::FrameBufferInstance::info() const { return "Frame buffer accessor"; }
 
-FrameBuffer::FrameBuffer(std::shared_ptr<SwapChain> swap)
+FrameBuffer::FrameBuffer(std::shared_ptr<SwapChain> swap, std::size_t imageIdx)
     : swapChain(std::move(swap)), width(swapChain->getExtent().width),
-      height(swapChain->getExtent().height), layers(1), attachments(swapChain->getImageViews()) {}
+      height(swapChain->getExtent().height), layers(1), attachments(swapChain->getImageViews()),
+      imageIndex(imageIdx) {}
 
 std::string FrameBuffer::info() const { return "Vulkan frame buffer unique"; }
 
@@ -48,9 +49,9 @@ vk::Extent2D FrameBuffer::getExtent() const { return {width, height}; }
 details::FrameBufferInstance &FrameBuffer::get(RenderPass &renderPass) {
   if (auto iter = instances.find(&renderPass); iter != instances.end()) { return iter->second; }
   return instances
-      .try_emplace(
-          &renderPass,
-          details::FrameBufferInstance(*this, renderPass, *swapChain, width, height, layers))
+      .try_emplace(&renderPass,
+                   details::FrameBufferInstance(*this, renderPass, *swapChain, width, height,
+                                                layers, imageIndex))
       .first->second;
 }
 

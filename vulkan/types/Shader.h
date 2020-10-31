@@ -2,8 +2,8 @@
 // Created by petr on 9/28/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
+#ifndef VOXEL_RENDER_SHADER_H
+#define VOXEL_RENDER_SHADER_H
 #include "../concepts/PtrConstructible.h"
 #include "../glsl/Compiler.h"
 #include "VulkanObject.h"
@@ -96,4 +96,4 @@ std::vector<uint8_t> readSpvFile(std::ifstream &&istream);
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SHADER_H
+#endif//VOXEL_RENDER_SHADER_H

@@ -2,8 +2,8 @@
 // Created by petr on 9/28/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FRAMEBUFFER_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FRAMEBUFFER_H
+#ifndef VOXEL_RENDER_FRAMEBUFFER_H
+#define VOXEL_RENDER_FRAMEBUFFER_H
 
 #include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
@@ -13,12 +13,12 @@
 
 namespace pf::vulkan {
 
-
 namespace details {
 class FrameBufferInstance : public VulkanObject {
  public:
   explicit FrameBufferInstance(FrameBuffer &parent, RenderPass &renderPass, SwapChain &swapChain,
-                               uint32_t width, uint32_t height, uint32_t layers);
+                               uint32_t width, uint32_t height, uint32_t layers,
+                               std::size_t imageIdx);
   [[nodiscard]] std::string info() const override;
   FrameBufferInstance(const FrameBufferInstance &other) = delete;
   FrameBufferInstance &operator=(const FrameBufferInstance &other) = delete;
@@ -38,7 +38,7 @@ class FrameBufferInstance : public VulkanObject {
 
 class FrameBuffer : public VulkanObject, public PtrConstructible<FrameBuffer> {
  public:
-  explicit FrameBuffer(std::shared_ptr<SwapChain> swap);
+  explicit FrameBuffer(std::shared_ptr<SwapChain> swap, std::size_t imageIdx);
 
   FrameBuffer(const FrameBuffer &other) = delete;
   FrameBuffer &operator=(const FrameBuffer &other) = delete;
@@ -57,8 +57,9 @@ class FrameBuffer : public VulkanObject, public PtrConstructible<FrameBuffer> {
   uint32_t layers;
   std::vector<std::shared_ptr<ImageView>> attachments;
   std::unordered_map<RenderPass *, details::FrameBufferInstance> instances;
+  uint32_t imageIndex;
 };
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_FRAMEBUFFER_H
+#endif//VOXEL_RENDER_FRAMEBUFFER_H

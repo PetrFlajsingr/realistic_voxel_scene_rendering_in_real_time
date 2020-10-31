@@ -2,8 +2,8 @@
 // Created by petr on 10/19/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_BUFFER_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_BUFFER_H
+#ifndef VOXEL_RENDER_BUFFER_H
+#define VOXEL_RENDER_BUFFER_H
 
 #include "../concepts/PtrConstructible.h"
 #include "BufferView.h"
@@ -106,4 +106,4 @@ class Buffer : public VulkanObject,
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_BUFFER_H
+#endif//VOXEL_RENDER_BUFFER_H

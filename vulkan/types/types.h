@@ -2,8 +2,8 @@
 // Created by petr on 10/16/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H
+#ifndef VOXEL_RENDER_TYPES_H
+#define VOXEL_RENDER_TYPES_H
 
 #include "CommandPool.h"
 #include "DescriptorSetLayout.h"
@@ -18,6 +18,11 @@
 #include "Surface.h"
 #include "SwapChain.h"
 #include "Buffer.h"
+#include "CommandBuffer.h"
 #include "BufferView.h"
+#include "Semaphore.h"
+#include "Fence.h"
+#include "builders/RenderPassBuilder.h"
+#include "builders/GraphicsPipelineBuilder.h"
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_TYPES_H
+#endif//VOXEL_RENDER_TYPES_H

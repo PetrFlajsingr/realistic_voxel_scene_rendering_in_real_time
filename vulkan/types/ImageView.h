@@ -2,8 +2,8 @@
 // Created by petr on 9/27/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGEVIEW_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGEVIEW_H
+#ifndef VOXEL_RENDER_IMAGEVIEW_H
+#define VOXEL_RENDER_IMAGEVIEW_H
 
 #include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
@@ -51,4 +51,4 @@ class ImageView : public VulkanObject, public PtrConstructible<ImageView> {
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGEVIEW_H
+#endif//VOXEL_RENDER_IMAGEVIEW_H

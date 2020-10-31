@@ -146,7 +146,7 @@ RenderPassBuilder::build(LogicalDevice &device) {
   auto attachmentRefs = std::map<std::string, vk::AttachmentReference>();
   for (auto [idx, pair] : views::enumerate(attachDescriptions)) {
     auto attachmentRef = vk::AttachmentReference();
-    attachmentRef.setLayout(pair.second.finalLayout).setAttachment(idx);
+    attachmentRef.setLayout(vk::ImageLayout::eColorAttachmentOptimal).setAttachment(idx);
     attachmentRefs[pair.first] = attachmentRef;
   }
 
@@ -176,10 +176,17 @@ RenderPassBuilder::build(LogicalDevice &device) {
     if (spDescr.depthStencilAttachmentName.has_value()) {
       depthStencilAttachmentName[name] = attachmentRefs[spDescr.depthStencilAttachmentName.value()];
     }
-    spDescr.description.setColorAttachments(colorAttachmentNames[name])
-        .setResolveAttachments(resolveAttachmentNames[name])
-        .setInputAttachments(inputAttachmentNames[name])
+    spDescr.description.setInputAttachments(inputAttachmentNames[name])
         .setPreserveAttachments(preserveAttachmentNames[name]);
+
+    if (!resolveAttachmentNames[name].empty()) {
+      if (!colorAttachmentNames[name].empty()) {
+        throw VulkanException("Both resolve and resolve attachments have been set");
+      }
+      spDescr.description.setResolveAttachments(resolveAttachmentNames[name]);
+    } else {
+      spDescr.description.setColorAttachments(colorAttachmentNames[name]);
+    }
     if (depthStencilAttachmentName[name].has_value()) {
       spDescr.description.setPDepthStencilAttachment(&*depthStencilAttachmentName[name]);
     }

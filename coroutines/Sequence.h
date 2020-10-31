@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SEQUENCE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SEQUENCE_H
+#ifndef VOXEL_RENDER_SEQUENCE_H
+#define VOXEL_RENDER_SEQUENCE_H
 
 #include "../concepts/Incrementable.h"
 #include <cppcoro/generator.hpp>
@@ -14,6 +14,19 @@ cppcoro::generator<T> iota(T start = T(0)) {
     co_yield start;
     ++start;
   }
+}
+
+template<typename T>
+requires ModCapable<T> &&Incrementable<T> cppcoro::generator<T> modRepeat(T start, T mod) {
+  while (true) {
+    co_yield start;
+    start = (start + 1) % mod;
+  }
+}
+
+template<typename T>
+requires ModCapable<T> &&Incrementable<T> cppcoro::generator<T> modRepeat(T mod) {
+  return modRepeat(T{0}, mod);
 }
 
 template<Incrementable T>
@@ -31,4 +44,4 @@ T getNext(cppcoro::generator<T> &generator) {
   return *iter;
 }
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SEQUENCE_H
+#endif//VOXEL_RENDER_SEQUENCE_H

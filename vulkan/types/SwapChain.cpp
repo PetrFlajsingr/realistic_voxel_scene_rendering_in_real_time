@@ -4,6 +4,8 @@
 
 #include "SwapChain.h"
 #include "../VulkanException.h"
+#include "../coroutines/Sequence.h"
+#include "../utils/algorithms.h"
 #include "FrameBuffer.h"
 #include "Image.h"
 #include "ImageView.h"
@@ -63,12 +65,13 @@ SwapChain::selectPresentMode(const std::set<vk::PresentModeKHR> &present_modes,
   throw VulkanException("none of the present modes is available.");
 }
 
-vk::Extent2D SwapChain::selectExtent(const std::pair<uint32_t, uint32_t> &resolution,
+vk::Extent2D SwapChain::selectExtent(const ui::Resolution &resolution,
                                      const vk::SurfaceCapabilitiesKHR &surfaceCapabilities) {
   if (surfaceCapabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
     return surfaceCapabilities.currentExtent;
   } else {
-    auto extent = VkExtent2D{resolution.first, resolution.second};
+    auto extent = VkExtent2D{static_cast<uint32_t>(resolution.width),
+                             static_cast<uint32_t>(resolution.height)};
     extent.width = std::clamp(extent.width, surfaceCapabilities.minImageExtent.width,
                               surfaceCapabilities.maxImageExtent.width);
     extent.height = std::clamp(extent.height, surfaceCapabilities.minImageExtent.height,
@@ -149,26 +152,32 @@ void SwapChain::initImagesAndImageViews() {
   subresourceRange.levelCount = 1;
   subresourceRange.baseArrayLayer = 0;
   subresourceRange.layerCount = 1;
-  imageViews = images | views::transform([&](auto &image) {
-                 return image->createImageView(colorSpace, vk::ImageViewType::e2D, subresourceRange);
-               })
+  imageViews =
+      images | views::transform([&](auto &image) {
+        return image->createImageView(colorSpace, vk::ImageViewType::e2D, subresourceRange);
+      })
       | to_vector;
+
+  imageSemaphores = images
+      | views::transform([&](auto &) { return logicalDevice->createSemaphore(); }) | to_vector;
+  imageFences = images | views::transform([&](auto &) {
+                  return logicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+                })
+      | to_vector;
+  usedImageFences = std::vector<std::shared_ptr<vulkan::Fence>>(imageFences.size(), nullptr);
 }
 
 const std::vector<std::shared_ptr<ImageRef>> &SwapChain::getImages() const { return images; }
 
-void SwapChain::swap() {
-  if (hasExtentChanged()) { logicalDevice->wait(); }
+void SwapChain::checkRebuild() {
+  if (auto newRes = windowResolutionCheck(); newRes.has_value()) {
+    logicalDevice->wait();
+    rebuildSwapChain({});
+    std::ranges::for_each(rebuildListeners, [](auto &listener) { listener(); });
+  }
 }
 
-bool SwapChain::hasExtentChanged() {
-  const auto surfaceCapabilities =
-      logicalDevice->getPhysicalDevice()->getSurfaceCapabilitiesKHR(**surface);
-  return surfaceCapabilities.currentExtent.width != images[0]->getExtent().width
-      || surfaceCapabilities.currentExtent.height != images[0]->getExtent().height;
-}
-
-void SwapChain::rebuildSwapChain(std::pair<uint32_t, uint32_t> resolution) {
+void SwapChain::rebuildSwapChain(ui::Resolution resolution) {
   log(spdlog::level::info, VK_TAG, "Creating vulkan swap chain.");
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
   const auto surfaceFormats = physicalDevice->getSurfaceFormatsKHR(surface->getSurface());
@@ -202,13 +211,22 @@ void SwapChain::rebuildSwapChain(std::pair<uint32_t, uint32_t> resolution) {
   initFrameBuffers();
 }
 
+std::optional<ui::Resolution> SwapChain::windowResolutionCheck() {
+  const auto res = surface->getWindowSize();
+  if (res.width != images[0]->getExtent().width || res.height != images[0]->getExtent().height) {
+    return res;
+  }
+  return std::nullopt;
+}
+
 const std::vector<std::shared_ptr<ImageView>> &SwapChain::getImageViews() const {
   return imageViews;
 }
 
 void SwapChain::initFrameBuffers() {
-  frameBuffers = imageViews | views::transform([this](const auto &) {
-                   return FrameBuffer::CreateShared(shared_from_this());
+  auto index = iota<std::size_t>();
+  frameBuffers = imageViews | views::transform([&](const auto &) {
+                   return FrameBuffer::CreateShared(shared_from_this(), getNext(index));
                  })
       | to_vector;
 }
@@ -217,5 +235,39 @@ void SwapChain::init() {
   initImagesAndImageViews();
   initFrameBuffers();
 }
+
+const std::vector<std::shared_ptr<FrameBuffer>> &SwapChain::getFrameBuffers() const {
+  return frameBuffers;
+}
+void SwapChain::swap() {
+  checkRebuild();
+  imageFences[frameIdx]->wait();
+  imageIdx = logicalDevice->getVkLogicalDevice().acquireNextImageKHR(
+      *vkSwapChain, std::numeric_limits<uint64_t>::max(), **imageSemaphores[frameIdx], nullptr).value;
+  if (usedImageFences[imageIdx] != nullptr) { usedImageFences[imageIdx]->wait(); }
+  usedImageFences[imageIdx] = imageFences[frameIdx];
+}
+std::size_t SwapChain::getCurrentImageIndex() const { return imageIdx; }
+
+Semaphore &SwapChain::getCurrentSemaphore() const {
+  return *imageSemaphores[frameIdx];
+}
+void SwapChain::frameDone() {
+  frameIdx = (frameIdx + 1) % frameBuffers.size();
+}
+Fence &SwapChain::getCurrentFence() const { return *imageFences[frameIdx]; }
+
+void SwapChain::present(PresentConfig &&config) const {
+  auto presentInfo = vk::PresentInfoKHR();
+  const auto waitSemaphores = config.waitSemaphores
+      | ranges::views::transform([](auto &sem) { return *sem.get(); }) | ranges::to_vector;
+  presentInfo.setWaitSemaphores(waitSemaphores);
+  auto imageIndices = std::vector{static_cast<uint32_t>(imageIdx)};
+  presentInfo.setImageIndices(imageIndices);
+  auto swapChains = std::vector{*vkSwapChain};
+  presentInfo.setSwapchains(swapChains);
+  config.presentQueue.presentKHR(presentInfo);
+}
+std::size_t SwapChain::getCurrentFrameIndex() const { return frameIdx; }
 
 }// namespace pf::vulkan

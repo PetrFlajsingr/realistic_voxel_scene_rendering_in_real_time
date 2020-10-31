@@ -2,8 +2,8 @@
 // Created by petr on 9/28/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_RENDERPASS_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_RENDERPASS_H
+#ifndef VOXEL_RENDER_RENDERPASS_H
+#define VOXEL_RENDER_RENDERPASS_H
 
 #include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
@@ -21,6 +21,7 @@ class RenderPass : public VulkanObject, public PtrConstructible<RenderPass> {
   RenderPass &operator=(const RenderPass &other) = delete;
 
   [[nodiscard]] const vk::RenderPass &getRenderPass() const;
+  [[nodiscard]] LogicalDevice &getLogicalDevice() const;
 
   const vk::RenderPass &operator*() const;
   vk::RenderPass const *operator->() const;
@@ -35,4 +36,4 @@ class RenderPass : public VulkanObject, public PtrConstructible<RenderPass> {
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_RENDERPASS_H
+#endif//VOXEL_RENDER_RENDERPASS_H

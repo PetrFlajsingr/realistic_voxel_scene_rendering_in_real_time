@@ -2,8 +2,8 @@
 // Created by petr on 9/27/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGE_H
+#ifndef VOXEL_RENDER_IMAGE_H
+#define VOXEL_RENDER_IMAGE_H
 
 #include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
@@ -94,4 +94,4 @@ class ImageUnique : public Image,
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_IMAGE_H
+#endif//VOXEL_RENDER_IMAGE_H

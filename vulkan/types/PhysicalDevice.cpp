@@ -64,6 +64,9 @@ std::shared_ptr<LogicalDevice> &PhysicalDevice::createLogicalDevice(LogicalDevic
                                   queueFamilyIndices, presentIndex);
   return logicalDevices[config.id];
 }
+Instance &PhysicalDevice::getInstance() const {
+  return *instance;
+}
 
 std::unordered_map<vk::QueueFlagBits, uint32_t>
 details::getQueueFamilyIndices(vk::PhysicalDevice &physicalDevice,

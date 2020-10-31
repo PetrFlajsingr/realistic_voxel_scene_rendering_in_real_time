@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H
+#ifndef VOXEL_RENDER_APPLICATION_H
+#define VOXEL_RENDER_APPLICATION_H
 
 #include "../logging/loggers.h"
 #include "concepts/Renderer.h"
@@ -21,10 +21,10 @@
 namespace pf {
 struct application_settings {
   bool debug{};
-  window::WindowSettings window_settings;
+  ui::WindowSettings window_settings;
 };
 
-template<window::Window Window, Renderer<Window> Renderer>
+template<ui::Window Window, Renderer<Window> Renderer>
 class application {
  public:
   explicit application(Renderer &&renderer, const application_settings &settings)
@@ -55,4 +55,4 @@ class application {
   Renderer renderer;
 };
 }// namespace pf
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_APPLICATION_H
+#endif//VOXEL_RENDER_APPLICATION_H

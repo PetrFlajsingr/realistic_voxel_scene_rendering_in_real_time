@@ -2,10 +2,11 @@
 // Created by petr on 9/26/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H
+#ifndef VOXEL_RENDER_SWAPCHAIN_H
+#define VOXEL_RENDER_SWAPCHAIN_H
 
 #include "../concepts/PtrConstructible.h"
+#include "../concepts/Window.h"
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <set>
@@ -18,13 +19,18 @@ namespace pf::vulkan {
 struct SwapChainConfig {
   std::set<vk::SurfaceFormatKHR> formats;
   std::set<vk::PresentModeKHR> presentModes;
-  std::pair<uint32_t, uint32_t> resolution;
+  ui::Resolution resolution;
   vk::ImageUsageFlags imageUsage;
   std::unordered_set<uint32_t> sharingQueues;
   uint32_t imageArrayLayers;
   bool clipped;
   std::optional<vk::SwapchainKHR> oldSwapChain;
   vk::CompositeAlphaFlagBitsKHR compositeAlpha;
+};
+
+struct PresentConfig {
+  std::vector<std::reference_wrapper<Semaphore>> waitSemaphores;
+  vk::Queue presentQueue;
 };
 
 class SwapChain : public VulkanObject,
@@ -52,8 +58,26 @@ class SwapChain : public VulkanObject,
 
   [[nodiscard]] const std::vector<std::shared_ptr<ImageRef>> &getImages() const;
   [[nodiscard]] const std::vector<std::shared_ptr<ImageView>> &getImageViews() const;
+  [[nodiscard]] const std::vector<std::shared_ptr<FrameBuffer>> &getFrameBuffers() const;
 
   void swap();
+
+  void frameDone();
+
+  [[nodiscard]] Semaphore &getCurrentSemaphore() const;
+  [[nodiscard]] Fence &getCurrentFence() const;
+
+  void checkRebuild();
+
+  void present(PresentConfig &&config) const;
+
+
+  void addRebuildListener(std::invocable auto &&f) {
+    rebuildListeners.emplace_back(f);
+  }
+
+  [[nodiscard]] std::size_t getCurrentImageIndex() const;
+  [[nodiscard]] std::size_t getCurrentFrameIndex() const;
 
  private:
   static vk::PresentModeKHR
@@ -64,7 +88,7 @@ class SwapChain : public VulkanObject,
   selectSurfaceFormat(const std::set<vk::SurfaceFormatKHR> &formats,
                       const std::vector<vk::SurfaceFormatKHR> &surfaceFormats);
 
-  static vk::Extent2D selectExtent(const std::pair<uint32_t, uint32_t> &resolution,
+  static vk::Extent2D selectExtent(const ui::Resolution &resolution,
                                    const vk::SurfaceCapabilitiesKHR &surfaceCapabilities);
 
   static vk::UniqueSwapchainKHR
@@ -77,9 +101,9 @@ class SwapChain : public VulkanObject,
   void initImagesAndImageViews();
   void initFrameBuffers();
 
-  bool hasExtentChanged();
+  std::optional<ui::Resolution> windowResolutionCheck();
 
-  void rebuildSwapChain(std::pair<uint32_t, uint32_t> resolution);
+  void rebuildSwapChain(ui::Resolution resolution);
 
   vk::UniqueSwapchainKHR vkSwapChain;
   vk::Format format;
@@ -99,6 +123,15 @@ class SwapChain : public VulkanObject,
   std::vector<std::shared_ptr<ImageRef>> images;
   std::vector<std::shared_ptr<ImageView>> imageViews;
   std::vector<std::shared_ptr<FrameBuffer>> frameBuffers;
+
+  std::vector<std::shared_ptr<vulkan::Semaphore>> imageSemaphores;
+  std::vector<std::shared_ptr<vulkan::Fence>> imageFences;
+  std::vector<std::shared_ptr<vulkan::Fence>> usedImageFences;
+
+  std::vector<std::function<void()>> rebuildListeners;
+
+  std::size_t frameIdx = 0;
+  std::size_t imageIdx;
 };
 }// namespace pf::vulkan
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SWAPCHAIN_H
+#endif//VOXEL_RENDER_SWAPCHAIN_H

@@ -2,8 +2,8 @@
 // Created by petr on 9/28/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
+#ifndef VOXEL_RENDER_COMMANDPOOL_H
+#define VOXEL_RENDER_COMMANDPOOL_H
 
 #include "../concepts/PtrConstructible.h"
 #include "CommandBuffer.h"
@@ -13,10 +13,12 @@
 
 namespace pf::vulkan {
 
-struct CommandSubmitConfig {
+struct MultiCommandSubmitConfig {
   std::vector<std::reference_wrapper<CommandBuffer>> commandBuffers;
-  std::vector<vk::Semaphore> waitSemaphores;
-  std::vector<vk::Semaphore> signalSemaphores;
+  std::vector<std::reference_wrapper<Semaphore>> waitSemaphores;
+  std::vector<std::reference_wrapper<Semaphore>> signalSemaphores;
+  vk::PipelineStageFlags flags;
+  Fence &fence;
   bool wait;
 };
 
@@ -37,7 +39,7 @@ class CommandPool : public VulkanObject,
   [[nodiscard]] std::vector<std::shared_ptr<CommandBuffer>>
   createCommandBuffers(const CommandBufferConfig &config);
 
-  void submitCommandBuffers(const CommandSubmitConfig &config);
+  void submitCommandBuffers(const MultiCommandSubmitConfig &config);
 
   [[nodiscard]] const vk::CommandPool &getCommandPool() const;
 
@@ -56,4 +58,4 @@ class CommandPool : public VulkanObject,
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDPOOL_H
+#endif//VOXEL_RENDER_COMMANDPOOL_H

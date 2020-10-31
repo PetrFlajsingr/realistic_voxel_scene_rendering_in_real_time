@@ -2,15 +2,18 @@
 // Created by petr on 10/18/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGICALDEVICE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGICALDEVICE_H
+#ifndef VOXEL_RENDER_LOGICALDEVICE_H
+#define VOXEL_RENDER_LOGICALDEVICE_H
 
 #include "../concepts/OneOf.h"
 #include "../concepts/PtrConstructible.h"
 #include "../concepts/Window.h"
 #include "CommandPool.h"
+#include "DescriptorPool.h"
 #include "DescriptorSetLayout.h"
 #include "Image.h"
+#include "Fence.h"
+#include "Semaphore.h"
 #include "Shader.h"
 #include "SwapChain.h"
 #include "VulkanObject.h"
@@ -48,6 +51,7 @@ class LogicalDevice : public VulkanObject,
   [[nodiscard]] const vk::Device &getVkLogicalDevice() const;
   [[nodiscard]] std::unordered_map<vk::QueueFlagBits, uint32_t> &getQueueIndices();
   [[nodiscard]] vk::Queue getQueue(vk::QueueFlagBits type);
+  [[nodiscard]] vk::Queue getPresentQueue();
   [[nodiscard]] const std::optional<uint32_t> &getPresentQueueIndex() const;
 
   const vk::Device &operator*() const;
@@ -63,6 +67,9 @@ class LogicalDevice : public VulkanObject,
   [[nodiscard]] std::shared_ptr<Shader> createShader(T &&config) {
     return Shader::CreateShared(shared_from_this(), std::move(config));
   }
+  [[nodiscard]] std::shared_ptr<DescriptorPool> createDescriptorPool(DescriptorPoolConfig &&config);
+  [[nodiscard]] std::shared_ptr<Fence> createFence(FenceConfig &&config);
+  [[nodiscard]] std::shared_ptr<Semaphore> createSemaphore();
 
   [[nodiscard]] PhysicalDevice &getPhysicalDevice() const;
 
@@ -77,4 +84,4 @@ class LogicalDevice : public VulkanObject,
   std::optional<uint32_t> presentQueueIndex;
 };
 }// namespace pf::vulkan
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_LOGICALDEVICE_H
+#endif//VOXEL_RENDER_LOGICALDEVICE_H

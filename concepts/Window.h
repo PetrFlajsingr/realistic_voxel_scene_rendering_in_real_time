@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_WINDOW_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_WINDOW_H
+#ifndef VOXEL_RENDER_WINDOW_H
+#define VOXEL_RENDER_WINDOW_H
 
 #include "../ui/events/Subscription.h"
 #include "../ui/events/common.h"
@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include <vulkan/vulkan.hpp>
 
-namespace pf::window {
+namespace pf::ui {
 struct Resolution {
   std::size_t width;
   std::size_t height;
@@ -82,6 +82,6 @@ concept Window = std::constructible_from<T, WindowSettings> &&requires(
 }
 &&StreamInputable<T>;
 
-}// namespace pf::window
+}// namespace pf::ui
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_WINDOW_H
+#endif//VOXEL_RENDER_WINDOW_H

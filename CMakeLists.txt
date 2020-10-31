@@ -33,7 +33,7 @@ endif ()
 
 
 project(
-        realistic_voxel_scene_rendering_in_real_time
+        realistic_voxel_rendering
         VERSION 0.1.0
 )
 add_compile_definitions(GLFW_INCLUDE_VULKAN
@@ -41,12 +41,17 @@ add_compile_definitions(GLFW_INCLUDE_VULKAN
         GLM_FORCE_DEPTH_ZERO_TO_ONE
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_SWIZZLE
-        VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE)
+        VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+        VULKAN_HPP_NO_NODISCARD_WARNINGS
+        #STACKTRACE_VULKAN_REPORT
+        )
+
+include_directories(include)
 
 set(CMAKE_CXX_STANDARD 20)
 list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
-        "-Wpointer-arith" "-Wcast-qual" "-Wmissing-braces" "-Wno-type-limits")
+        "-Wpointer-arith" "-Wcast-qual" "-Wno-type-limits")
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     message(" ")
@@ -190,11 +195,11 @@ include_directories(${CMAKE_SOURCE_DIR}/third_party/)
 
 
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
-add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_ENABLE}
+add_executable(realistic_voxel_rendering main.cpp ${BACKWARD_ENABLE}
         exceptions/StackTraceException.cpp exceptions/StackTraceException.h
         args/ValidPathCheckAction.cpp
         #${IMPLOT_CPP_FILES}
-        utils.h logging/loggers.cpp logging/loggers.h logging/SomeLevelsSink.h
+        logging/loggers.cpp logging/loggers.h logging/SomeLevelsSink.h
         args/RegexCheckAction.h args/RegexCheckAction.cpp application.h
         concepts/Window.cpp ui/GlfwWindow.cpp ui/GlfwWindow.h ui/events/common.h
         ui/events/Subscription.cpp ui/events/Subscription.h concepts/Iterable.h concepts/StreamConcepts.h
@@ -212,14 +217,18 @@ add_executable(realistic_voxel_scene_rendering_in_real_time main.cpp ${BACKWARD_
         vulkan/types/DescriptorSetLayout.cpp vulkan/types/DescriptorSetLayout.h vulkan/types/CommandPool.cpp
         vulkan/types/CommandPool.h vulkan/types/FrameBuffer.cpp vulkan/types/FrameBuffer.h vulkan/types/VulkanObject.cpp
         vulkan/types/VulkanObject.h vulkan/types/Surface.cpp ui/events/EventDispatchImpl.cpp concepts/PtrConstructible.h
-        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h vulkan/types/Fence.cpp vulkan/types/Fence.h vulkan/glsl/Compiler.cpp vulkan/glsl/Compiler.h concepts/OneOf.h vulkan/types/Buffer.cpp vulkan/types/Buffer.h vulkan/types/BufferView.cpp vulkan/types/BufferView.h)
-target_link_libraries(realistic_voxel_scene_rendering_in_real_time
+        rendering/TriangleRenderer.cpp vulkan/types/fwd.h vulkan/types/types.h vulkan/types/VulkanCommon.cpp
+        vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h
+        vulkan/types/Fence.cpp vulkan/types/Fence.h vulkan/glsl/Compiler.cpp vulkan/glsl/Compiler.h concepts/OneOf.h
+        vulkan/types/Buffer.cpp vulkan/types/Buffer.h vulkan/types/BufferView.cpp vulkan/types/BufferView.h
+        utils/tuple.h utils/algorithms.h threading/ThreadPool.cpp threading/ThreadPool.h include/imgui/imgui_impl_glfw.h include/imgui/imgui_impl_glfw.cpp include/imgui/imgui_impl_vulkan.cpp include/imgui/imgui_impl_vulkan.h ui/imgui/ImGuiBase.cpp ui/imgui/ImGuiBase.h ui/imgui/ImGuiGlfwVulkan.cpp ui/imgui/ImGuiGlfwVulkan.h vulkan/types/DescriptorPool.cpp vulkan/types/DescriptorPool.h vulkan/types/Semaphore.cpp vulkan/types/Semaphore.h utils/common_enums.h)
+target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
         shaderc glslang cppcoro
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
-add_backward(realistic_voxel_scene_rendering_in_real_time)
+add_backward(realistic_voxel_rendering)
 
-target_compile_options(realistic_voxel_scene_rendering_in_real_time PRIVATE ${flags})
+target_compile_options(realistic_voxel_rendering PRIVATE ${flags})
 
 

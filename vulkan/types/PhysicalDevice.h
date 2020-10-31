@@ -2,8 +2,8 @@
 // Created by petr on 9/26/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_PHYSICALDEVICE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_PHYSICALDEVICE_H
+#ifndef VOXEL_RENDER_PHYSICALDEVICE_H
+#define VOXEL_RENDER_PHYSICALDEVICE_H
 
 #include "../DefaultDeviceSuitabilityScorer.h"
 #include "../VulkanException.h"
@@ -56,6 +56,8 @@ class PhysicalDevice : public VulkanObject,
 
   [[nodiscard]] std::shared_ptr<LogicalDevice> &createLogicalDevice(LogicalDeviceConfig config);
 
+  [[nodiscard]] Instance &getInstance() const;
+
  private:
   std::vector<vk::PhysicalDevice> getPhysicalDevices();
 
@@ -97,4 +99,4 @@ PhysicalDevice::selectPhysicalDevice(const std::vector<vk::PhysicalDevice> &phys
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_PHYSICALDEVICE_H
+#endif//VOXEL_RENDER_PHYSICALDEVICE_H

@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_STREAMCONCEPTS_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_STREAMCONCEPTS_H
+#ifndef VOXEL_RENDER_STREAMCONCEPTS_H
+#define VOXEL_RENDER_STREAMCONCEPTS_H
 #include <istream>
 #include <ostream>
 
@@ -21,4 +21,4 @@ concept StreamOutputable = requires(T t, std::istream i) {
 
 template<typename T>
 concept Streamable = StreamOutputable<T> &&StreamInputable<T>;
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_STREAMCONCEPTS_H
+#endif//VOXEL_RENDER_STREAMCONCEPTS_H

@@ -2,8 +2,8 @@
 // Created by petr on 10/19/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_BUFFERVIEW_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_BUFFERVIEW_H
+#ifndef VOXEL_RENDER_BUFFERVIEW_H
+#define VOXEL_RENDER_BUFFERVIEW_H
 
 #include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
@@ -40,4 +40,4 @@ class BufferView : public VulkanObject, public PtrConstructible<BufferView> {
   vk::UniqueBufferView vkBufferView;
 };
 }// namespace pf::vulkan
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_BUFFERVIEW_H
+#endif//VOXEL_RENDER_BUFFERVIEW_H

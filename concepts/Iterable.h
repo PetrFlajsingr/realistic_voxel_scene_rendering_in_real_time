@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_ITERABLE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_ITERABLE_H
+#ifndef VOXEL_RENDER_ITERABLE_H
+#define VOXEL_RENDER_ITERABLE_H
 #include <iterator>
 
 template<typename T>
@@ -20,4 +20,4 @@ concept Iterable_of = Iterable<T> &&requires(T t) {
   ->std::same_as<ValueType>;
 };
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_ITERABLE_H
+#endif//VOXEL_RENDER_ITERABLE_H

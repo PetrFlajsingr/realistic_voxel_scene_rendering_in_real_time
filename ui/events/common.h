@@ -2,8 +2,8 @@
 // Created by petr on 9/24/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMON_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMON_H
+#ifndef VOXEL_RENDER_COMMON_H
+#define VOXEL_RENDER_COMMON_H
 
 #include <functional>
 #include <magic_enum.hpp>
@@ -56,4 +56,4 @@ concept TextEventListener =
 
 }// namespace pf::events
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMON_H
+#endif//VOXEL_RENDER_COMMON_H

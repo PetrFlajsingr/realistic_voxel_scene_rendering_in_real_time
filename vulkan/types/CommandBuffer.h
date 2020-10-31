@@ -2,8 +2,8 @@
 // Created by petr on 10/18/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDBUFFER_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDBUFFER_H
+#ifndef VOXEL_RENDER_COMMANDBUFFER_H
+#define VOXEL_RENDER_COMMANDBUFFER_H
 
 #include "../concepts/PtrConstructible.h"
 #include "VulkanObject.h"
@@ -17,15 +17,55 @@ struct CommandBufferConfig {
   uint32_t count;
 };
 
+struct ClearFrameBuffersCommand {
+  RenderPass &renderPass;
+  FrameBuffer &frameBuffer;
+  std::vector<vk::ClearValue> clearValues;
+  vk::Extent2D extent;
+};
+
+struct DrawCommand {
+  uint32_t vertexCount;
+  uint32_t instanceCount;
+  uint32_t vertexOffset;
+  uint32_t instanceOffset;
+};
+
+class CommandBufferRecording {
+ public:
+  explicit CommandBufferRecording(CommandBuffer &buffer);
+  ~CommandBufferRecording();
+
+  CommandBufferRecording & beginRenderPass(ClearFrameBuffersCommand &&cmd);
+  CommandBufferRecording & endRenderPass();
+
+  CommandBufferRecording & bindPipeline(vk::PipelineBindPoint bindPoint, GraphicsPipeline &pipeline);
+  CommandBufferRecording & draw(DrawCommand &&cmd);
+
+
+  void end();
+ private:
+  bool isValid = true;
+  CommandBuffer &owner;
+};
+
+struct CommandSubmitConfig {
+  std::vector<std::reference_wrapper<Semaphore>> waitSemaphores;
+  std::vector<std::reference_wrapper<Semaphore>> signalSemaphores;
+  vk::PipelineStageFlags flags;
+  Fence &fence;
+  bool wait;
+};
+
 class CommandBuffer : public VulkanObject, public PtrConstructible<CommandBuffer> {
  public:
+  friend class CommandBufferRecording;
   explicit CommandBuffer(std::shared_ptr<CommandPool> pool, vk::UniqueCommandBuffer &&buffer);
 
   CommandBuffer(const CommandBuffer &other) = delete;
   CommandBuffer &operator=(const CommandBuffer &other) = delete;
 
-  void begin(vk::CommandBufferUsageFlagBits flag);
-  void end();
+  CommandBufferRecording begin(vk::CommandBufferUsageFlagBits flag);
   void reset();
 
   [[nodiscard]] CommandPool &getCommandPool();
@@ -37,10 +77,13 @@ class CommandBuffer : public VulkanObject, public PtrConstructible<CommandBuffer
 
   [[nodiscard]] std::string info() const override;
 
+  void submit(CommandSubmitConfig &&config);
+
  private:
   vk::UniqueCommandBuffer vkBuffer;
   std::shared_ptr<CommandPool> commandPool;
+  bool isRecording = false;
 };
 }
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMMANDBUFFER_H
+#endif//VOXEL_RENDER_COMMANDBUFFER_H

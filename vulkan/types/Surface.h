@@ -2,8 +2,8 @@
 // Created by petr on 9/27/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SURFACE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SURFACE_H
+#ifndef VOXEL_RENDER_SURFACE_H
+#define VOXEL_RENDER_SURFACE_H
 
 #include "../concepts/PtrConstructible.h"
 #include "../concepts/Window.h"
@@ -13,13 +13,12 @@
 
 namespace pf::vulkan {
 
-
-
 class Surface : public VulkanObject, public PtrConstructible<Surface> {
  public:
-  template<window::Window Window>
+  template<ui::Window Window>
   explicit Surface(std::shared_ptr<Instance> inst, Window &window)
-      : instance(std::move(inst)), vkSurface(window.createVulkanSurface(**instance)) {}
+      : instance(std::move(inst)), vkSurface(window.createVulkanSurface(**instance)),
+        windowSizeFnc([&window] { return window.getResolution(); }) {}
 
   Surface(const Surface &other) = delete;
   Surface &operator=(const Surface &other) = delete;
@@ -32,11 +31,15 @@ class Surface : public VulkanObject, public PtrConstructible<Surface> {
 
   [[nodiscard]] std::string info() const override;
 
+  [[nodiscard]] ui::Resolution getWindowSize() const;
+
  private:
   std::shared_ptr<Instance> instance;
   vk::UniqueSurfaceKHR vkSurface;
+
+  std::function<ui::Resolution()> windowSizeFnc;
 };
 
 }// namespace pf::vulkan
 
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_SURFACE_H
+#endif//VOXEL_RENDER_SURFACE_H

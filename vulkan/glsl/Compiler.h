@@ -2,8 +2,8 @@
 // Created by petr on 10/18/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMPILER_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMPILER_H
+#ifndef VOXEL_RENDER_COMPILER_H
+#define VOXEL_RENDER_COMPILER_H
 
 #include "../../exceptions/StackTraceException.h"
 #include <shaderc/shaderc.hpp>
@@ -50,4 +50,4 @@ class CompilationException : public StackTraceException {
 };
 
 }// namespace pf::glsl
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_COMPILER_H
+#endif//VOXEL_RENDER_COMPILER_H

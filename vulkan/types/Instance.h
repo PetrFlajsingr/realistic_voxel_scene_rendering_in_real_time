@@ -2,8 +2,8 @@
 // Created by petr on 9/26/20.
 //
 
-#ifndef REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_INSTANCE_H
-#define REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_INSTANCE_H
+#ifndef VOXEL_RENDER_INSTANCE_H
+#define VOXEL_RENDER_INSTANCE_H
 
 #include "../DefaultDeviceSuitabilityScorer.h"
 #include "../concepts/PtrConstructible.h"
@@ -68,4 +68,4 @@ std::shared_ptr<PhysicalDevice> Instance::selectDevice(DeviceScorer &&scorer) {
 }
 
 }// namespace pf::vulkan
-#endif//REALISTIC_VOXEL_SCENE_RENDERING_IN_REAL_TIME_INSTANCE_H
+#endif//VOXEL_RENDER_INSTANCE_H

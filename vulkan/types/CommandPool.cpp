@@ -4,6 +4,7 @@
 
 #include "CommandPool.h"
 #include "PhysicalDevice.h"
+#include "Semaphore.h"
 
 namespace pf::vulkan {
 CommandPool::CommandPool(std::shared_ptr<LogicalDevice> device, CommandPoolConfig &&config)
@@ -40,17 +41,22 @@ CommandPool::createCommandBuffers(const CommandBufferConfig &config) {
 
 LogicalDevice &CommandPool::getDevice() const { return *logicalDevice; }
 
-void CommandPool::submitCommandBuffers(const CommandSubmitConfig &config) {
+void CommandPool::submitCommandBuffers(const MultiCommandSubmitConfig &config) {
   auto buffers = std::vector<vk::CommandBuffer>();
   buffers.reserve(config.commandBuffers.size());
   std::ranges::transform(config.commandBuffers, std::back_inserter(buffers),
                          [](const auto &buffer) { return *buffer.get(); });
   auto submitInfo = vk::SubmitInfo();
-  submitInfo.setWaitSemaphores(config.waitSemaphores);
-  submitInfo.setSignalSemaphores(config.signalSemaphores);
+  const auto waitSemaphores = config.waitSemaphores
+      | ranges::views::transform([](auto &sem) { return *sem.get(); }) | ranges::to_vector;
+  const auto signalSemaphores = config.signalSemaphores
+      | ranges::views::transform([](auto &sem) { return *sem.get(); }) | ranges::to_vector;
+  submitInfo.setWaitSemaphores(waitSemaphores);
+  submitInfo.setSignalSemaphores(signalSemaphores);
   submitInfo.setCommandBuffers(buffers);
+  submitInfo.pWaitDstStageMask = &config.flags;
 
-  queue.submit({submitInfo}, vk::Fence());
+  queue.submit({submitInfo}, *config.fence);
   if (config.wait) { queue.waitIdle(); }
 }
 

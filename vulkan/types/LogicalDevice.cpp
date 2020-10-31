@@ -59,5 +59,17 @@ std::shared_ptr<DescriptorSetLayout>
 LogicalDevice::createDescriptorSetLayout(DescriptorSetLayoutConfig &&config) {
   return DescriptorSetLayout::CreateShared(shared_from_this(), std::move(config));
 }
+std::shared_ptr<DescriptorPool> LogicalDevice::createDescriptorPool(DescriptorPoolConfig &&config) {
+  return DescriptorPool::CreateShared(shared_from_this(), std::move(config));
+}
+std::shared_ptr<Fence> LogicalDevice::createFence(FenceConfig &&config) {
+  return Fence::CreateShared(shared_from_this(), std::move(config));
+}
+std::shared_ptr<Semaphore> LogicalDevice::createSemaphore() {
+  return Semaphore::CreateShared(shared_from_this());
+}
+vk::Queue LogicalDevice::getPresentQueue() {
+  return vkLogicalDevice->getQueue(presentQueueIndex.value(), 0);
+}
 
 }// namespace pf::vulkan
