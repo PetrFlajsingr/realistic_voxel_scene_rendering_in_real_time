@@ -22,7 +22,7 @@ void ImGuiDialog::render() {
     open = ImGui::BeginPopup(getCaption().c_str());
   }
   if (open) {
-    std::ranges::for_each(getChildren(), [](auto &child) { child.second->render(); });
+    std::ranges::for_each(getChildren(), [](auto &child) { child.get().render(); });
     ImGui::EndPopup();
   }
   if (closed) {

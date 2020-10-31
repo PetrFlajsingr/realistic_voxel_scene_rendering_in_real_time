@@ -100,7 +100,7 @@ void ImGuiGlfwVulkan::render() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
-  std::ranges::for_each(getChildren(), [](auto &child) { child.second->render(); });
+  std::ranges::for_each(getChildren(), [](auto &child) { child.get().render(); });
   ImGui::Render();
 }
 

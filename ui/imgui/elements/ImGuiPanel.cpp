@@ -15,7 +15,7 @@ ImGuiPanel::ImGuiPanel(const std::string &elementName, std::string title, const 
 
 void ImGuiPanel::render() {
   ImGui::BeginChild(title.c_str(), size);
-  std::ranges::for_each(getChildren(), [&](auto &child) { child.second->render(); });
+  std::ranges::for_each(getChildren(), [&](auto &child) { child.get().render(); });
   ImGui::EndChild();
 }
 

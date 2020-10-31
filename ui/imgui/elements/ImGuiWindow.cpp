@@ -13,7 +13,7 @@ ImGuiWindow::ImGuiWindow(const std::string &elementName, std::string title)
 
 void ImGuiWindow::render() {
   ImGui::Begin(title.c_str());
-  std::ranges::for_each(getChildren(), [&](auto &child) { child.second->render(); });
+  std::ranges::for_each(getChildren(), [&](auto &child) { child.get().render(); });
 
   ImGui::End();
 }

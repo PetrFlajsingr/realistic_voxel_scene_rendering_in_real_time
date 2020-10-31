@@ -38,10 +38,11 @@ class ImGuiContainer : public virtual ImGuiElement {
     throw StackTraceException::fmt("Child not found: '{}' in '{}'", name, getName());
   }
 
-  [[nodiscard]] const std::map<std::string, std::shared_ptr<ImGuiElement>> &getChildren();
+  [[nodiscard]] const std::vector<std::reference_wrapper<ImGuiElement>> &getChildren();
 
  private:
   std::map<std::string, std::shared_ptr<ImGuiElement>> children;
+  std::vector<std::reference_wrapper<ImGuiElement>> childrenInOrder;
   std::vector<std::string> childrenToRemove;
 };
 
