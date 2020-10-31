@@ -22,7 +22,7 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                                  std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
                                  ImGuiConfigFlags flags)
-    : ImGuiBase(flags), logicalDevice(std::move(device)), renderPass(std::move(pass)),
+    : ImGuiInterface(flags), logicalDevice(std::move(device)), renderPass(std::move(pass)),
       surface(std::move(surf)), swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
@@ -100,7 +100,9 @@ void ImGuiGlfwVulkan::render() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
-  ImGui::ShowDemoWindow();
+  std::ranges::for_each(getChildren(), [] (auto &child) {
+    child.second->render();
+  });
   ImGui::Render();
 }
 

@@ -5,16 +5,14 @@
 #ifndef VOXEL_RENDER_IMGUIBASE_H
 #define VOXEL_RENDER_IMGUIBASE_H
 
-#include <imgui.h>
 #include "../vulkan/types/CommandBuffer.h"
+#include "elements/interface/ImGuiContainer.h"
+#include <imgui.h>
 namespace pf::ui {
 
-class ImGuiBase {
+class ImGuiInterface : public ImGuiContainer {
  public:
-  explicit ImGuiBase(ImGuiConfigFlags flags);
-  virtual ~ImGuiBase() = default;
-
-  virtual void render() = 0;
+  explicit ImGuiInterface(ImGuiConfigFlags flags);
 
   virtual void addToCommandBuffer(vulkan::CommandBufferRecording &recording) = 0;
 

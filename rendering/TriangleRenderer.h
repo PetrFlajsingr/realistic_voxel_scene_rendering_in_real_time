@@ -9,6 +9,7 @@
 #include "../coroutines/Sequence.h"
 #include "../logging/loggers.h"
 #include "../ui/imgui/ImGuiGlfwVulkan.h"
+#include "../ui/imgui/elements.h"
 #include "../utils/common_enums.h"
 #include "../vulkan/types/builders/GraphicsPipelineBuilder.h"
 #include "../vulkan/types/builders/RenderPassBuilder.h"
@@ -16,6 +17,7 @@
 #include "imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
+#include <iostream>
 #include <range/v3/view.hpp>
 
 using namespace pf::vulkan::literals;
@@ -171,6 +173,37 @@ class TriangleRenderer {
     });
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
 
+    auto panel = imgui->createChild<ui::ImGuiWindow>("Panel1", "Test panel");
+    panel->createChild<ui::ImGuiText>("Text1", "Test text");
+    panel->createChild<ui::ImGuiInputText>("Textinput1", "Test text")->addValueListener([](auto a) {
+      std::cout << "New text: " << a << std::endl;
+    });
+    auto a = panel->createChild<ui::ImGuiPanel>("Panel2", "Test panel 2", ImVec2{0, 50});
+    a->createChild<ui::ImGuiText>("Text2", "Test text2");
+    a->createChild<ui::ImGuiText>("Text3", "Test text2");
+    a->createChild<ui::ImGuiText>("Text4", "Test text2");
+    a->createChild<ui::ImGuiText>("Text5", "Test text2");
+    a->createChild<ui::ImGuiText>("Text6", "Test text2");
+    a->createChild<ui::ImGuiText>("Text7", "Test text2");
+    a->createChild<ui::ImGuiText>("Text8", "Test text2");
+    a->createChild<ui::ImGuiText>("Text9", "Test text2");
+    a->createChild<ui::ImGuiText>("Text10", "Test text2");
+    a->createChild<ui::ImGuiText>("Text11", "Test text2");
+    panel->createChild<ui::ImGuiButton>("TestBtn", "Test button")->setOnClick([] {
+      std::cout << "Btn clicked" << std::endl;
+    });
+    panel->createChild<ui::ImGuiSlider<glm::vec3>>("Vec slider", "Vec3", 0.f, 11.3f)
+        ->addValueListener([](const auto &v) {
+          std::cout << "Vec slider " << v.x << " " << v.y << " " << v.z << std::endl;
+        });
+    panel->createChild<ui::ImGuiSlider<float>>("float slider", "float", 0.f, 1.5f)
+                   ->addValueListener(
+                       [](const auto &v) { std::cout << "float slider " << v << std::endl; });
+    panel->createChild<ui::ImGuiSlider<int>>("int slider", "int", 0, 100)
+        ->addValueListener([&] (const auto &v) mutable {
+          std::cout << "int slider " << v << std::endl;
+        });
+
     window.setMainLoopCallback([&] { render(); });
   }
 
@@ -244,7 +277,7 @@ class TriangleRenderer {
   std::shared_ptr<vulkan::Shader> vertShader;
   std::shared_ptr<vulkan::Shader> fragShader;
 
-  std::unique_ptr<ui::ImGuiBase> imgui;
+  std::unique_ptr<ui::ImGuiInterface> imgui;
 
   bool isMoved = false;
 };

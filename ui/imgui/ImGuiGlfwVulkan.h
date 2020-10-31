@@ -6,7 +6,7 @@
 #define VOXEL_RENDER_IMGUIGLFWVULKAN_H
 
 #include "../vulkan/types/fwd.h"
-#include "ImGuiBase.h"
+#include "ImGuiInterface.h"
 #include <GLFW/glfw3.h>
 #include <imgui/imgui_impl_vulkan.h>
 #include <memory>
@@ -14,7 +14,7 @@
 
 namespace pf::ui {
 
-class ImGuiGlfwVulkan : public ImGuiBase {
+class ImGuiGlfwVulkan : public ImGuiInterface {
  public:
   ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device, std::shared_ptr<vulkan::RenderPass> pass,
                   std::shared_ptr<vulkan::Surface> surf, std::shared_ptr<vulkan::SwapChain> swapCh,

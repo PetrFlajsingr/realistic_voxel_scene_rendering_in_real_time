@@ -14,8 +14,8 @@ class Subscription {
   explicit Subscription(Unsubscriber &&unsubscriber);
   Subscription(const Subscription &) = delete;
   Subscription &operator=(const Subscription &) = delete;
-  Subscription(Subscription &&) = default;
-  Subscription &operator=(Subscription &&) = default;
+  Subscription(Subscription &&other)  noexcept;
+  Subscription &operator=(Subscription &&other)  noexcept;
 
   void unsubscribe();
 
