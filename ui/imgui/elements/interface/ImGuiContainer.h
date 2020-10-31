@@ -5,6 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUICONTAINER_H
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUICONTAINER_H
 
+#include "../../../../exceptions/StackTraceException.h"
 #include "ImGuiElement.h"
 #include <map>
 #include <memory>
@@ -23,6 +24,17 @@ class ImGuiContainer : public ImGuiElement {
   }
   void addChild(std::shared_ptr<ImGuiElement> child);
   void removeChild(const std::string &name);
+
+  template<std::derived_from<ImGuiElement> T>
+  [[nodiscard]] std::shared_ptr<T> childByName(const std::string &name) {
+    if (const auto iter = children.find(name); iter != children.end()) {
+      if (auto result = std::dynamic_pointer_cast<T>(iter->second); result != nullptr) {
+        return result;
+      }
+      throw StackTraceException::fmt("Wrong type for child: '{}' in '{}'", name, getName());
+    }
+    throw StackTraceException::fmt("Child not found: '{}' in '{}'", name, getName());
+  }
 
   [[nodiscard]] const std::map<std::string, std::shared_ptr<ImGuiElement>> &getChildren() const;
 
