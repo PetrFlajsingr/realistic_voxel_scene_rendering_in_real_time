@@ -10,7 +10,7 @@ ImGuiRadioButton::ImGuiRadioButton(const std::string &elementName, const std::st
     : ImGuiElement(elementName), ImGuiCaptionedElement(elementName, caption),
       ImGuiValueObservableElement(elementName, value) {}
 
-void ImGuiRadioButton::render() {
+void ImGuiRadioButton::renderImpl() {
   const auto oldValue = getValue();
   if (ImGui::RadioButton(getCaption().c_str(), getValue())) {
     setValue(true);

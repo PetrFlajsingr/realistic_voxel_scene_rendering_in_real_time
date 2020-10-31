@@ -9,7 +9,7 @@ ImGuiDialog::ImGuiDialog(ImGuiContainer &parent, const std::string &elementName,
     : ImGuiElement(elementName), ImGuiContainer(elementName),
       ImGuiCaptionedElement(elementName, caption), modal(modal), owner(parent) {}
 
-void ImGuiDialog::render() {
+void ImGuiDialog::renderImpl() {
   if (closed) {
     owner.enqueueChildRemoval(getName());
     return;

@@ -12,7 +12,7 @@ ImGuiButton::ImGuiButton(const std::string &name, std::string caption, ButtonTyp
     : ImGuiElement(name), ImGuiCaptionedElement(name, std::move(caption)),
       ImGuiResizableElement(name, size), type(buttonType) {}
 
-void ImGuiButton::render() {
+void ImGuiButton::renderImpl() {
   switch (type) {
     case ButtonType::Normal:
       if (ImGui::Button(getCaption().c_str(), getSize())) { onClick(); }

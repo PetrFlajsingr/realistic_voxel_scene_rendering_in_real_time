@@ -18,12 +18,14 @@ class ImGuiButton : public ImGuiCaptionedElement, public ImGuiResizableElement {
  public:
   ImGuiButton(const std::string &name, std::string caption,
               ButtonType buttonType = ButtonType::Normal, const ImVec2 &size = {0, 0});
-  void render() override;
-
   void setOnClick(std::invocable auto fnc) { onClick = fnc; }
 
   [[nodiscard]] ButtonType getType() const;
+
   void setType(ButtonType type);
+
+ protected:
+  void renderImpl() override;
 
  private:
   std::function<void()> onClick = [] {};

@@ -16,10 +16,10 @@ ImGuiRadioGroup::ImGuiRadioGroup(const std::string &elementName, const std::stri
                                                        elementName, ""),
       buttons(std::move(buttons)), selectedButtonIndex(selectedButtonIndex) {}
 
-void ImGuiRadioGroup::render() {
+void ImGuiRadioGroup::renderImpl() {
   ImGui::Separator();
   ImGui::Text("%s:", getCaption().c_str());
-  std::ranges::for_each(buttons, [](auto &button) { button.render(); });
+  std::ranges::for_each(buttons, [](auto &button) { button.renderImpl(); });
   std::optional<std::size_t> newSelection = std::nullopt;
   std::ranges::for_each(buttons | ranges::views::enumerate, [&](auto idxBtn) {
     auto &[idx, btn] = idxBtn;

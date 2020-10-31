@@ -16,7 +16,7 @@ ImGuiInputText::ImGuiInputText(const std::string &elementName, std::string capti
   setValue(text);
 }
 
-void ImGuiInputText::render() {
+void ImGuiInputText::renderImpl() {
   if (inputType == TextInputType::SingleLine) {
     ImGui::InputText(getCaption().c_str(), buffer, 256);
   } else {

@@ -11,7 +11,7 @@ ImGuiGroup::ImGuiGroup(const std::string &elementName, const std::string &captio
     : ImGuiElement(elementName), ImGuiContainer(elementName),
       ImGuiCaptionedElement(elementName, caption) {}
 
-void ImGuiGroup::render() {
+void ImGuiGroup::renderImpl() {
   ImGui::BeginGroup();
   ImGui::Text("%s:", getCaption().c_str());
   ImGui::Separator();

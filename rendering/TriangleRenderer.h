@@ -189,34 +189,63 @@ class TriangleRenderer {
     a->createChild<ui::ImGuiText>("Text9", "Test text2");
     a->createChild<ui::ImGuiText>("Text10", "Test text2");
     a->createChild<ui::ImGuiText>("Text11", "Test text2");
-    panel->createChild<ui::ImGuiButton>("TestBtn", "Test button")->setOnClick([] {
-      std::cout << "Btn clicked" << std::endl;
-    });
-    panel->createChild<ui::ImGuiSlider<glm::vec3>>("Vec slider", "Vec3", 0.f, 11.3f)
+    panel->createChild<ui::ImGuiButton>("TestBtn", "Test button", ui::ButtonType::Small)
+        ->setOnClick([this] {
+          dlg = imgui->createDialog("diahfghgfhfglog", "title");
+          dlg->createChild<ui::ImGuiButton>("dlgcloes", "close")->setOnClick([this] {
+            dlg->close();
+            dlg = nullptr;
+          });
+        });
+    auto group = panel->createChild<ui::ImGuiGroup>("group1", "Group 1");
+    group->createChild<ui::ImGuiButton>("TestBtn2", "Test button2", ui::ButtonType::ArrowUp);
+    group->createChild<ui::ImGuiSlider<glm::vec3>>("Vec slider", "Vec3", 0.f, 11.3f)
         ->addValueListener([](const auto &v) {
           std::cout << "Vec slider " << v.x << " " << v.y << " " << v.z << std::endl;
         });
-    panel->createChild<ui::ImGuiSlider<float>>("float slider", "float", 0.f, 1.5f)
-                   ->addValueListener(
-                       [](const auto &v) { std::cout << "float slider " << v << std::endl; });
-    panel->createChild<ui::ImGuiSlider<int>>("int slider", "int", 0, 100)
-        ->addValueListener([&] (const auto &v) mutable {
-          std::cout << "int slider " << v << std::endl;
-        });
+    group->createChild<ui::ImGuiSlider<float>>("float slider", "float", 0.f, 1.5f)
+        ->addValueListener([](const auto &v) { std::cout << "float slider " << v << std::endl; });
+    group->createChild<ui::ImGuiSlider<int>>("int slider", "int", 0, 100)
+        ->addValueListener(
+            [&](const auto &v) mutable { std::cout << "int slider " << v << std::endl; });
 
-    panel->createChild<ui::ImGuiInput<int>>("int input", "int input", 0, 100)->addValueListener([] (auto v) {
-      std::cout << "Int input " << v << std::endl;
+    panel->createChild<ui::ImGuiInput<int>>("int input", "int input", 0, 100)
+        ->addValueListener([](auto v) { std::cout << "Int input " << v << std::endl; });
+    panel->createChild<ui::ImGuiInput<glm::vec3>>("vec3 input", "vec3 input")
+        ->addValueListener([](auto v) { std::cout << "Vec3 input " << v.x << std::endl; });
+    panel->createChild<ui::ImGuiInput<glm::ivec3>>("int3 input", "int3 input")
+        ->addValueListener([](auto v) { std::cout << "Int3 input " << v.x << std::endl; });
+
+    using namespace std::string_literals;
+    panel
+        ->createChild<ui::ImGuiComboBox>("cb1", "combo box", "preview",
+                                         std::vector{"1"s, "2"s, "3"s})
+        ->addValueListener([](auto v) { std::cout << "cb: " << v << std::endl; });
+
+    auto radioGroup = panel->createChild<ui::ImGuiRadioGroup>("rg1", "group");
+    radioGroup->addValueListener([](auto a) { std::cout << "group: " << a << std::endl; });
+    radioGroup->addButton("rb1", "first");
+    radioGroup->addButton("rb2", "second");
+    radioGroup->addButton("rb3", "third");
+    radioGroup->addButton("rb4", "fourth");
+
+    panel->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Edit, glm::vec3>>("col1",
+                                                                                     "color 1");
+    panel->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Picker, glm::vec4>>("col2",
+                                                                                       "color 2");
+
+    panel->createChild<ui::ImGuiCheckbox>("chbkx", "check", true)->addValueListener([](auto) {
+      std::cout << "checkbox changed" << std::endl;
     });
-    panel->createChild<ui::ImGuiInput<glm::vec3>>("vec3 input", "vec3 input")->addValueListener([] (auto v) {
-      std::cout << "Vec3 input " << v.x << std::endl;
-    });
-    panel->createChild<ui::ImGuiInput<glm::ivec3>>("int3 input", "int3 input")->addValueListener([] (auto v) {
-      std::cout << "Int3 input " << v.x << std::endl;
-    });
+
+    auto pgbar = panel->createChild<ui::ImGuiProgressBar<int>>("pgbar", 10, 10, 1000);
+    pgbar->addValueListener([](auto val) { std::cout << "Progress: " << val << std::endl; });
+    panel->createChild<ui::ImGuiSlider<int>>("int slider2", "int2", 10, 1000)
+        ->addValueListener([pgbar](const auto &v) { pgbar->setPercentage(v / 1000.f); });
 
     window.setMainLoopCallback([&] { render(); });
   }
-
+  std::shared_ptr<ui::ImGuiDialog> dlg;
   void updateCommandBuffer() {
     for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
       auto clearValues = std::vector<vk::ClearValue>(2);
@@ -240,6 +269,7 @@ class TriangleRenderer {
   ~TriangleRenderer();
 
   void render() {
+
     vkSwapChain->swap();
 
     imgui->render();

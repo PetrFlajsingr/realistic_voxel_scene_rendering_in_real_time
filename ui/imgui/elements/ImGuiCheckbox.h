@@ -12,7 +12,8 @@ namespace pf::ui {
 class ImGuiCheckbox : public ImGuiValueObservableElement<bool>, public ImGuiCaptionedElement {
  public:
   ImGuiCheckbox(const std::string &elementName, const std::string &caption, bool value = false);
-  void render() override;
+ protected:
+  void renderImpl() override;
 };
 }// namespace pf::ui
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUICHECKBOX_H

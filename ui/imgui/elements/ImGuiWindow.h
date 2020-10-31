@@ -13,14 +13,16 @@ namespace pf::ui {
 class ImGuiWindow : public ImGuiContainer {
  public:
   ImGuiWindow(const std::string &elementName, std::string title);
-  void render() override;
 
   [[nodiscard]] const std::string &getTitle() const;
   void setTitle(const std::string &title);
+
+ protected:
+  void renderImpl() override;
 
  private:
   std::string title;
 };
 
-}
+}// namespace pf::ui
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUIWINDOW_H

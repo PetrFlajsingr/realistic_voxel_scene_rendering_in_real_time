@@ -96,7 +96,7 @@ void ImGuiGlfwVulkan::uploadFonts() {
 
   ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
-void ImGuiGlfwVulkan::render() {
+void ImGuiGlfwVulkan::renderImpl() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();

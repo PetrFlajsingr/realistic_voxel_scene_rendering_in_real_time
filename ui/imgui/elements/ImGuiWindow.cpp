@@ -11,7 +11,7 @@ namespace pf::ui {
 ImGuiWindow::ImGuiWindow(const std::string &elementName, std::string title)
     : ImGuiElement(elementName), ImGuiContainer(elementName), title(std::move(title)) {}
 
-void ImGuiWindow::render() {
+void ImGuiWindow::renderImpl() {
   ImGui::Begin(title.c_str());
   std::ranges::for_each(getChildren(), [&](auto &child) { child.get().render(); });
 

@@ -10,21 +10,22 @@
 
 namespace pf::ui {
 
-enum class Modal {
-  Yes, No
-};
+enum class Modal { Yes, No };
 
 class ImGuiDialog : public ImGuiContainer, public ImGuiCaptionedElement {
  public:
-  ImGuiDialog(ImGuiContainer &parent, const std::string &elementName,
-              const std::string &caption, Modal modal = Modal::Yes);
-  void render() override;
+  ImGuiDialog(ImGuiContainer &parent, const std::string &elementName, const std::string &caption,
+              Modal modal = Modal::Yes);
 
   void close();
+
+ protected:
+  void renderImpl() override;
+
  private:
   Modal modal;
   bool closed = false;
   ImGuiContainer &owner;
 };
-}
+}// namespace pf::ui
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUIDIALOG_H

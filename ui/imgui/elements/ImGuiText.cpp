@@ -14,5 +14,5 @@ ImGuiText::ImGuiText(const std::string &elementName, std::string text)
 const std::string &ImGuiText::getText() const { return text; }
 void ImGuiText::setText(const std::string &txt) { text = txt; }
 
-void ImGuiText::render() { ImGui::Text("%s", text.c_str()); }
+void ImGuiText::renderImpl() { ImGui::Text("%s", text.c_str()); }
 }// namespace pf::ui

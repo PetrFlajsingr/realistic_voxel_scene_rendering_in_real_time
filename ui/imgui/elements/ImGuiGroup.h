@@ -12,7 +12,9 @@ namespace pf::ui {
 class ImGuiGroup : public ImGuiContainer, public ImGuiCaptionedElement {
  public:
   ImGuiGroup(const std::string &elementName, const std::string &caption);
-  void render() override;
+
+ protected:
+  void renderImpl() override;
 };
 }// namespace pf::ui
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUIGROUP_H

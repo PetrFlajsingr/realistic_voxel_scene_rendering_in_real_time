@@ -20,7 +20,9 @@ class ImGuiInputText : public ImGuiText,
  public:
   ImGuiInputText(const std::string &elementName, std::string caption, const std::string &text = "",
                  TextInputType textInputType = TextInputType::SingleLine);
-  void render() override;
+
+ protected:
+  void renderImpl() override;
 
  private:
   char buffer[256]{};

@@ -17,7 +17,7 @@ ImGuiComboBox::ImGuiComboBox(const std::string &elementName, const std::string &
                                                        elementName, ""),
       items(std::move(items)), previewValue(std::move(previewValue)) {}
 
-void ImGuiComboBox::render() {
+void ImGuiComboBox::renderImpl() {
   using namespace ranges::views;
   if (ImGui::BeginCombo(getCaption().c_str(),
                         selectedItemIndex.has_value() ? items[*selectedItemIndex].c_str()

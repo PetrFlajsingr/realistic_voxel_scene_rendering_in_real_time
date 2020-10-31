@@ -14,9 +14,11 @@ class ImGuiRadioButton : public ImGuiCaptionedElement, public ImGuiValueObservab
  public:
   friend class ImGuiRadioGroup;
   ImGuiRadioButton(const std::string &elementName, const std::string &caption, bool value = false);
-  void render() override;
 
   [[nodiscard]] bool isSelected() const;
+
+ protected:
+  void renderImpl() override;
 
  private:
 };

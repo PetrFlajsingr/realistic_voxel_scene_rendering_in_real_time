@@ -24,7 +24,8 @@ class ImGuiColorChooser : public ImGuiCaptionedElement, public ImGuiValueObserva
         ImGuiCaptionedElement(elementName, caption), ImGuiValueObservableElement<T>(elementName,
                                                                                     value) {}
 
-  void render() override {
+ protected:
+  void renderImpl() override {
     const auto oldValue = ImGuiValueObservableElement<T>::getValue();
     if constexpr (Type == ColorChooserType::Edit) {
       if constexpr (std::same_as<glm::vec3, T>) {
@@ -47,8 +48,6 @@ class ImGuiColorChooser : public ImGuiCaptionedElement, public ImGuiValueObserva
       ImGuiValueObservableElement<T>::notifyValueChanged();
     }
   }
-
- private:
 };
 
 }// namespace pf::ui

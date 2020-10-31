@@ -12,7 +12,9 @@ namespace pf::ui {
 class ImGuiPanel : public ImGuiContainer {
  public:
   ImGuiPanel(const std::string &elementName, std::string title, const ImVec2 &panelSize = {0, 0});
-  void render() override;
+
+ protected:
+  void renderImpl() override;
 
  private:
   std::string title;

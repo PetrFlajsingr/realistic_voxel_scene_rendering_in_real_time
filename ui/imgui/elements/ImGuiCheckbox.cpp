@@ -10,7 +10,7 @@ ImGuiCheckbox::ImGuiCheckbox(const std::string &elementName, const std::string &
     : ImGuiElement(elementName), ImGuiValueObservableElement(elementName, value),
       ImGuiCaptionedElement(elementName, caption) {}
 
-void ImGuiCheckbox::render() {
+void ImGuiCheckbox::renderImpl() {
   const auto oldValue = getValue();
   ImGui::Checkbox(getCaption().c_str(), getValueAddress());
   if (getValue() != oldValue) { notifyValueChanged(); }

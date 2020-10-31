@@ -105,7 +105,8 @@ class ImGuiInput : public ImGuiCaptionedElement, public ImGuiValueObservableElem
         ImGuiValueObservableElement<T>(elementName, value),
         format(std::move(format)) {}
 
-  void render() override {
+ protected:
+  void renderImpl() override {
     const auto oldValue = ImGuiValueObservableElement<T>::getValue();
     if constexpr (std::same_as<T, float>) {
       ImGui::InputFloat(getCaption().c_str(), ImGuiValueObservableElement<T>::getValueAddress(),

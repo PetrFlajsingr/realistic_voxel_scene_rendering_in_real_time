@@ -12,13 +12,16 @@ namespace pf::ui {
 class ImGuiText : public virtual ImGuiElement {
  public:
   ImGuiText(const std::string &elementName, std::string text);
-  void render() override;
+
   [[nodiscard]] const std::string &getText() const;
   void setText(const std::string &text);
+
+ protected:
+  void renderImpl() override;
 
  private:
   std::string text;
 };
 
-}
+}// namespace pf::ui
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUITEXT_H

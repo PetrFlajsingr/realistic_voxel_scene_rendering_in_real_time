@@ -44,7 +44,8 @@ class ImGuiSlider : public ImGuiCaptionedElement, public ImGuiValueObservableEle
                                                                                     value),
         min(min), max(max), format(std::move(format)) {}
 
-  void render() override {
+ protected:
+  void renderImpl() override {
     const auto oldValue = ImGuiValueObservableElement<T>::getValue();
     if constexpr (std::same_as<T, float>) {
       ImGui::SliderFloat(getCaption().c_str(), ImGuiValueObservableElement<T>::getValueAddress(),
