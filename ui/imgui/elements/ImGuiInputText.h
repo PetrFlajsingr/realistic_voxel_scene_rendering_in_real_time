@@ -9,16 +9,22 @@
 #include "interface/ImGuiCaptionedElement.h"
 #include "interface/ImGuiValueObservableElement.h"
 #include <functional>
+#include <imgui.h>
 namespace pf::ui {
+
+enum class TextInputType { SingleLine, MultiLine };
+
 class ImGuiInputText : public ImGuiText,
                        public ImGuiCaptionedElement,
                        public ImGuiValueObservableElement<std::string_view> {
  public:
-  ImGuiInputText(const std::string &elementName, std::string caption, const std::string &text = "");
+  ImGuiInputText(const std::string &elementName, std::string caption, const std::string &text = "",
+                 TextInputType textInputType = TextInputType::SingleLine);
   void render() override;
 
  private:
   char buffer[256]{};
+  TextInputType inputType;
 };
 
 }// namespace pf::ui

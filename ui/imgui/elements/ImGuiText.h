@@ -8,6 +8,7 @@
 #include "interface/ImGuiElement.h"
 
 namespace pf::ui {
+// TODO: color
 class ImGuiText : public virtual ImGuiElement {
  public:
   ImGuiText(const std::string &elementName, std::string text);

@@ -6,7 +6,10 @@
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUIWINDOW_H
 
 #include "interface/ImGuiContainer.h"
+#include "interface/ImGuiResizableElement.h"
+
 namespace pf::ui {
+// TODO: resize, focus, collapse, position
 class ImGuiWindow : public ImGuiContainer {
  public:
   ImGuiWindow(const std::string &elementName, std::string title);

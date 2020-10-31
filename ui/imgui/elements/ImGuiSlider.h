@@ -18,7 +18,7 @@ namespace pf::ui {
 
 namespace details {
 #define IMGUI_SLIDER_FLOAT_TYPE_LIST float, glm::vec2, glm::vec3, glm::vec4
-#define IMGUI_SLIDER_INT_TYPE_LIST int, glm::uvec2, glm::uvec3, glm::uvec4
+#define IMGUI_SLIDER_INT_TYPE_LIST int, glm::ivec2, glm::ivec3, glm::ivec4
 #define IMGUI_SLIDER_TYPE_LIST IMGUI_SLIDER_FLOAT_TYPE_LIST, IMGUI_SLIDER_INT_TYPE_LIST
 template<OneOf<IMGUI_SLIDER_TYPE_LIST> T>
 using SliderMinMaxType = std::conditional_t<OneOf<T, IMGUI_SLIDER_FLOAT_TYPE_LIST>, float, int>;
@@ -69,17 +69,17 @@ class ImGuiSlider : public ImGuiCaptionedElement, public ImGuiValueObservableEle
       ImGui::SliderInt(getCaption().c_str(), ImGuiValueObservableElement<T>::getValueAddress(), min,
                        max, format.c_str());
     }
-    if constexpr (std::same_as<T, glm::uvec2>) {
+    if constexpr (std::same_as<T, glm::ivec2>) {
       ImGui::SliderInt2(getCaption().c_str(),
                         glm::value_ptr(*ImGuiValueObservableElement<T>::getValueAddress()), min,
                         max, format.c_str());
     }
-    if constexpr (std::same_as<T, glm::uvec3>) {
+    if constexpr (std::same_as<T, glm::ivec3>) {
       ImGui::SliderInt3(getCaption().c_str(),
                         glm::value_ptr(*ImGuiValueObservableElement<T>::getValueAddress()), min,
                         max, format.c_str());
     }
-    if constexpr (std::same_as<T, glm::uvec4>) {
+    if constexpr (std::same_as<T, glm::ivec4>) {
       ImGui::SliderInt4(getCaption().c_str(),
                         glm::value_ptr(*ImGuiValueObservableElement<T>::getValueAddress()), min,
                         max, format.c_str());

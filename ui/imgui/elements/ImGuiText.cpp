@@ -4,8 +4,6 @@
 
 #include "ImGuiText.h"
 #include <imgui.h>
-
-#include <cassert>
 #include <utility>
 
 namespace pf::ui {

@@ -204,6 +204,16 @@ class TriangleRenderer {
           std::cout << "int slider " << v << std::endl;
         });
 
+    panel->createChild<ui::ImGuiInput<int>>("int input", "int input", 0, 100)->addValueListener([] (auto v) {
+      std::cout << "Int input " << v << std::endl;
+    });
+    panel->createChild<ui::ImGuiInput<glm::vec3>>("vec3 input", "vec3 input")->addValueListener([] (auto v) {
+      std::cout << "Vec3 input " << v.x << std::endl;
+    });
+    panel->createChild<ui::ImGuiInput<glm::ivec3>>("int3 input", "int3 input")->addValueListener([] (auto v) {
+      std::cout << "Int3 input " << v.x << std::endl;
+    });
+
     window.setMainLoopCallback([&] { render(); });
   }
 
