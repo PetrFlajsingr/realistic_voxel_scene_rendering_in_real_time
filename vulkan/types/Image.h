@@ -21,7 +21,7 @@ struct ImageConfig {
   uint32_t arrayLayers;
   vk::SampleCountFlagBits sampleCount;
   vk::ImageTiling tiling;
-  vk::ImageUsageFlagBits usage;
+  vk::ImageUsageFlags usage;
   std::unordered_set<uint32_t> sharingQueues;
   vk::ImageLayout layout;
 };
@@ -47,6 +47,9 @@ class Image : public VulkanObject, public std::enable_shared_from_this<Image> {
   [[nodiscard]] vk::ImageLayout getLayout() const;
 
   [[nodiscard]] LogicalDevice &getLogicalDevice();
+
+  void transitionLayout(CommandPool &cmdPool, vk::ImageLayout newLayout,
+                        const vk::ImageSubresourceRange& subresourceRange);
 
  protected:
   vk::ImageType imageType;
@@ -89,7 +92,10 @@ class ImageUnique : public Image,
   [[nodiscard]] std::string info() const override;
 
  private:
+  uint32_t findMemoryType(uint32_t memoryTypeBits);
+
   vk::UniqueImage vkImage;
+  vk::UniqueDeviceMemory vkMemory;
 };
 
 }// namespace pf::vulkan

@@ -9,8 +9,8 @@
 #include "BufferView.h"
 #include "VulkanObject.h"
 #include "fwd.h"
-#include <vulkan/vulkan.hpp>
 #include <span>
+#include <vulkan/vulkan.hpp>
 
 namespace pf::vulkan {
 
@@ -42,12 +42,21 @@ class BufferMapping : public VulkanObject, public PtrConstructible<BufferMapping
     const auto typedSize = getTypedSize<T>();
     assert(start < typedSize);
     assert(start + count < typedSize);
-    return std::span(reinterpret_cast<T*>(dataPtr) + start, count);
+    return std::span(reinterpret_cast<T *>(dataPtr) + start, count);
   }
+
+  template <std::ranges::contiguous_range  T>
+  void set(const T &container) {
+    using ValueType = typename T::value_type;
+    const auto typedSize = getTypedSize<ValueType>();
+    assert(typedSize <= container.size());
+    std::memcpy(dataPtr, container.data(), container.size() * sizeof(T));
+  }
+
 
   [[nodiscard]] vk::DeviceSize getSize() const;
 
-  template <typename T>
+  template<typename T>
   [[nodiscard]] vk::DeviceSize getTypedSize() const {
     return getSize() / sizeof(T);
   }
@@ -84,7 +93,9 @@ class Buffer : public VulkanObject,
   [[nodiscard]] bool isAllocated() const;
 
   [[nodiscard]] std::shared_ptr<BufferView> createView(BufferViewConfig &&config);
+  [[nodiscard]] BufferMapping mapping(vk::DeviceSize offset = 0);
   [[nodiscard]] BufferMapping mapping(vk::DeviceSize offset, vk::DeviceSize range);
+  [[nodiscard]] std::shared_ptr<BufferMapping> mappingShared(vk::DeviceSize offset = 0);
   [[nodiscard]] std::shared_ptr<BufferMapping> mappingShared(vk::DeviceSize offset,
                                                              vk::DeviceSize range);
 

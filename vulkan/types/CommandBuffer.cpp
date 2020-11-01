@@ -4,9 +4,11 @@
 
 #include "CommandBuffer.h"
 #include "../VulkanException.h"
+#include "Buffer.h"
 #include "CommandPool.h"
 #include "FrameBuffer.h"
 #include "GraphicsPipeline.h"
+#include "Image.h"
 #include "RenderPass.h"
 #include "SwapChain.h"
 
@@ -51,11 +53,9 @@ CommandBufferRecording &CommandBufferRecording::draw(DrawCommand &&cmd) {
   owner.get()->draw(cmd.vertexCount, cmd.instanceCount, cmd.vertexOffset, cmd.instanceOffset);
   return *this;
 }
-CommandBuffer &CommandBufferRecording::getCommandBuffer() {
-  return owner.get();
-}
+CommandBuffer &CommandBufferRecording::getCommandBuffer() { return owner.get(); }
 CommandBufferRecording::CommandBufferRecording(CommandBufferRecording &&other) noexcept
-    : owner(other.owner)  {
+    : owner(other.owner) {
   other.isValid = false;
   isValid = true;
 }
@@ -63,6 +63,41 @@ CommandBufferRecording &CommandBufferRecording::operator=(CommandBufferRecording
   other.isValid = false;
   owner = other.owner;
   isValid = true;
+  return *this;
+}
+CommandBufferRecording &CommandBufferRecording::copyBuffer(Buffer &src, Buffer &dst,
+                                                           vk::DeviceSize srcOffset,
+                                                           vk::DeviceSize dstOffset,
+                                                           vk::DeviceSize range) {
+  auto bufferCopy = vk::BufferCopy();
+  bufferCopy.srcOffset = srcOffset;
+  bufferCopy.dstOffset = dstOffset;
+  bufferCopy.size = range;
+  owner.get()->copyBuffer(*src, *dst, bufferCopy);
+  return *this;
+}
+
+CommandBufferRecording &CommandBufferRecording::copyBufferToImage(
+    Buffer &src, Image &dst, vk::DeviceSize srcOffset, uint32_t srcRowLength, uint32_t srcHeight,
+    vk::Offset3D dstOffset, const vk::ImageSubresourceLayers& imageSubresourceLayers) {
+  auto bufferCopy = vk::BufferImageCopy();
+  bufferCopy.bufferOffset = 0;
+  bufferCopy.bufferRowLength = 0;
+  bufferCopy.bufferImageHeight = 0;
+  bufferCopy.imageSubresource = imageSubresourceLayers;
+  bufferCopy.imageOffset = dstOffset;
+  bufferCopy.imageExtent = dst.getExtent();
+  owner.get()->copyBufferToImage(*src, *dst, dst.getLayout(), 1, &bufferCopy);
+  return *this;
+}
+
+CommandBufferRecording &
+CommandBufferRecording::pipelineBarrier(vk::PipelineStageFlagBits srcStage,
+                                        vk::PipelineStageFlagBits dstStage,
+                                        const std::vector<vk::MemoryBarrier> &memoryBarrier,
+                                        const std::vector<vk::BufferMemoryBarrier> &bufferBarrier,
+                                        const std::vector<vk::ImageMemoryBarrier> &imageBarrier) {
+  owner.get()->pipelineBarrier(srcStage, dstStage, {}, memoryBarrier, bufferBarrier, imageBarrier);
   return *this;
 }
 

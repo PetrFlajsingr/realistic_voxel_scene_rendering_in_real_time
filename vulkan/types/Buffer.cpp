@@ -19,12 +19,8 @@ std::string BufferMapping::info() const {
   return fmt::format("Buffer mapping to '{}' with offset: {}, range: {}", buffer->info(), offset,
                      range);
 }
-vk::DeviceSize BufferMapping::getSize() const {
-  return range - offset;
-}
-void *BufferMapping::rawData() {
-  return dataPtr;
-}
+vk::DeviceSize BufferMapping::getSize() const { return range - offset; }
+void *BufferMapping::rawData() { return dataPtr; }
 
 Buffer::Buffer(std::shared_ptr<LogicalDevice> device, BufferConfig &&config,
                bool allocateImmediately)
@@ -80,8 +76,17 @@ std::shared_ptr<BufferView> Buffer::createView(BufferViewConfig &&config) {
   return BufferView::CreateShared(shared_from_this(), std::move(config));
 }
 const vk::DeviceMemory &Buffer::getMemory() const { return *vkMemory; }
+
+BufferMapping Buffer::mapping(vk::DeviceSize offset) {
+  return BufferMapping(shared_from_this(), offset, getSize());
+}
+
 BufferMapping Buffer::mapping(vk::DeviceSize offset, vk::DeviceSize range) {
   return BufferMapping(shared_from_this(), offset, range);
+}
+
+std::shared_ptr<BufferMapping> Buffer::mappingShared(vk::DeviceSize offset) {
+  return BufferMapping::CreateShared(shared_from_this(), offset, getSize());
 }
 std::shared_ptr<BufferMapping> Buffer::mappingShared(vk::DeviceSize offset, vk::DeviceSize range) {
   return BufferMapping::CreateShared(shared_from_this(), offset, range);

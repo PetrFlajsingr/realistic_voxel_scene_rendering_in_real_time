@@ -13,6 +13,7 @@
 #include "DescriptorSetLayout.h"
 #include "Image.h"
 #include "Fence.h"
+#include "Buffer.h"
 #include "Semaphore.h"
 #include "Shader.h"
 #include "SwapChain.h"
@@ -70,6 +71,7 @@ class LogicalDevice : public VulkanObject,
   [[nodiscard]] std::shared_ptr<DescriptorPool> createDescriptorPool(DescriptorPoolConfig &&config);
   [[nodiscard]] std::shared_ptr<Fence> createFence(FenceConfig &&config);
   [[nodiscard]] std::shared_ptr<Semaphore> createSemaphore();
+  [[nodiscard]] std::shared_ptr<Buffer> createBuffer(BufferConfig &&config, bool allocateImmediately = true);
 
   [[nodiscard]] PhysicalDevice &getPhysicalDevice() const;
 

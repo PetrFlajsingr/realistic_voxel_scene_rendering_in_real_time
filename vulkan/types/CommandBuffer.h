@@ -6,6 +6,7 @@
 #define VOXEL_RENDER_COMMANDBUFFER_H
 
 #include "../concepts/PtrConstructible.h"
+#include "Fence.h"
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <vulkan/vulkan.hpp>
@@ -34,10 +35,10 @@ struct DrawCommand {
 class CommandBufferRecording {
  public:
   explicit CommandBufferRecording(CommandBuffer &buffer);
-  CommandBufferRecording(const CommandBufferRecording&) = delete;
-  CommandBufferRecording &operator=(const CommandBufferRecording&) = delete;
-  CommandBufferRecording(CommandBufferRecording &&other)  noexcept;
-  CommandBufferRecording &operator=(CommandBufferRecording &&other)  noexcept;
+  CommandBufferRecording(const CommandBufferRecording &) = delete;
+  CommandBufferRecording &operator=(const CommandBufferRecording &) = delete;
+  CommandBufferRecording(CommandBufferRecording &&other) noexcept;
+  CommandBufferRecording &operator=(CommandBufferRecording &&other) noexcept;
   ~CommandBufferRecording();
 
   CommandBufferRecording &beginRenderPass(ClearFrameBuffersCommand &&cmd);
@@ -46,6 +47,19 @@ class CommandBufferRecording {
 
   CommandBufferRecording &bindPipeline(vk::PipelineBindPoint bindPoint, GraphicsPipeline &pipeline);
   CommandBufferRecording &draw(DrawCommand &&cmd);
+
+  CommandBufferRecording &copyBuffer(Buffer &src, Buffer &dst, vk::DeviceSize srcOffset,
+                                     vk::DeviceSize dstOffset, vk::DeviceSize range);
+  CommandBufferRecording &copyBufferToImage(Buffer &src, Image &dst, vk::DeviceSize srcOffset,
+                                            uint32_t srcRowLength, uint32_t srcHeight,
+                                            vk::Offset3D dstOffset,
+                                            const vk::ImageSubresourceLayers& imageSubresourceLayers);
+
+  CommandBufferRecording &pipelineBarrier(vk::PipelineStageFlagBits srcStage,
+                                          vk::PipelineStageFlagBits dstStage,
+                                          const std::vector<vk::MemoryBarrier> &memoryBarrier,
+                                          const std::vector<vk::BufferMemoryBarrier> &bufferBarrier,
+                                          const std::vector<vk::ImageMemoryBarrier> &imageBarrier);
 
   void end();
 
@@ -58,7 +72,7 @@ struct CommandSubmitConfig {
   std::vector<std::reference_wrapper<Semaphore>> waitSemaphores;
   std::vector<std::reference_wrapper<Semaphore>> signalSemaphores;
   vk::PipelineStageFlags flags;
-  Fence &fence;
+  std::optional<std::reference_wrapper<Fence>> fence;
   bool wait;
 };
 

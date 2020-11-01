@@ -18,7 +18,7 @@ struct MultiCommandSubmitConfig {
   std::vector<std::reference_wrapper<Semaphore>> waitSemaphores;
   std::vector<std::reference_wrapper<Semaphore>> signalSemaphores;
   vk::PipelineStageFlags flags;
-  Fence &fence;
+  std::optional<std::reference_wrapper<Fence>> fence;
   bool wait;
 };
 
