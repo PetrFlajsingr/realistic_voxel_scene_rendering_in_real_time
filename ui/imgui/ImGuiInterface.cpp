@@ -25,4 +25,14 @@ std::shared_ptr<ImGuiDialog> ImGuiInterface::createDialog(const std::string &ele
   return result;
 }
 
+ImGuiAppMenuBar &ImGuiInterface::getMenuBar() {
+  if (!menuBar.has_value()) {
+    menuBar = ImGuiAppMenuBar("app_menu_bar");
+  }
+  return *menuBar;
+}
+bool ImGuiInterface::hasMenuBar() const {
+  return menuBar.has_value();
+}
+
 }// namespace pf::ui

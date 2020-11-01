@@ -22,7 +22,8 @@
 #include "elements/ImGuiCheckbox.h"
 #include "elements/ImGuiGroup.h"
 #include "elements/ImGuiProgressBar.h"
+#include "elements/ImGuiListBox.h"
+#include "elements/ImGuiPlot.h"
 
-// TODO: selectable, listbox, plot (lines, histogram), menu, tooltip, popups, tabbar
 
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_H

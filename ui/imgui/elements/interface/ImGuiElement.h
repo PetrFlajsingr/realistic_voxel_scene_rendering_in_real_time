@@ -29,7 +29,7 @@ class ImGuiElement {
   virtual void renderImpl() = 0;
 
  private:
-  const std::string name;
+  std::string name;
   Visibility visibility = Visibility::Visible;
 };
 

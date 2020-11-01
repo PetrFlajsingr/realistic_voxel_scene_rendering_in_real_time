@@ -100,6 +100,9 @@ void ImGuiGlfwVulkan::renderImpl() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
+  if (hasMenuBar()) {
+    menuBar->render();
+  }
   std::ranges::for_each(getChildren(), [](auto &child) { child.get().render(); });
   ImGui::Render();
 }
