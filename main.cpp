@@ -5,9 +5,9 @@
 #include "logging/loggers.h"
 #include "rendering/TriangleRenderer.h"
 #include "ui/GlfwWindow.h"
+#include <experimental/array>
 #include <filesystem>
 #include <toml.hpp>
-#include <experimental/array>
 
 // TODO: change include guards - pragma once?
 
@@ -39,9 +39,9 @@ argparse::ArgumentParser createArgumentParser() {
 void createLogger(argparse::ArgumentParser &argument_parser) {
   const auto loggerSettings =
       GlobalLoggerSettings{.verbose = argument_parser.get<bool>("-v"),
-                             .console = argument_parser.get<bool>("-l"),
-                             .debug = argument_parser.get<bool>("-d"),
-                             .logDir = argument_parser.get<std::filesystem::path>("--log_dir")};
+                           .console = argument_parser.get<bool>("-l"),
+                           .debug = argument_parser.get<bool>("-d"),
+                           .logDir = argument_parser.get<std::filesystem::path>("--log_dir")};
   pf::initGlobalLogger(loggerSettings);
 }
 
@@ -59,21 +59,21 @@ int main(int argc, char *argv[]) {
   }
 
   //try {
-    auto config = toml::parse(argumentParser.get<std::filesystem::path>("--config"));
+  auto config = toml::parse(argumentParser.get<std::filesystem::path>("--config"));
 
-    createLogger(argumentParser);
-    auto resolutionConfig = config["ui"]["window"];
-    const auto windowSettings = ui::WindowSettings{
-        .resolution = {static_cast<std::size_t>(resolutionConfig["width"].as_integer()),
-                       static_cast<std::size_t>(resolutionConfig["height"].as_integer())},
-        .title = "test",
-        .mode = ui::Mode::Windowed};
+  createLogger(argumentParser);
+  auto resolutionConfig = config["ui"]["window"];
+  const auto windowSettings = ui::WindowSettings{
+      .resolution = {static_cast<std::size_t>(resolutionConfig["width"].as_integer()),
+                     static_cast<std::size_t>(resolutionConfig["height"].as_integer())},
+      .title = "test",
+      .mode = ui::Mode::Windowed};
 
-    auto app = application<ui::GlfwWindow, TriangleRenderer>(
-        TriangleRenderer(),
-        application_settings{.debug = argumentParser.get<bool>("-d"),
-                             .window_settings = windowSettings});
-    app.run();
+  auto app = application<ui::GlfwWindow, TriangleRenderer>(
+      TriangleRenderer(),
+      application_settings{.debug = argumentParser.get<bool>("-d"),
+                           .window_settings = windowSettings});
+  app.run();
   //} catch (const std::exception &exception) {
   //  pf::log(spdlog::level::critical, MAIN_TAG, "Application crash:");
   //  pf::log(spdlog::level::critical, MAIN_TAG, exception.what());

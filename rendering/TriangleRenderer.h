@@ -173,12 +173,11 @@ class TriangleRenderer {
     });
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
 
-    auto panel = imgui->createChild<ui::ImGuiWindow>("Panel1", "Test panel");
-    panel->createChild<ui::ImGuiText>("Text1", "Test text");
-    panel->createChild<ui::ImGuiInputText>("Textinput1", "Test text")->addValueListener([](auto a) {
-      std::cout << "New text: " << a << std::endl;
-    });
-    auto a = panel->createChild<ui::ImGuiPanel>("Panel2", "Test panel 2", ImVec2{0, 50});
+    auto imWindow = imgui->createChild<ui::ImGuiWindow>("Panel1", "Test panel");
+    imWindow->createChild<ui::ImGuiText>("Text1", "Test text");
+    imWindow->createChild<ui::ImGuiInputText>("Textinput1", "Test text")
+        ->addValueListener([](auto a) { std::cout << "New text: " << a << std::endl; });
+    auto a = imWindow->createChild<ui::ImGuiPanel>("Panel2", "Test panel 2", ImVec2{0, 50});
     a->createChild<ui::ImGuiText>("Text2", "Test text2");
     a->createChild<ui::ImGuiText>("Text3", "Test text2");
     a->createChild<ui::ImGuiText>("Text4", "Test text2");
@@ -189,15 +188,8 @@ class TriangleRenderer {
     a->createChild<ui::ImGuiText>("Text9", "Test text2");
     a->createChild<ui::ImGuiText>("Text10", "Test text2");
     a->createChild<ui::ImGuiText>("Text11", "Test text2");
-    panel->createChild<ui::ImGuiButton>("TestBtn", "Test button", ui::ButtonType::Small)
-        ->setOnClick([this] {
-          dlg = imgui->createDialog("diahfghgfhfglog", "title");
-          dlg->createChild<ui::ImGuiButton>("dlgcloes", "close")->setOnClick([this] {
-            dlg->close();
-            dlg = nullptr;
-          });
-        });
-    auto group = panel->createChild<ui::ImGuiGroup>("group1", "Group 1");
+
+    auto group = imWindow->createChild<ui::ImGuiGroup>("group1", "Group 1");
     group->createChild<ui::ImGuiButton>("TestBtn2", "Test button2", ui::ButtonType::ArrowUp);
     group->createChild<ui::ImGuiSlider<glm::vec3>>("Vec slider", "Vec3", 0.f, 11.3f)
         ->addValueListener([](const auto &v) {
@@ -209,43 +201,89 @@ class TriangleRenderer {
         ->addValueListener(
             [&](const auto &v) mutable { std::cout << "int slider " << v << std::endl; });
 
-    panel->createChild<ui::ImGuiInput<int>>("int input", "int input", 0, 100)
+    imWindow->createChild<ui::ImGuiInput<int>>("int input", "int input", 0, 100)
         ->addValueListener([](auto v) { std::cout << "Int input " << v << std::endl; });
-    panel->createChild<ui::ImGuiInput<glm::vec3>>("vec3 input", "vec3 input")
+    imWindow->createChild<ui::ImGuiInput<glm::vec3>>("vec3 input", "vec3 input")
         ->addValueListener([](auto v) { std::cout << "Vec3 input " << v.x << std::endl; });
-    panel->createChild<ui::ImGuiInput<glm::ivec3>>("int3 input", "int3 input")
+    imWindow->createChild<ui::ImGuiInput<glm::ivec3>>("int3 input", "int3 input")
         ->addValueListener([](auto v) { std::cout << "Int3 input " << v.x << std::endl; });
 
     using namespace std::string_literals;
-    panel
+    imWindow
         ->createChild<ui::ImGuiComboBox>("cb1", "combo box", "preview",
                                          std::vector{"1"s, "2"s, "3"s})
         ->addValueListener([](auto v) { std::cout << "cb: " << v << std::endl; });
 
-    auto radioGroup = panel->createChild<ui::ImGuiRadioGroup>("rg1", "group");
+    auto radioGroup = imWindow->createChild<ui::ImGuiRadioGroup>("rg1", "group");
     radioGroup->addValueListener([](auto a) { std::cout << "group: " << a << std::endl; });
     radioGroup->addButton("rb1", "first");
     radioGroup->addButton("rb2", "second");
     radioGroup->addButton("rb3", "third");
     radioGroup->addButton("rb4", "fourth");
 
-    panel->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Edit, glm::vec3>>("col1",
-                                                                                     "color 1");
-    panel->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Picker, glm::vec4>>("col2",
-                                                                                       "color 2");
+    imWindow->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Edit, glm::vec3>>("col1",
+                                                                                        "color 1");
+    imWindow->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Picker, glm::vec4>>(
+        "col2", "color 2");
 
-    panel->createChild<ui::ImGuiCheckbox>("chbkx", "check", true)->addValueListener([](auto) {
+    imWindow->createChild<ui::ImGuiCheckbox>("chbkx", "check", true)->addValueListener([](auto) {
       std::cout << "checkbox changed" << std::endl;
     });
 
-    auto pgbar = panel->createChild<ui::ImGuiProgressBar<int>>("pgbar", 10, 10, 1000);
+    auto pgbar = imWindow->createChild<ui::ImGuiProgressBar<int>>("pgbar", 10, 10, 1000);
     pgbar->addValueListener([](auto val) { std::cout << "Progress: " << val << std::endl; });
-    panel->createChild<ui::ImGuiSlider<int>>("int slider2", "int2", 10, 1000)
+    imWindow->createChild<ui::ImGuiSlider<int>>("int slider2", "int2", 10, 1000)
         ->addValueListener([pgbar](const auto &v) { pgbar->setPercentage(v / 1000.f); });
+
+    imWindow->createChild<ui::ImGuiButton>("TestBtasdn2", "Test buasdastton2")->setOnClick([group] {
+      group->setVisibility(group->getVisibility() == ui::Visibility::Visible
+                               ? ui::Visibility::Invisible
+                               : ui::Visibility::Visible);
+    });
+
+    imWindow->createChild<ui::ImGuiDragInput<float>>("difloat", "float drag", 1.f, 0.f, 100.f)
+        ->addValueListener([](auto val) { std::cout << "drag float " << val << std::endl; });
+
+    imWindow->createChild<ui::ImGuiDragInput<glm::ivec2>>("diivec2", "ivec2 drag", 1, 0, 100)
+        ->addValueListener([](auto val) { std::cout << "drag ivec2 " << val.x << std::endl; });
+
+    imWindow
+        ->createChild<ui::ImGuiDragInput<math::Range<float>>>("dirangefloat", "range float drag",
+                                                              1.f, 0.f, 100.f)
+        ->addValueListener([](auto val) {
+          std::cout << "drag range " << val.start << " " << val.end << std::endl;
+        });
+
+    auto tree = imWindow->createChild<ui::ImGuiTree>("root", "root");
+    auto node1 = tree->addNode("tree lvl1 0", "lvl 1 0");
+    auto group2 =
+        node1->addNode("tree lvl 2 0", "lvl 2 0")->createChild<ui::ImGuiGroup>("group 2", "hihihi");
+    group2->createChild<ui::ImGuiButton>("tree btn", "tree btn man");
+    tree->addNode("tree lvl1 1", "lvl 1 1");
+
+    auto lb = imWindow->createChild<ui::ImGuiListBox>("lb1", "list boooox");
+    lb->addValueListener([](auto val) { std::cout << "listbox " << val << std::endl; });
+    lb->addItem("item 1");
+    lb->addItem("item 2");
+    lb->addItem("item 3");
+    lb->addItem("item 4");
+
+    imWindow->createChild<ui::ImGuiPlot>("plot1", "test plot", ui::PlotType::Histogram);
+
+    imgui->getMenuBar().addItem("menu item 1", "1 click").setOnClick([] {
+      std::cout << "menu item 1 click" << std::endl;
+    });
+    auto &submenu = imgui->getMenuBar().addSubmenu("sub1", "submenu1");
+    submenu.addSubmenu("sub11", "submenu11").addItem("sfasdfadsfswa", "yeah").setOnClick([] {
+      std::cout << "yeah" << std::endl;
+    });
+
+    imWindow->getMenuBar().addItem("w menu item 1", "1 loc click").setOnClick([] {
+      std::cout << "loc 1 m click" << std::endl;
+    });
 
     window.setMainLoopCallback([&] { render(); });
   }
-  std::shared_ptr<ui::ImGuiDialog> dlg;
   void updateCommandBuffer() {
     for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
       auto clearValues = std::vector<vk::ClearValue>(2);
@@ -269,7 +307,6 @@ class TriangleRenderer {
   ~TriangleRenderer();
 
   void render() {
-
     vkSwapChain->swap();
 
     imgui->render();

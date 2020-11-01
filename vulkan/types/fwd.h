@@ -27,6 +27,8 @@ namespace pf::vulkan {
   class DescriptorPool;
   class Semaphore;
   class Fence;
+  class Texture;
+  class TextureSampler;
 }
 
 #endif//VOXEL_RENDER_FWD_H

@@ -8,6 +8,7 @@
 #include "interface/ImGuiCaptionedElement.h"
 #include "interface/ImGuiValueObservableElement.h"
 #include <vector>
+#include "../concepts/Iterable.h"
 
 namespace pf::ui {
 class ImGuiListBox : public ImGuiCaptionedElement,
@@ -17,6 +18,9 @@ class ImGuiListBox : public ImGuiCaptionedElement,
                std::vector<std::string> items_ = {}, int selectedIdx = 0, int heightInItems = -1);
 
   void addItem(std::string item);
+  void addItems(const Iterable_of<std::string> auto &data) {
+    std::ranges::copy(data, std::back_inserter(items));
+  }
 
   [[nodiscard]] std::string_view getSelectedItem() const;
 
