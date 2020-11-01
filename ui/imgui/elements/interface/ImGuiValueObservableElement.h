@@ -27,6 +27,13 @@ class ImGuiValueObservableElement : public virtual ImGuiElement {
     return events::Subscription([id, this] { listeners.erase(id); });
   }
 
+  events::Subscription bind(T &toBind) {
+    auto bindAddress = &toBind;
+    return addValueListener([bindAddress](auto newValue) {
+      *bindAddress = newValue;
+    });
+  }
+
   [[nodiscard]] const T &getValue() const { return value; }
 
  protected:
