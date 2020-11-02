@@ -35,6 +35,11 @@ class TextureSampler : public VulkanObject {
   TextureSampler(std::shared_ptr<LogicalDevice> device, TextureSamplerConfig &&config);
 
   [[nodiscard]] std::string info() const override;
+  [[nodiscard]] LogicalDevice &getLogicalDevice() const;
+  [[nodiscard]] const vk::Sampler &getVkSampler() const;
+
+  const vk::Sampler &operator*();
+  vk::Sampler const *operator->();
 
  private:
   std::shared_ptr<LogicalDevice> logicalDevice;

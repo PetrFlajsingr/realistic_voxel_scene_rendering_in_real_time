@@ -8,12 +8,12 @@
 #include "../concepts/OneOf.h"
 #include "../concepts/PtrConstructible.h"
 #include "../concepts/Window.h"
+#include "Buffer.h"
 #include "CommandPool.h"
 #include "DescriptorPool.h"
 #include "DescriptorSetLayout.h"
-#include "Image.h"
 #include "Fence.h"
-#include "Buffer.h"
+#include "Image.h"
 #include "Semaphore.h"
 #include "Shader.h"
 #include "SwapChain.h"
@@ -64,14 +64,15 @@ class LogicalDevice : public VulkanObject,
   [[nodiscard]] std::shared_ptr<CommandPool> createCommandPool(CommandPoolConfig &&config);
   [[nodiscard]] std::shared_ptr<DescriptorSetLayout>
   createDescriptorSetLayout(DescriptorSetLayoutConfig &&config);
-  template <OneOf<ShaderConfigFile, ShaderConfigSrc, ShaderConfigGlslSrc, ShaderConfigGlslFile> T>
+  template<OneOf<ShaderConfigFile, ShaderConfigSrc, ShaderConfigGlslSrc, ShaderConfigGlslFile> T>
   [[nodiscard]] std::shared_ptr<Shader> createShader(T &&config) {
     return Shader::CreateShared(shared_from_this(), std::move(config));
   }
   [[nodiscard]] std::shared_ptr<DescriptorPool> createDescriptorPool(DescriptorPoolConfig &&config);
   [[nodiscard]] std::shared_ptr<Fence> createFence(FenceConfig &&config);
   [[nodiscard]] std::shared_ptr<Semaphore> createSemaphore();
-  [[nodiscard]] std::shared_ptr<Buffer> createBuffer(BufferConfig &&config, bool allocateImmediately = true);
+  [[nodiscard]] std::shared_ptr<Buffer> createBuffer(BufferConfig &&config,
+                                                     bool allocateImmediately = true);
 
   [[nodiscard]] PhysicalDevice &getPhysicalDevice() const;
 

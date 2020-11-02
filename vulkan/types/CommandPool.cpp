@@ -3,9 +3,9 @@
 //
 
 #include "CommandPool.h"
+#include "Fence.h"
 #include "PhysicalDevice.h"
 #include "Semaphore.h"
-#include "Fence.h"
 
 namespace pf::vulkan {
 CommandPool::CommandPool(std::shared_ptr<LogicalDevice> device, CommandPoolConfig &&config)
@@ -57,7 +57,7 @@ void CommandPool::submitCommandBuffers(const MultiCommandSubmitConfig &config) {
   submitInfo.setCommandBuffers(buffers);
   submitInfo.pWaitDstStageMask = &config.flags;
 
-  queue.submit({submitInfo}, config.fence.has_value() ? config.fence->getVkFence() : VK_NULL_HANDLE);
+  queue.submit({submitInfo}, config.fence.has_value() ? config.fence->get().getVkFence() : nullptr);
   if (config.wait) { queue.waitIdle(); }
 }
 

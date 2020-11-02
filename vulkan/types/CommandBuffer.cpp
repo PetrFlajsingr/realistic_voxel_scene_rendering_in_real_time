@@ -81,9 +81,9 @@ CommandBufferRecording &CommandBufferRecording::copyBufferToImage(
     Buffer &src, Image &dst, vk::DeviceSize srcOffset, uint32_t srcRowLength, uint32_t srcHeight,
     vk::Offset3D dstOffset, const vk::ImageSubresourceLayers& imageSubresourceLayers) {
   auto bufferCopy = vk::BufferImageCopy();
-  bufferCopy.bufferOffset = 0;
-  bufferCopy.bufferRowLength = 0;
-  bufferCopy.bufferImageHeight = 0;
+  bufferCopy.bufferOffset = srcOffset;
+  bufferCopy.bufferRowLength = srcRowLength;
+  bufferCopy.bufferImageHeight = srcHeight;
   bufferCopy.imageSubresource = imageSubresourceLayers;
   bufferCopy.imageOffset = dstOffset;
   bufferCopy.imageExtent = dst.getExtent();

@@ -30,5 +30,17 @@ TextureSampler::TextureSampler(std::shared_ptr<LogicalDevice> device,
 
   vkSampler = logicalDevice->getVkLogicalDevice().createSamplerUnique(createInfo);
 }
+LogicalDevice &TextureSampler::getLogicalDevice() const {
+  return *logicalDevice;
+}
+const vk::Sampler &TextureSampler::getVkSampler() const {
+  return *vkSampler;
+}
+const vk::Sampler &TextureSampler::operator*() {
+  return *vkSampler;
+}
+vk::Sampler const *TextureSampler::operator->() {
+  return &*vkSampler;
+}
 
 }

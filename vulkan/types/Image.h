@@ -60,7 +60,7 @@ class Image : public VulkanObject, public std::enable_shared_from_this<Image> {
   vk::SampleCountFlagBits sampleCount;
   vk::ImageTiling tiling;
   vk::ImageLayout layout;
-  vk::ImageUsageFlagBits usage;
+  vk::ImageUsageFlags usage;
   std::unordered_set<uint32_t> sharingQueues;
   std::shared_ptr<LogicalDevice> logicalDevice;
 };

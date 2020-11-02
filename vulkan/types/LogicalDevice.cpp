@@ -71,7 +71,8 @@ std::shared_ptr<Semaphore> LogicalDevice::createSemaphore() {
 vk::Queue LogicalDevice::getPresentQueue() {
   return vkLogicalDevice->getQueue(presentQueueIndex.value(), 0);
 }
-std::shared_ptr<Buffer> LogicalDevice::createBuffer(BufferConfig &&config, bool allocateImmediately = true) {
+std::shared_ptr<Buffer> LogicalDevice::createBuffer(BufferConfig &&config,
+                                                    bool allocateImmediately) {
   return std::make_shared<Buffer>(shared_from_this(), std::move(config), allocateImmediately);
 }
 

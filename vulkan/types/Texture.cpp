@@ -48,7 +48,13 @@ Texture::Texture(std::shared_ptr<LogicalDevice> device, CommandPool &pool,
        .sharingQueues = {},
        .layout = vk::ImageLayout::eUndefined});
 
-  image->transitionLayout(pool, vk::ImageLayout::eTransferDstOptimal);
+  auto subRange = vk::ImageSubresourceRange();
+  subRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+  subRange.baseMipLevel = 0;
+  subRange.levelCount = 1;
+  subRange.baseArrayLayer = 0;
+  subRange.layerCount = 1;
+  image->transitionLayout(pool, vk::ImageLayout::eTransferDstOptimal, subRange);
   {
     auto bufferCopyCmd = pool.createCommandBuffers({vk::CommandBufferLevel::ePrimary, 1})[0];
     auto subresource = vk::ImageSubresourceLayers();
@@ -57,22 +63,18 @@ Texture::Texture(std::shared_ptr<LogicalDevice> device, CommandPool &pool,
     subresource.baseArrayLayer = 0;
     subresource.layerCount = 1;
     bufferCopyCmd->begin(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)
-        .copyBufferToImage(buffer, image, 0, 0, 0, {0, 0, 0}, subresource);
+        .copyBufferToImage(*buffer, *image, 0, 0, 0, {0, 0, 0}, subresource);
     bufferCopyCmd->submit({.waitSemaphores = {},
                            .signalSemaphores = {},
                            .flags = {},
                            .fence = std::nullopt,
                            .wait = true});
   }
-  image->transitionLayout(pool, vk::ImageLayout::eShaderReadOnlyOptimal);
+  image->transitionLayout(pool, vk::ImageLayout::eShaderReadOnlyOptimal, subRange);
 }
 
 std::string Texture::info() const { return "Vulkan texture"; }
-LogicalDevice &Texture::getLogicalDevice() const {
-  return *logicalDevice;
-}
-Image &Texture::getImage() const {
-  return *image;
-}
+LogicalDevice &Texture::getLogicalDevice() const { return *logicalDevice; }
+Image &Texture::getImage() const { return *image; }
 
 }// namespace pf::vulkan
