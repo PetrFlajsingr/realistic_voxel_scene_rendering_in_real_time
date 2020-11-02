@@ -42,6 +42,12 @@ inline std::shared_ptr<spdlog::logger> globalLogger = nullptr;
 void initGlobalLogger(const GlobalLoggerSettings &settings);
 
 void log(spdlog::level::level_enum level, std::string_view tag, std::string_view msg);
+void logt(std::string_view tag, std::string_view msg);
+void logi(std::string_view tag, std::string_view msg);
+void logd(std::string_view tag, std::string_view msg);
+void logw(std::string_view tag, std::string_view msg);
+void logc(std::string_view tag, std::string_view msg);
+void loge(std::string_view tag, std::string_view msg);
 
 void addLogListener(std::invocable<std::string_view> auto listener, bool err = false) {
   if (!details::settings.has_value()) {
@@ -59,6 +65,26 @@ void logFmt(spdlog::level::level_enum level, std::string_view tag, std::string_v
             const auto &... args) {
   globalLogger->log(level, fmt::format(TAG_FORMAT, tag, msg), args...);
 }
+
+void logtFmt(std::string_view tag, std::string_view msg, const auto &...args) {
+  logFmt(spdlog::level::trace, tag, msg, args...);
+}
+void logiFmt(std::string_view tag, std::string_view msg, const auto &...args) {
+  logFmt(spdlog::level::info, tag, msg, args...);
+}
+void logdFmt(std::string_view tag, std::string_view msg, const auto &...args) {
+  logFmt(spdlog::level::debug, tag, msg, args...);
+}
+void logwFmt(std::string_view tag, std::string_view msg, const auto &...args) {
+  logFmt(spdlog::level::warn, tag, msg, args...);
+}
+void logcFmt(std::string_view tag, std::string_view msg, const auto &...args) {
+  logFmt(spdlog::level::critical, tag, msg, args...);
+}
+void logeFmt(std::string_view tag, std::string_view msg, const auto &...args) {
+  logFmt(spdlog::level::err, tag, msg, args...);
+}
+
 
 void logSrc(
     spdlog::level::level_enum level, std::string_view tag, std::string_view msg,

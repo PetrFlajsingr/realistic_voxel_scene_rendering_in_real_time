@@ -172,7 +172,7 @@ const std::vector<std::shared_ptr<ImageRef>> &SwapChain::getImages() const { ret
 void SwapChain::checkRebuild() {
   if (auto newRes = windowResolutionCheck(); newRes.has_value()) {
     logicalDevice->wait();
-    rebuildSwapChain({});
+    rebuildSwapChain(*newRes);
     std::ranges::for_each(rebuildListeners, [](auto &listener) { listener(); });
   }
 }

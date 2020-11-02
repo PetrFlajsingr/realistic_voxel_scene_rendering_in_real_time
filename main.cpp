@@ -5,11 +5,12 @@
 #include "logging/loggers.h"
 #include "rendering/TriangleRenderer.h"
 #include "ui/GlfwWindow.h"
+#include "utils/config.h"
 #include <experimental/array>
 #include <filesystem>
-#include <toml.hpp>
+#include <toml++/toml.h>
 
-// TODO: change include guards - pragma once?
+// TODO: change include guards
 
 argparse::ArgumentParser createArgumentParser() {
   auto argumentParser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
@@ -45,6 +46,10 @@ void createLogger(argparse::ArgumentParser &argument_parser) {
   pf::initGlobalLogger(loggerSettings);
 }
 
+void saveConfig(const std::filesystem::path &dst, TomlConfig &config) {
+  auto ofstream = std::ofstream(dst);
+  ofstream << config;
+}
 
 int main(int argc, char *argv[]) {
   using namespace pf;
@@ -58,22 +63,28 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  auto configPath = argumentParser.get<std::filesystem::path>("--config");
   //try {
-  auto config = toml::parse(argumentParser.get<std::filesystem::path>("--config"));
+  auto config = toml::parse_file(configPath.string());
 
   createLogger(argumentParser);
+
   auto resolutionConfig = config["ui"]["window"];
   const auto windowSettings = ui::WindowSettings{
-      .resolution = {static_cast<std::size_t>(resolutionConfig["width"].as_integer()),
-                     static_cast<std::size_t>(resolutionConfig["height"].as_integer())},
+      .resolution = {static_cast<size_t>(resolutionConfig["width"].value_or(800)),
+                     static_cast<size_t>(resolutionConfig["height"].value_or(600))},
       .title = "test",
       .mode = ui::Mode::Windowed};
 
-  auto app = application<ui::GlfwWindow, TriangleRenderer>(
-      TriangleRenderer(),
-      application_settings{.debug = argumentParser.get<bool>("-d"),
-                           .window_settings = windowSettings});
-  app.run();
+  {
+    auto app = application<ui::GlfwWindow, TriangleRenderer>(
+        TriangleRenderer(*config.as_table()),
+        application_settings{.debug = argumentParser.get<bool>("-d"),
+                             .window_settings = windowSettings});
+    app.run();
+  }
+
+  saveConfig(configPath, config);
   //} catch (const std::exception &exception) {
   //  pf::log(spdlog::level::critical, MAIN_TAG, "Application crash:");
   //  pf::log(spdlog::level::critical, MAIN_TAG, exception.what());

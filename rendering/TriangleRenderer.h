@@ -10,6 +10,8 @@
 #include "../logging/loggers.h"
 #include "../ui/imgui/ImGuiGlfwVulkan.h"
 #include "../ui/imgui/elements.h"
+#include "../ui/imgui/serialization.h"
+#include "../utils/Visitor.h"
 #include "../utils/common_enums.h"
 #include "../vulkan/types/builders/GraphicsPipelineBuilder.h"
 #include "../vulkan/types/builders/RenderPassBuilder.h"
@@ -17,6 +19,7 @@
 #include "imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
+#include <chaiscript/chaiscript.hpp>
 #include <iostream>
 #include <range/v3/view.hpp>
 
@@ -24,8 +27,10 @@ using namespace pf::vulkan::literals;
 
 namespace pf {
 class TriangleRenderer {
+  std::reference_wrapper<TomlConfig> config;
+
  public:
-  TriangleRenderer() = default;
+  explicit TriangleRenderer(TomlConfig &tomlConfig) : config(tomlConfig){};
   TriangleRenderer(TriangleRenderer &&other) = default;
   TriangleRenderer &operator=(TriangleRenderer &&other) = default;
   TriangleRenderer(const TriangleRenderer &) = delete;
@@ -103,6 +108,13 @@ class TriangleRenderer {
                       .dependencyDone()
                     .subpassDone()
                     .build();
+
+    auto imguiConfig = config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
+    imgui =
+        std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                              window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
+    initUI();
+
     // clang-format on
     vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle vert",
@@ -153,10 +165,6 @@ class TriangleRenderer {
                     .build(vkRenderPass);
     // clang-format on
 
-    imgui =
-        std::make_unique<ui::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
-                                              window.getHandle(), ImGuiConfigFlags{});
-
     vkCommandPool = vkLogicalDevice->createCommandPool(
         {.queueFamily = vk::QueueFlagBits::eGraphics,
          .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
@@ -173,117 +181,74 @@ class TriangleRenderer {
     });
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
 
-    auto imWindow = imgui->createChild<ui::ImGuiWindow>("Panel1", "Test panel");
-    imWindow->createChild<ui::ImGuiText>("Text1", "Test text");
-    imWindow->createChild<ui::ImGuiInputText>("Textinput1", "Test text")
-        ->addValueListener([](auto a) { std::cout << "New text: " << a << std::endl; });
-    auto a = imWindow->createChild<ui::ImGuiPanel>("Panel2", "Test panel 2", ImVec2{0, 50});
-    a->createChild<ui::ImGuiText>("Text2", "Test text2");
-    a->createChild<ui::ImGuiText>("Text3", "Test text2");
-    a->createChild<ui::ImGuiText>("Text4", "Test text2");
-    a->createChild<ui::ImGuiText>("Text5", "Test text2");
-    a->createChild<ui::ImGuiText>("Text6", "Test text2");
-    a->createChild<ui::ImGuiText>("Text7", "Test text2");
-    a->createChild<ui::ImGuiText>("Text8", "Test text2");
-    a->createChild<ui::ImGuiText>("Text9", "Test text2");
-    a->createChild<ui::ImGuiText>("Text10", "Test text2");
-    a->createChild<ui::ImGuiText>("Text11", "Test text2");
-
-    auto group = imWindow->createChild<ui::ImGuiGroup>("group1", "Group 1");
-    group->createChild<ui::ImGuiButton>("TestBtn2", "Test button2", ui::ButtonType::ArrowUp);
-    group->createChild<ui::ImGuiSlider<glm::vec3>>("Vec slider", "Vec3", 0.f, 11.3f)
-        ->addValueListener([](const auto &v) {
-          std::cout << "Vec slider " << v.x << " " << v.y << " " << v.z << std::endl;
-        });
-    group->createChild<ui::ImGuiSlider<float>>("float slider", "float", 0.f, 1.5f)
-        ->addValueListener([](const auto &v) { std::cout << "float slider " << v << std::endl; });
-    group->createChild<ui::ImGuiSlider<int>>("int slider", "int", 0, 100)
-        ->addValueListener(
-            [&](const auto &v) mutable { std::cout << "int slider " << v << std::endl; });
-
-    imWindow->createChild<ui::ImGuiInput<int>>("int input", "int input", 0, 100)
-        ->addValueListener([](auto v) { std::cout << "Int input " << v << std::endl; });
-    imWindow->createChild<ui::ImGuiInput<glm::vec3>>("vec3 input", "vec3 input")
-        ->addValueListener([](auto v) { std::cout << "Vec3 input " << v.x << std::endl; });
-    imWindow->createChild<ui::ImGuiInput<glm::ivec3>>("int3 input", "int3 input")
-        ->addValueListener([](auto v) { std::cout << "Int3 input " << v.x << std::endl; });
-
-    using namespace std::string_literals;
-    imWindow
-        ->createChild<ui::ImGuiComboBox>("cb1", "combo box", "preview",
-                                         std::vector{"1"s, "2"s, "3"s})
-        ->addValueListener([](auto v) { std::cout << "cb: " << v << std::endl; });
-
-    auto radioGroup = imWindow->createChild<ui::ImGuiRadioGroup>("rg1", "group");
-    radioGroup->addValueListener([](auto a) { std::cout << "group: " << a << std::endl; });
-    radioGroup->addButton("rb1", "first");
-    radioGroup->addButton("rb2", "second");
-    radioGroup->addButton("rb3", "third");
-    radioGroup->addButton("rb4", "fourth");
-
-    imWindow->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Edit, glm::vec3>>("col1",
-                                                                                        "color 1");
-    imWindow->createChild<ui::ImGuiColorChooser<ui::ColorChooserType::Picker, glm::vec4>>(
-        "col2", "color 2");
-
-    imWindow->createChild<ui::ImGuiCheckbox>("chbkx", "check", true)->addValueListener([](auto) {
-      std::cout << "checkbox changed" << std::endl;
-    });
-
-    auto pgbar = imWindow->createChild<ui::ImGuiProgressBar<int>>("pgbar", 10, 10, 1000);
-    pgbar->addValueListener([](auto val) { std::cout << "Progress: " << val << std::endl; });
-    imWindow->createChild<ui::ImGuiSlider<int>>("int slider2", "int2", 10, 1000)
-        ->addValueListener([pgbar](const auto &v) { pgbar->setPercentage(v / 1000.f); });
-
-    imWindow->createChild<ui::ImGuiButton>("TestBtasdn2", "Test buasdastton2")->setOnClick([group] {
-      group->setVisibility(group->getVisibility() == ui::Visibility::Visible
-                               ? ui::Visibility::Invisible
-                               : ui::Visibility::Visible);
-    });
-
-    imWindow->createChild<ui::ImGuiDragInput<float>>("difloat", "float drag", 1.f, 0.f, 100.f)
-        ->addValueListener([](auto val) { std::cout << "drag float " << val << std::endl; });
-
-    imWindow->createChild<ui::ImGuiDragInput<glm::ivec2>>("diivec2", "ivec2 drag", 1, 0, 100)
-        ->addValueListener([](auto val) { std::cout << "drag ivec2 " << val.x << std::endl; });
-
-    imWindow
-        ->createChild<ui::ImGuiDragInput<math::Range<float>>>("dirangefloat", "range float drag",
-                                                              1.f, 0.f, 100.f)
-        ->addValueListener([](auto val) {
-          std::cout << "drag range " << val.start << " " << val.end << std::endl;
-        });
-
-    auto tree = imWindow->createChild<ui::ImGuiTree>("root", "root");
-    auto node1 = tree->addNode("tree lvl1 0", "lvl 1 0");
-    auto group2 =
-        node1->addNode("tree lvl 2 0", "lvl 2 0")->createChild<ui::ImGuiGroup>("group 2", "hihihi");
-    group2->createChild<ui::ImGuiButton>("tree btn", "tree btn man");
-    tree->addNode("tree lvl1 1", "lvl 1 1");
-
-    auto lb = imWindow->createChild<ui::ImGuiListBox>("lb1", "list boooox");
-    lb->addValueListener([](auto val) { std::cout << "listbox " << val << std::endl; });
-    lb->addItem("item 1");
-    lb->addItem("item 2");
-    lb->addItem("item 3");
-    lb->addItem("item 4");
-
-    imWindow->createChild<ui::ImGuiPlot>("plot1", "test plot", ui::PlotType::Histogram);
-
-    imgui->getMenuBar().addItem("menu item 1", "1 click").setOnClick([] {
-      std::cout << "menu item 1 click" << std::endl;
-    });
-    auto &submenu = imgui->getMenuBar().addSubmenu("sub1", "submenu1");
-    submenu.addSubmenu("sub11", "submenu11").addItem("sfasdfadsfswa", "yeah").setOnClick([] {
-      std::cout << "yeah" << std::endl;
-    });
-
-    imWindow->getMenuBar().addItem("w menu item 1", "1 loc click").setOnClick([] {
-      std::cout << "loc 1 m click" << std::endl;
-    });
-
     window.setMainLoopCallback([&] { render(); });
   }
+
+  template<typename T>
+  static std::function<void(T)> makeChaiPrintFnc(const std::shared_ptr<ui::ig::Memo> &memo) {
+    using namespace std::string_literals;
+    return [memo](const T &val) {
+      memo->addRecord("<<< "s + fmt::format("{}", val));
+      log(spdlog::level::debug, MAIN_TAG, fmt::format("{}", val));
+    };
+  }
+
+  void initUI() {
+    using namespace std::string_literals;
+    using namespace pf::ui::ig;
+    auto logWindow = imgui->createChild<Window>("log_window", "Log");
+    logWindow->createChild<Checkbox>("chkbx", "test check")->addValueListener([](auto a) {
+      std::cout << std::boolalpha << a << std::endl;
+    });
+    auto logMemo = logWindow->createChild<Memo>("log_output", "Log:", 100, true, true, 100);
+    addLogListener([logMemo](auto record) { logMemo->addRecord(record); });
+    auto logErrMemo =
+        logWindow->createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
+    addLogListener([logErrMemo](auto record) { logErrMemo->addRecord(record); }, true);
+
+    auto chaiWindow = imgui->createChild<Window>("chai_window", "ChaiScript");
+    auto chaiInputPanel = chaiWindow->createChild<Panel>("chai_input_panel", "Input",
+                                                         PanelLayout::Horizontal, ImVec2{0, 50});
+
+    chaiInputPanel->createChild<Text>("chain_input_label", "Input:");
+    auto chaiInput =
+        chaiInputPanel->createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
+    auto chai_output =
+        chaiWindow->createChild<Memo>("chai_output", "Output:", 100, true, true, 100);
+
+    chai->add(chaiscript::fun(makeChaiPrintFnc<int>(chai_output)), "print");
+    chai->add(chaiscript::fun(makeChaiPrintFnc<double>(chai_output)), "print");
+    chai->add(chaiscript::fun(makeChaiPrintFnc<float>(chai_output)), "print");
+    chai->add(chaiscript::fun(makeChaiPrintFnc<std::string>(chai_output)), "print");
+    chaiInputPanel->createChild<Button>("chain_input_confirm", "Confirm")
+        ->setOnClick([chaiInput, chai_output, this] {
+          const auto input = chaiInput->getText();
+          chai_output->addRecord(">>> "s + input);
+          chaiInput->clear();
+          try {
+            chai->eval(input);
+          } catch (const chaiscript::exception::eval_error &e) {
+            chai_output->addRecord("<<< "s + e.pretty_print());
+          }
+        });
+
+    chai->add(
+        chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }),
+        "log");
+
+    auto testWindow = imgui->createChild<Window>("test window", "TEST");
+    testWindow->createChild<ColorChooser<ColorChooserType::Picker, glm::vec4>>("col1", "col1",
+                                                                               Persistent::Yes);
+    testWindow->createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>("col2", "col2",
+                                                                             Persistent::Yes);
+    testWindow
+        ->createChild<ComboBox>("cb1", "cb1", "preview", std::vector{"1"s, "2"s, "3"s},
+                                Persistent::Yes)
+        ->addValueListener([](auto str) { logdFmt(MAIN_TAG, "cb1: {}", str); });
+
+    imgui->setStateFromConfig();
+  }
+
   void updateCommandBuffer() {
     for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
       auto clearValues = std::vector<vk::ClearValue>(2);
@@ -354,9 +319,10 @@ class TriangleRenderer {
   std::shared_ptr<vulkan::Shader> vertShader;
   std::shared_ptr<vulkan::Shader> fragShader;
 
-  std::unique_ptr<ui::ImGuiInterface> imgui;
+  std::unique_ptr<ui::ig::ImGuiInterface> imgui;
 
   bool isMoved = false;
+  std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
 };
 
 }// namespace pf

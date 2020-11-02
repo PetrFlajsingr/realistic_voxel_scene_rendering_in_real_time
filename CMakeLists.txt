@@ -6,10 +6,10 @@ include(FetchContent)
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_SOURCE_DIR}/cmake/CPM.cmake")
 set(CPM_DOWNLOAD_VERSION 0.27.4)
 
-if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION} AND CPM_VERSION STREQUAL CPM_DOWNLOAD_VERSION))
+if (NOT (EXISTS ${CPM_DOWNLOAD_LOCATION} AND CPM_VERSION STREQUAL CPM_DOWNLOAD_VERSION))
     message(STATUS "Downloading CPM.cmake")
     file(DOWNLOAD https://github.com/TheLartians/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake ${CPM_DOWNLOAD_LOCATION})
-endif()
+endif ()
 
 include(${CPM_DOWNLOAD_LOCATION})
 
@@ -58,27 +58,27 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
     message(" ")
     message("CMAKE IN DEBUG MODE")
     message(" ")
-elseif(CMAKE_BUILD_TYPE MATCHES Release)
+elseif (CMAKE_BUILD_TYPE MATCHES Release)
     message(" ")
     message("CMAKE IN RELEASE MODE")
     message(" ")
     list(APPEND flags "-o3")
-elseif(CMAKE_BUILD_TYPE MATCHES ASAN)
+elseif (CMAKE_BUILD_TYPE MATCHES ASAN)
     message(" ")
     message("CMAKE IN ADDRESS SANITISE MODE")
     message(" ")
     list(APPEND flags "-fno-omit-frame-pointer" "-fsanitize=address")
-elseif(CMAKE_BUILD_TYPE MATCHES LSAN)
+elseif (CMAKE_BUILD_TYPE MATCHES LSAN)
     message(" ")
     message("CMAKE IN LEAK SANITISE MODE")
     message(" ")
     list(APPEND flags "-fno-omit-frame-pointer" "-fsanitize=leak")
-elseif(CMAKE_BUILD_TYPE MATCHES UBSAN)
+elseif (CMAKE_BUILD_TYPE MATCHES UBSAN)
     message(" ")
     message("CMAKE IN UNDEFINED SANITISE MODE")
     message(" ")
     list(APPEND flags "-fsanitize=undefined")
-elseif(CMAKE_BUILD_TYPE MATCHES TSAN)
+elseif (CMAKE_BUILD_TYPE MATCHES TSAN)
     message(" ")
     message("CMAKE IN THREAD SANITISE MODE")
     message(" ")
@@ -146,10 +146,11 @@ CPMAddPackage(
         GIT_TAG v2.1
 )
 CPMAddPackage(
-        NAME toml11
-        GITHUB_REPOSITORY ToruNiina/toml11
-        GIT_TAG v3.6.0
+        NAME toml++
+        GITHUB_REPOSITORY marzer/tomlplusplus
+        GIT_TAG v2.2.0
 )
+include_directories(${toml++_SOURCE_DIR}/include)
 CPMAddPackage(
         NAME chaiscript
         GITHUB_REPOSITORY ChaiScript/ChaiScript
@@ -196,7 +197,6 @@ endif ()
 include_directories(${CMAKE_SOURCE_DIR}/third_party/)
 
 
-
 #set(IMPLOT_CPP_FILES third_party/implot/implot.cpp third_party/implot/implot_items.cpp)
 add_executable(realistic_voxel_rendering main.cpp ${BACKWARD_ENABLE}
         exceptions/StackTraceException.cpp exceptions/StackTraceException.h
@@ -224,10 +224,10 @@ add_executable(realistic_voxel_rendering main.cpp ${BACKWARD_ENABLE}
         vulkan/types/LogicalDevice.cpp vulkan/types/LogicalDevice.h vulkan/types/CommandBuffer.cpp vulkan/types/CommandBuffer.h
         vulkan/types/Fence.cpp vulkan/types/Fence.h vulkan/glsl/Compiler.cpp vulkan/glsl/Compiler.h concepts/OneOf.h
         vulkan/types/Buffer.cpp vulkan/types/Buffer.h vulkan/types/BufferView.cpp vulkan/types/BufferView.h
-        utils/tuple.h utils/algorithms.h threading/ThreadPool.cpp threading/ThreadPool.h include/imgui/imgui_impl_glfw.h include/imgui/imgui_impl_glfw.cpp include/imgui/imgui_impl_vulkan.cpp include/imgui/imgui_impl_vulkan.h ui/imgui/ImGuiInterface.cpp ui/imgui/ImGuiInterface.h ui/imgui/ImGuiGlfwVulkan.cpp ui/imgui/ImGuiGlfwVulkan.h vulkan/types/DescriptorPool.cpp vulkan/types/DescriptorPool.h vulkan/types/Semaphore.cpp vulkan/types/Semaphore.h utils/common_enums.h ui/imgui/elements/interface/ImGuiElement.cpp ui/imgui/elements/interface/ImGuiElement.h ui/imgui/elements/interface/ImGuiContainer.cpp ui/imgui/elements/interface/ImGuiContainer.h ui/imgui/elements/ImGuiPanel.cpp ui/imgui/elements/ImGuiPanel.h ui/imgui/elements/ImGuiButton.cpp ui/imgui/elements/ImGuiButton.h ui/imgui/elements/ImGuiText.cpp ui/imgui/elements/ImGuiText.h ui/imgui/elements/ImGuiInputText.cpp ui/imgui/elements/ImGuiInputText.h ui/imgui/elements/interface/ImGuiCaptionedElement.cpp ui/imgui/elements/interface/ImGuiCaptionedElement.h ui/imgui/elements/interface/ImGuiResizableElement.cpp ui/imgui/elements/interface/ImGuiResizableElement.h ui/imgui/elements/ImGuiWindow.cpp ui/imgui/elements/ImGuiWindow.h ui/imgui/elements/interface/ImGuiValueObservableElement.cpp ui/imgui/elements/interface/ImGuiValueObservableElement.h ui/imgui/elements/ImGuiSlider.cpp ui/imgui/elements/ImGuiSlider.h ui/imgui/elements.h ui/imgui/elements/ImGuiInput.cpp ui/imgui/elements/ImGuiInput.h ui/imgui/elements/ImGuiDragInput.cpp ui/imgui/elements/ImGuiDragInput.h ui/imgui/elements/ImGuiColorChooser.cpp ui/imgui/elements/ImGuiColorChooser.h ui/imgui/elements/ImGuiTree.cpp ui/imgui/elements/ImGuiTree.h ui/imgui/elements/ImGuiComboBox.cpp ui/imgui/elements/ImGuiComboBox.h ui/imgui/elements/ImGuiRadioButton.cpp ui/imgui/elements/ImGuiRadioButton.h ui/imgui/elements/ImGuiRadioGroup.cpp ui/imgui/elements/ImGuiRadioGroup.h ui/imgui/elements/ImGuiImage.cpp ui/imgui/elements/ImGuiImage.h ui/imgui/elements/ImGuiCheckbox.cpp ui/imgui/elements/ImGuiCheckbox.h ui/imgui/elements/ImGuiProgressBar.cpp ui/imgui/elements/ImGuiProgressBar.h ui/imgui/elements/ImGuiDialog.cpp ui/imgui/elements/ImGuiDialog.h ui/imgui/elements/ImGuiGroup.cpp ui/imgui/elements/ImGuiGroup.h utils/math.h ui/imgui/elements/ImGuiListBox.cpp ui/imgui/elements/ImGuiListBox.h ui/imgui/elements/ImGuiPlot.cpp ui/imgui/elements/ImGuiPlot.h ui/imgui/elements/ImGuiMenuBars.cpp ui/imgui/elements/ImGuiMenuBars.h utils/Visitor.h vulkan/types/Texture.cpp vulkan/types/Texture.h utils/RAII.h vulkan/types/TextureSampler.cpp vulkan/types/TextureSampler.h ui/imgui/elements/ImGuiMemo.cpp ui/imgui/elements/ImGuiMemo.h logging/CallbackSink.cpp logging/CallbackSink.h utils/print.h)
+        utils/tuple.h utils/algorithms.h threading/ThreadPool.cpp threading/ThreadPool.h include/imgui/imgui_impl_glfw.h include/imgui/imgui_impl_glfw.cpp include/imgui/imgui_impl_vulkan.cpp include/imgui/imgui_impl_vulkan.h ui/imgui/ImGuiInterface.cpp ui/imgui/ImGuiInterface.h ui/imgui/ImGuiGlfwVulkan.cpp ui/imgui/ImGuiGlfwVulkan.h vulkan/types/DescriptorPool.cpp vulkan/types/DescriptorPool.h vulkan/types/Semaphore.cpp vulkan/types/Semaphore.h utils/common_enums.h ui/imgui/elements/interface/Element.cpp ui/imgui/elements/interface/Element.h ui/imgui/elements/interface/Container.cpp ui/imgui/elements/interface/Container.h ui/imgui/elements/Panel.cpp ui/imgui/elements/Panel.h ui/imgui/elements/Button.cpp ui/imgui/elements/Button.h ui/imgui/elements/Text.cpp ui/imgui/elements/Text.h ui/imgui/elements/InputText.cpp ui/imgui/elements/InputText.h ui/imgui/elements/interface/LabeledElement.cpp ui/imgui/elements/interface/LabeledElement.h ui/imgui/elements/interface/ResizableElement.cpp ui/imgui/elements/interface/ResizableElement.h ui/imgui/elements/Window.cpp ui/imgui/elements/Window.h ui/imgui/elements/interface/ValueObservableElement.cpp ui/imgui/elements/interface/ValueObservableElement.h ui/imgui/elements/Slider.cpp ui/imgui/elements/Slider.h ui/imgui/elements.h ui/imgui/elements/Input.cpp ui/imgui/elements/Input.h ui/imgui/elements/DragInput.cpp ui/imgui/elements/DragInput.h ui/imgui/elements/ColorChooser.cpp ui/imgui/elements/ColorChooser.h ui/imgui/elements/Tree.cpp ui/imgui/elements/Tree.h ui/imgui/elements/ComboBox.cpp ui/imgui/elements/ComboBox.h ui/imgui/elements/RadioButton.cpp ui/imgui/elements/RadioButton.h ui/imgui/elements/RadioGroup.cpp ui/imgui/elements/RadioGroup.h ui/imgui/elements/Image.cpp ui/imgui/elements/Image.h ui/imgui/elements/Checkbox.cpp ui/imgui/elements/Checkbox.h ui/imgui/elements/ProgressBar.cpp ui/imgui/elements/ProgressBar.h ui/imgui/elements/Dialog.cpp ui/imgui/elements/Dialog.h ui/imgui/elements/Group.cpp ui/imgui/elements/Group.h utils/math.h ui/imgui/elements/ListBox.cpp ui/imgui/elements/ListBox.h ui/imgui/elements/Plot.cpp ui/imgui/elements/Plot.h ui/imgui/elements/MenuBars.cpp ui/imgui/elements/MenuBars.h utils/Visitor.h vulkan/types/Texture.cpp vulkan/types/Texture.h utils/RAII.h vulkan/types/TextureSampler.cpp vulkan/types/TextureSampler.h ui/imgui/elements/Memo.cpp ui/imgui/elements/Memo.h logging/CallbackSink.cpp logging/CallbackSink.h ui/imgui/elements/TabBar.cpp ui/imgui/elements/TabBar.h ui/imgui/elements/interface/SavableElement.cpp ui/imgui/elements/interface/SavableElement.h utils/config.h ui/imgui/serialization.h ui/imgui/ui_tree_traversal.h)
 target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
-        magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse toml11 chaiscript
+        magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse chaiscript
         shaderc glslang cppcoro
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_rendering)

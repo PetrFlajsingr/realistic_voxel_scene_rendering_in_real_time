@@ -29,7 +29,7 @@ bool pf::TriangleRenderer::debugCallback(const pf::vulkan::DebugCallbackData &da
     logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}, stacktrace:\n{}", data.message,
            data.messageId, stacktraceSrc);
   } else {
-      logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", data.message, data.messageId);
+    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", data.message, data.messageId);
   }
 #else
   logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", data.message, data.messageId);
@@ -56,9 +56,10 @@ vk::Format pf::TriangleRenderer::getDepthFormat() {
   throw std::runtime_error("failed to find supported format!");
 }
 pf::TriangleRenderer::~TriangleRenderer() {
-  if (vkLogicalDevice == nullptr) {
-    return;
-  }
+  if (vkLogicalDevice == nullptr) { return; }
   log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
   vkLogicalDevice->wait();
+  log(spdlog::level::info, APP_TAG, "Saving UI to config");
+  imgui->updateConfig();
+  config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }

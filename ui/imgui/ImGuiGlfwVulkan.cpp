@@ -7,7 +7,7 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 
-namespace pf::ui {
+namespace pf::ui::ig {
 
 namespace details {
 void checkVkResult(VkResult err) {
@@ -21,9 +21,10 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                                  std::shared_ptr<vulkan::RenderPass> pass,
                                  std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
-                                 ImGuiConfigFlags flags)
-    : ImGuiElement("imgui"), ImGuiInterface(flags), logicalDevice(std::move(device)),
-      renderPass(std::move(pass)), surface(std::move(surf)), swapChain(std::move(swapCh)) {
+                                 ImGuiConfigFlags flags, TomlConfig config)
+    : Element("imgui"), ImGuiInterface(flags, config),
+      logicalDevice(std::move(device)), renderPass(std::move(pass)), surface(std::move(surf)),
+      swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
   const auto imageCount = swapChain->getImageViews().size();
@@ -100,9 +101,7 @@ void ImGuiGlfwVulkan::renderImpl() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
-  if (hasMenuBar()) {
-    menuBar->render();
-  }
+  if (hasMenuBar()) { menuBar->render(); }
   std::ranges::for_each(getChildren(), [](auto &child) { child.get().render(); });
   ImGui::Render();
 }

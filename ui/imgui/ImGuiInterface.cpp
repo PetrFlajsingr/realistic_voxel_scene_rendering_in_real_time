@@ -3,11 +3,12 @@
 //
 
 #include "ImGuiInterface.h"
+#include "serialization.h"
 
-namespace pf::ui {
+namespace pf::ui::ig {
 
-ImGuiInterface::ImGuiInterface(ImGuiConfigFlags flags)
-    : ImGuiContainer("Main"), io(baseInit(flags)) {}
+ImGuiInterface::ImGuiInterface(ImGuiConfigFlags flags, TomlConfig tomlConfig)
+    : Container("Main"), io(baseInit(flags)), config(std::move(tomlConfig)) {}
 ImGuiIO &ImGuiInterface::baseInit(ImGuiConfigFlags flags) {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -18,21 +19,30 @@ ImGuiIO &ImGuiInterface::baseInit(ImGuiConfigFlags flags) {
 }
 
 ImGuiIO &ImGuiInterface::getIo() const { return io; }
-std::shared_ptr<ImGuiDialog> ImGuiInterface::createDialog(const std::string &elementName,
+std::shared_ptr<Dialog> ImGuiInterface::createDialog(const std::string &elementName,
                                                           const std::string &caption, Modal modal) {
-  auto result = std::make_shared<ImGuiDialog>(*this, elementName, caption, modal);
+  auto result = std::make_shared<Dialog>(*this, elementName, caption, modal);
   addChild(result);
   return result;
 }
 
 ImGuiAppMenuBar &ImGuiInterface::getMenuBar() {
-  if (!menuBar.has_value()) {
-    menuBar = ImGuiAppMenuBar("app_menu_bar");
-  }
+  if (!menuBar.has_value()) { menuBar = ImGuiAppMenuBar("app_menu_bar"); }
   return *menuBar;
 }
-bool ImGuiInterface::hasMenuBar() const {
-  return menuBar.has_value();
+bool ImGuiInterface::hasMenuBar() const { return menuBar.has_value(); }
+const toml::table &ImGuiInterface::getConfig() const { return config; }
+
+void ImGuiInterface::updateConfig() { config = serializeImGuiTree(*this); }
+
+void ImGuiInterface::setStateFromConfig() {
+  traverseImGuiTree(*this, [this](Element &element) {
+    if (auto ptrSavable = dynamic_cast<SavableElement *>(&element); ptrSavable != nullptr) {
+      if (config.contains(ptrSavable->getName())) {
+        ptrSavable->unserialize(*config[ptrSavable->getName()].as_table());
+      }
+    }
+  });
 }
 
 }// namespace pf::ui

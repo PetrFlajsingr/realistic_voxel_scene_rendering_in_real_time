@@ -12,14 +12,14 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
-namespace pf::ui {
+namespace pf::ui::ig {
 
 class ImGuiGlfwVulkan : public ImGuiInterface {
  public:
   ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                   std::shared_ptr<vulkan::RenderPass> pass, std::shared_ptr<vulkan::Surface> surf,
                   std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
-                  ImGuiConfigFlags flags);
+                  ImGuiConfigFlags flags, TomlConfig config);
 
   void addToCommandBuffer(vulkan::CommandBufferRecording &recording) override;
 
