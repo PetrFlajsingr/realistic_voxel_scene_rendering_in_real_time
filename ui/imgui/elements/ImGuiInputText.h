@@ -21,6 +21,8 @@ class ImGuiInputText : public ImGuiText,
   ImGuiInputText(const std::string &elementName, std::string caption, const std::string &text = "",
                  TextInputType textInputType = TextInputType::SingleLine);
 
+  void clear();
+
  protected:
   void renderImpl() override;
 

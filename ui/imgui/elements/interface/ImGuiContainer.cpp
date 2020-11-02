@@ -34,4 +34,9 @@ const std::vector<std::reference_wrapper<ImGuiElement>> &ImGuiContainer::getChil
 void ImGuiContainer::enqueueChildRemoval(const std::string &name) {
   childrenToRemove.emplace_back(name);
 }
+void ImGuiContainer::clear() {
+  childrenInOrder.clear();
+  children.clear();
+  childrenToRemove.clear();
+}
 }// namespace pf::ui

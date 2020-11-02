@@ -24,6 +24,7 @@
 #include "elements/ImGuiProgressBar.h"
 #include "elements/ImGuiListBox.h"
 #include "elements/ImGuiPlot.h"
+#include "elements/ImGuiMemo.h"
 
 
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_H

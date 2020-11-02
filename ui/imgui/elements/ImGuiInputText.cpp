@@ -28,5 +28,9 @@ void ImGuiInputText::renderImpl() {
     notifyValueChanged();
   }
 }
+void ImGuiInputText::clear() {
+  setText("");
+  buffer[0] = '\0';
+}
 
 }// namespace pf::ui

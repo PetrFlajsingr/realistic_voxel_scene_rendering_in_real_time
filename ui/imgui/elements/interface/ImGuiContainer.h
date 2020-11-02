@@ -40,6 +40,8 @@ class ImGuiContainer : public virtual ImGuiElement {
 
   [[nodiscard]] const std::vector<std::reference_wrapper<ImGuiElement>> &getChildren();
 
+  void clear();
+
  private:
   std::map<std::string, std::shared_ptr<ImGuiElement>> children;
   std::vector<std::reference_wrapper<ImGuiElement>> childrenInOrder;

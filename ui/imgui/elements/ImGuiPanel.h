@@ -6,19 +6,24 @@
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMGUIPANEL_H
 
 #include "interface/ImGuiContainer.h"
+#include "interface/ImGuiResizableElement.h"
 #include <imgui.h>
 
 namespace pf::ui {
-class ImGuiPanel : public ImGuiContainer {
+
+enum class PanelLayout { Vertical, Horizontal };
+
+class ImGuiPanel : public ImGuiContainer, public ImGuiResizableElement {
  public:
-  ImGuiPanel(const std::string &elementName, std::string title, const ImVec2 &panelSize = {0, 0});
+  ImGuiPanel(const std::string &elementName, std::string title,
+             PanelLayout layout = PanelLayout::Vertical, const ImVec2 &panelSize = {0, 0});
 
  protected:
   void renderImpl() override;
 
  private:
   std::string title;
-  ImVec2 size;
+  PanelLayout panelLayout;
 };
 
 }// namespace pf::ui
