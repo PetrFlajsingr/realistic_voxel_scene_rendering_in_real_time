@@ -8,10 +8,11 @@
 #include <utility>
 
 namespace pf::ui::ig {
-InputText::InputText(const std::string &elementName, std::string caption,
-                               const std::string &text, TextInputType textInputType)
+InputText::InputText(const std::string &elementName, std::string caption, const std::string &text,
+                     TextInputType textInputType, Persistent persistent)
     : Element(elementName), Text(elementName, text),
-      LabeledElement(elementName, std::move(caption)), ValueObservableElement(elementName, ""), inputType(textInputType) {
+      LabeledElement(elementName, std::move(caption)), ValueObservableElement(elementName, ""),
+      SavableElement(elementName, persistent), inputType(textInputType) {
   setValue(text);
 }
 
@@ -32,4 +33,12 @@ void InputText::clear() {
   buffer[0] = '\0';
 }
 
-}// namespace pf::ui
+void InputText::unserialize_impl(const toml::table &src) {
+  setText(**src["text"].as_string());
+  setValueAndNotifyIfChanged(getText());
+  std::strcpy(buffer, getText().c_str());
+}
+
+toml::table InputText::serialize_impl() { return toml::table{{{"text", getText()}}}; }
+
+}// namespace pf::ui::ig

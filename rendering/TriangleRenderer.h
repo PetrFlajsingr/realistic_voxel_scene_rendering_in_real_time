@@ -246,6 +246,22 @@ class TriangleRenderer {
                                 Persistent::Yes)
         ->addValueListener([](auto str) { logdFmt(MAIN_TAG, "cb1: {}", str); });
 
+    testWindow->createChild<Input<glm::vec2>>("input1", "input1", Persistent::Yes)
+        ->addValueListener([](auto val) { logdFmt(MAIN_TAG, "input1 :{}x{}", val.x, val.y); });
+    testWindow
+        ->createChild<InputText>("input2", "input2", "", TextInputType::SingleLine, Persistent::Yes)
+        ->addValueListener([](auto val) { logdFmt(MAIN_TAG, "input2 :{}", val); });
+
+    auto rgroup = testWindow->createChild<RadioGroup>("rgroup", "group", std::vector<RadioButton>{},
+                                                      std::nullopt, Persistent::Yes);
+    rgroup->addButton("rb1", "1");
+    rgroup->addButton("rb2", "2");
+    rgroup->addButton("rb3", "3");
+    rgroup->addButton("rb4", "4");
+
+    testWindow->createChild<Slider<glm::vec2>>("Slider1", "Slider1", -100.f, 100, glm::vec2{}, Persistent::Yes);
+    testWindow->createChild<Slider<int>>("Slider2", "Slide2", -100, 100, 0, Persistent::Yes);
+
     imgui->setStateFromConfig();
   }
 

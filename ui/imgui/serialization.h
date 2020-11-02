@@ -24,6 +24,26 @@ inline toml::table serializeImGuiTree(Element &root) {
   return result;
 }
 
+template<typename T>
+T deserializeGlmVec(const toml::array &arr) {
+  auto result = T{};
+  for (auto i : std::views::iota(0, T::length())) {
+    if constexpr (std::same_as<typename T::value_type, float>) {
+      result[i] = **arr.get(i)->as_floating_point();
+    } else {
+      result[i] = **arr.get(i)->as_integer();
+    }
+  }
+  return result;
+}
+template<typename T>
+toml::array serializeGlmVec(const T &vec) {
+  auto result = toml::array{};
+  for (auto i : std::views::iota(0, T::length())) { result.push_back(vec[i]); }
+  return result;
+}
+
+
 }// namespace pf::ui
 
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_SERIALIZATION_H
