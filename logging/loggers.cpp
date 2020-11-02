@@ -3,6 +3,7 @@
 //
 
 #include "loggers.h"
+#include "CallbackSink.h"
 #include "SomeLevelsSink.h"
 
 std::vector<std::shared_ptr<spdlog::sinks::sink>>
@@ -18,9 +19,23 @@ createConsoleLogSinks(const GlobalLoggerSettings &settings, std::string_view tag
   console_out->set_level(spdlog::level::trace);
   console_out->set_pattern(fmt::format("[{}] %+", tag));
 
+  for (auto &listener : pf::details::logListeners) {
+    auto sink = std::make_shared<CallbackSink>(listener);
+    sink->set_level(spdlog::level::trace);
+    sink->set_pattern(fmt::format("[{}] %+", tag));
+    sinks.emplace_back(sink);
+  }
+
   auto console_err = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
   console_err->set_level(spdlog::level::err);
   console_err->set_pattern(fmt::format("[{}_err] %+", tag));
+
+  for (auto &listener : pf::details::logErrListeners) {
+    auto sink = std::make_shared<CallbackSink>(listener);
+    sink->set_level(spdlog::level::err);
+    sink->set_pattern(fmt::format("[{}_err] %+", tag));
+    sinks.emplace_back(sink);
+  }
 
   sinks.emplace_back(console_out);
   sinks.emplace_back(console_err);
@@ -43,6 +58,10 @@ void createLoggerForTag(const GlobalLoggerSettings &settings, std::string_view t
 }
 
 void pf::initGlobalLogger(const GlobalLoggerSettings &settings) {
+  if (globalLogger != nullptr) {
+    spdlog::drop(GLOBAL_LOGGER_NAME);
+  }
+  details::settings = settings;
   createLoggerForTag(settings, GLOBAL_LOGGER_NAME);
   globalLogger = spdlog::get(GLOBAL_LOGGER_NAME);
 }

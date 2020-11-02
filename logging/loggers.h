@@ -26,16 +26,34 @@ void createLoggerForTag(const GlobalLoggerSettings &settings, std::string_view t
 
 namespace pf {
 
+namespace details {
+inline std::vector<std::function<void(std::string_view)>> logListeners;
+inline std::vector<std::function<void(std::string_view)>> logErrListeners;
+inline std::optional<GlobalLoggerSettings> settings = std::nullopt;
+}// namespace details
+
 const auto GLOBAL_LOGGER_NAME = "pf";
 const auto TAG_FORMAT = "[{}] {}";
 const auto VK_TAG = "vulkan";
 const auto APP_TAG = "app";
 const auto MAIN_TAG = "main";
-inline std::shared_ptr<spdlog::logger> globalLogger;
+inline std::shared_ptr<spdlog::logger> globalLogger = nullptr;
 
 void initGlobalLogger(const GlobalLoggerSettings &settings);
 
 void log(spdlog::level::level_enum level, std::string_view tag, std::string_view msg);
+
+void addLogListener(std::invocable<std::string_view> auto listener, bool err = false) {
+  if (!details::settings.has_value()) {
+    throw std::exception();
+  }
+  if (!err) {
+    details::logListeners.emplace_back(listener);
+  } else {
+    details::logErrListeners.emplace_back(listener);
+  }
+  initGlobalLogger(*details::settings);
+}
 
 void logFmt(spdlog::level::level_enum level, std::string_view tag, std::string_view msg,
             const auto &... args) {
