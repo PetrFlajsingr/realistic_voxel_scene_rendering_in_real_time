@@ -5,9 +5,9 @@
 #ifndef VOXEL_RENDER_SOMELEVELSSINK_H
 #define VOXEL_RENDER_SOMELEVELSSINK_H
 
-#include "../concepts/Iterable.h"
-#include "spdlog/sinks/sink.h"
-#include "../utils/algorithms.h"
+#include "concepts/Iterable.h"
+#include <spdlog/sinks/sink.h>
+#include "utils/algorithms.h"
 
 template<std::derived_from<spdlog::sinks::sink> Sink>
 class SomeLevelsSink : public Sink {

@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_SEQUENCE_H
 #define VOXEL_RENDER_SEQUENCE_H
 
-#include "../concepts/Incrementable.h"
+#include "concepts/Incrementable.h"
 #include <cppcoro/generator.hpp>
 
 template<Incrementable T>

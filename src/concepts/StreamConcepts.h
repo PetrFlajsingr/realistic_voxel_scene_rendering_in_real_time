@@ -4,6 +4,7 @@
 
 #ifndef VOXEL_RENDER_STREAMCONCEPTS_H
 #define VOXEL_RENDER_STREAMCONCEPTS_H
+
 #include <istream>
 #include <ostream>
 

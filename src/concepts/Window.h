@@ -5,8 +5,8 @@
 #ifndef VOXEL_RENDER_WINDOW_H
 #define VOXEL_RENDER_WINDOW_H
 
-#include "../ui/events/Subscription.h"
-#include "../ui/events/common.h"
+#include "ui/events/Subscription.h"
+#include "ui/events/common.h"
 #include "StreamConcepts.h"
 #include "fmt/format.h"
 #include <concepts>

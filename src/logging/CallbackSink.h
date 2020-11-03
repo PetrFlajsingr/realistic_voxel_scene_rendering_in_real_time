@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_LOGGING_CALLBACKSINK_H
 #define REALISTIC_VOXEL_RENDERING_LOGGING_CALLBACKSINK_H
 
-#include "spdlog/sinks/sink.h"
+#include <spdlog/sinks/sink.h>
 
 class CallbackSink : public spdlog::sinks::sink {
  public:

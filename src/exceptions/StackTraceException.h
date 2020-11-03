@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_STACKTRACEEXCEPTION_H
 #define VOXEL_RENDER_STACKTRACEEXCEPTION_H
 
-#include "fmt/format.h"
+#include <fmt/format.h>
 #include <exception>
 #include <optional>
 #include <string>

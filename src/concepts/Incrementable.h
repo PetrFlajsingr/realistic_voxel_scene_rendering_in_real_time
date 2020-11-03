@@ -4,6 +4,7 @@
 
 #ifndef VOXEL_RENDER_INCREMENTABLE_H
 #define VOXEL_RENDER_INCREMENTABLE_H
+
 #include <concepts>
 
 template<typename T>

@@ -4,6 +4,7 @@
 
 #ifndef VOXEL_RENDER_ITERABLE_H
 #define VOXEL_RENDER_ITERABLE_H
+
 #include <iterator>
 
 template<typename T>

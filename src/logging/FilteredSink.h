@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_FILTERED_SINK_H
 #define VOXEL_RENDER_FILTERED_SINK_H
 
-#include "spdlog/sinks/sink.h"
+#include <spdlog/sinks/sink.h>
 
 template<std::derived_from<spdlog::sinks::sink> Sink>
 class FilteredSink : public Sink {
