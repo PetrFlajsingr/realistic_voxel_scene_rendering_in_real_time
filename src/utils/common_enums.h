@@ -6,5 +6,4 @@
 #define VOXEL_RENDER_COMMON_ENUMS_H
 
 enum class Enabled { Yes, No };
-
 #endif//VOXEL_RENDER_COMMON_ENUMS_H

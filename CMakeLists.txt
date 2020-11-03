@@ -50,7 +50,7 @@ add_compile_definitions(GLFW_INCLUDE_VULKAN
 include_directories(include)
 
 set(CMAKE_CXX_STANDARD 20)
-list(APPEND flags "-o3" "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
+list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
         "-Wpointer-arith" "-Wcast-qual" "-Wno-type-limits")
 
@@ -100,8 +100,6 @@ set(SPIRV_CROSS_ENABLE_TESTS OFF)
 
 hunter_add_package(imgui)
 find_package(imgui CONFIG REQUIRED)
-hunter_add_package(fmt)
-find_package(fmt CONFIG REQUIRED)
 hunter_add_package(glm)
 find_package(glm CONFIG REQUIRED)
 hunter_add_package(spdlog)
@@ -120,16 +118,7 @@ CPMAddPackage(
         GITHUB_REPOSITORY nholthaus/units
         GIT_TAG v2.3.1
 )
-CPMAddPackage(
-        NAME backward_cpp
-        GITHUB_REPOSITORY bombela/backward-cpp
-        GIT_TAG v1.5
-)
-CPMAddPackage(
-        NAME range-v3
-        GITHUB_REPOSITORY ericniebler/range-v3
-        GIT_TAG 0.11.0
-)
+
 CPMAddPackage(
         NAME nanobench
         GITHUB_REPOSITORY martinus/nanobench
@@ -156,11 +145,7 @@ CPMAddPackage(
         GITHUB_REPOSITORY ChaiScript/ChaiScript
         GIT_TAG v6.1.0
 )
-CPMAddPackage(
-        NAME cppcoro
-        GITHUB_REPOSITORY dutow/cppcoro
-        GIT_TAG 4b1951ff3c25fea78198a5c0aabb50589946b694
-)
+
 
 CPMAddPackage(
         NAME pf_common
@@ -172,8 +157,12 @@ CPMAddPackage(
         GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
         GIT_TAG master
 )
+CPMAddPackage(
+        NAME pf_glfw_vulkan
+        GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
+        GIT_TAG master
+)
 
-include_directories(${cppcoro_SOURCE_DIR}/include)
 
 CPMAddPackage(
         NAME glslang
@@ -250,7 +239,7 @@ set(SOURCES
         src/logging/CallbackSink.cpp
         include/imgui/imgui_impl_glfw.cpp
         include/imgui/imgui_impl_vulkan.cpp
-        )
+        include/ogt_vox.h)
 
 set(INCLUDES
         src/logging/loggers.h
@@ -300,12 +289,12 @@ set(INCLUDES
         include/imgui/imgui_impl_glfw.h
         include/imgui/imgui_impl_vulkan.h)
 
-add_executable(realistic_voxel_rendering src/main.cpp ${BACKWARD_ENABLE}
+add_executable(realistic_voxel_rendering src/main.cpp
         ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
-        magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse chaiscript
-        shaderc glslang cppcoro pf_common::pf_common pf_imgui::pf_imgui
+        magic_enum imgui::imgui units nanobench subprocess argparse chaiscript
+        shaderc glslang pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_rendering)
 
