@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_IMGUIGLFWVULKAN_H
 #define VOXEL_RENDER_IMGUIGLFWVULKAN_H
 
-#include "../../vulkan/types/fwd.h"
+#include "vulkan/types/fwd.h"
 #include "ImGuiInterface.h"
 #include <GLFW/glfw3.h>
 #include <imgui/imgui_impl_vulkan.h>

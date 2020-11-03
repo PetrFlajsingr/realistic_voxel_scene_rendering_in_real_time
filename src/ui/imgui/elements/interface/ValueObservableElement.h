@@ -5,9 +5,9 @@
 #ifndef REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_INTERFACE_VALUEOBSERVABLEELEMENT_H
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_INTERFACE_VALUEOBSERVABLEELEMENT_H
 
-#include "../../../../coroutines/Sequence.h"
-#include "../../../events/Subscription.h"
+#include "ui/events/Subscription.h"
 #include "Element.h"
+#include "coroutines/Sequence.h"
 #include <algorithm>
 #include <functional>
 #include <ranges>
@@ -29,9 +29,7 @@ class ValueObservableElement : public virtual Element {
 
   events::Subscription bind(T &toBind) {
     auto bindAddress = &toBind;
-    return addValueListener([bindAddress](auto newValue) {
-      *bindAddress = newValue;
-    });
+    return addValueListener([bindAddress](auto newValue) { *bindAddress = newValue; });
   }
 
   [[nodiscard]] const T &getValue() const { return value; }
@@ -46,9 +44,7 @@ class ValueObservableElement : public virtual Element {
   void setValueAndNotifyIfChanged(T val) {
     const auto oldValue = getValue();
     setValue(val);
-    if (oldValue != getValue()) {
-      notifyValueChanged();
-    }
+    if (oldValue != getValue()) { notifyValueChanged(); }
   }
 
   T *getValueAddress() { return &value; }
@@ -62,5 +58,5 @@ class ValueObservableElement : public virtual Element {
   cppcoro::generator<Id> idGenerator = iota<Id>();
 };
 
-}// namespace pf::ui
+}// namespace pf::ui::ig
 #endif//REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_INTERFACE_VALUEOBSERVABLEELEMENT_H

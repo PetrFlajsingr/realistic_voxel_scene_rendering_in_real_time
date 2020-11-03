@@ -3,7 +3,6 @@
 //
 
 #include "Container.h"
-#include "../../../../exceptions/StackTraceException.h"
 
 namespace pf::ui::ig {
 

@@ -5,7 +5,6 @@
 #ifndef REALISTIC_VOXEL_RENDERING_UI_IMGUI_IMGUIELEMENT_H
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_IMGUIELEMENT_H
 
-
 #include <string>
 
 namespace pf::ui::ig {

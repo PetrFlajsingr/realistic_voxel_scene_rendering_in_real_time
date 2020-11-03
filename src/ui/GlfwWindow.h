@@ -5,8 +5,8 @@
 #ifndef VOXEL_RENDER_GLFWWINDOW_H
 #define VOXEL_RENDER_GLFWWINDOW_H
 
-#include "../concepts/Window.h"
-#include "../coroutines/Sequence.h"
+#include "concepts/Window.h"
+#include "coroutines/Sequence.h"
 #include "events/EventDispatchImpl.h"
 #include "events/Subscription.h"
 #include "events/common.h"

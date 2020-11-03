@@ -11,6 +11,7 @@
 #include "interface/ValueObservableElement.h"
 #include <functional>
 #include <imgui.h>
+
 namespace pf::ui::ig {
 
 enum class TextInputType { SingleLine, MultiLine };

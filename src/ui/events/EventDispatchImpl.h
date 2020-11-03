@@ -5,12 +5,11 @@
 #ifndef VOXEL_RENDER_EVENTDISPATCHIMPL_H
 #define VOXEL_RENDER_EVENTDISPATCHIMPL_H
 
-#include "../../coroutines/Sequence.h"
+#include "coroutines/Sequence.h"
 #include "Subscription.h"
 #include "common.h"
 #include <array>
 #include <chrono>
-#include <cppcoro/generator.hpp>
 #include <iostream>
 #include <queue>
 #include <unordered_map>

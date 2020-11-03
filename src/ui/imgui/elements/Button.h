@@ -9,6 +9,7 @@
 #include "interface/ResizableElement.h"
 #include <functional>
 #include <imgui.h>
+
 namespace pf::ui::ig {
 
 enum class ButtonType { Normal, Small, ArrowUp, ArrowLeft, ArrowRight, ArrowDown };

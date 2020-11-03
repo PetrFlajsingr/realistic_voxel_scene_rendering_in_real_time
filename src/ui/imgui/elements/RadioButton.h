@@ -8,6 +8,7 @@
 #include "interface/LabeledElement.h"
 #include "interface/ResizableElement.h"
 #include "interface/ValueObservableElement.h"
+
 namespace pf::ui::ig {
 
 class RadioButton : public LabeledElement, public ValueObservableElement<bool> {

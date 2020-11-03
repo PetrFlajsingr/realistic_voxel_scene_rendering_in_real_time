@@ -232,12 +232,12 @@ add_executable(realistic_voxel_rendering src/main.cpp ${BACKWARD_ENABLE}
         src/ui/imgui/elements/Text.h src/ui/imgui/elements/InputText.cpp src/ui/imgui/elements/InputText.h src/ui/imgui/elements/interface/LabeledElement.cpp
         src/ui/imgui/elements/interface/LabeledElement.h src/ui/imgui/elements/interface/ResizableElement.cpp
         src/ui/imgui/elements/interface/ResizableElement.h src/ui/imgui/elements/Window.cpp src/ui/imgui/elements/Window.h
-        src/ui/imgui/elements/interface/ValueObservableElement.cpp src/ui/imgui/elements/interface/ValueObservableElement.h
+        src/ui/imgui/elements/interface/ValueObservableElement.h
         src/ui/imgui/elements/Slider.h src/ui/imgui/elements.h src/ui/imgui/elements/Input.h src/ui/imgui/elements/DragInput.h
-        src/ui/imgui/elements/ColorChooser.cpp src/ui/imgui/elements/ColorChooser.h src/ui/imgui/elements/Tree.cpp src/ui/imgui/elements/Tree.h
+        src/ui/imgui/elements/ColorChooser.h src/ui/imgui/elements/Tree.cpp src/ui/imgui/elements/Tree.h
         src/ui/imgui/elements/ComboBox.cpp src/ui/imgui/elements/ComboBox.h src/ui/imgui/elements/RadioButton.cpp src/ui/imgui/elements/RadioButton.h
         src/ui/imgui/elements/RadioGroup.cpp src/ui/imgui/elements/RadioGroup.h src/ui/imgui/elements/Image.cpp src/ui/imgui/elements/Image.h
-        src/ui/imgui/elements/Checkbox.cpp src/ui/imgui/elements/Checkbox.h src/ui/imgui/elements/ProgressBar.cpp src/ui/imgui/elements/ProgressBar.h
+        src/ui/imgui/elements/Checkbox.cpp src/ui/imgui/elements/Checkbox.h src/ui/imgui/elements/ProgressBar.h
         src/ui/imgui/elements/Dialog.cpp src/ui/imgui/elements/Dialog.h src/ui/imgui/elements/Group.cpp src/ui/imgui/elements/Group.h src/utils/math.h
         src/ui/imgui/elements/ListBox.cpp src/ui/imgui/elements/ListBox.h src/ui/imgui/elements/Plot.cpp src/ui/imgui/elements/Plot.h
         src/ui/imgui/elements/MenuBars.cpp src/ui/imgui/elements/MenuBars.h src/utils/Visitor.h src/vulkan/types/Texture.cpp

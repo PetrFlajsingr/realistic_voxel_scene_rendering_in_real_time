@@ -7,6 +7,7 @@
 
 #include "Element.h"
 #include <imgui.h>
+
 namespace pf::ui::ig {
 class ResizableElement : public virtual Element {
  public:

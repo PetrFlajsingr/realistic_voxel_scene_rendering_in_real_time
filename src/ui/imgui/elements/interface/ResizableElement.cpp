@@ -3,7 +3,6 @@
 //
 
 #include "ResizableElement.h"
-
 #include <utility>
 
 namespace pf::ui::ig {

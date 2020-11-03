@@ -4,7 +4,6 @@
 
 #include "InputText.h"
 #include <imgui.h>
-
 #include <utility>
 
 namespace pf::ui::ig {

@@ -4,6 +4,7 @@
 
 #include "Dialog.h"
 #include <imgui.h>
+
 namespace pf::ui::ig {
 Dialog::Dialog(Container &parent, const std::string &elementName, const std::string &caption, Modal modal)
     : Element(elementName), Container(elementName), LabeledElement(elementName, caption), modal(modal), owner(parent) {}

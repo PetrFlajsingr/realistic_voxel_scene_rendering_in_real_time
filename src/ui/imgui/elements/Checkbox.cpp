@@ -4,6 +4,7 @@
 
 #include "Checkbox.h"
 #include <imgui.h>
+
 namespace pf::ui::ig {
 
 Checkbox::Checkbox(const std::string &elementName, const std::string &caption,

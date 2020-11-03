@@ -4,8 +4,8 @@
 
 #include "Plot.h"
 #include <imgui.h>
-
 #include <utility>
+
 namespace pf::ui::ig {
 
 Plot::Plot(const std::string &elementName, const std::string &caption, PlotType plotType,

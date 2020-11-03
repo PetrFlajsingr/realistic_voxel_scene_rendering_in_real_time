@@ -3,7 +3,7 @@
 //
 
 #include "GlfwWindow.h"
-#include "../exceptions/StackTraceException.h"
+#include "exceptions/StackTraceException.h"
 #include <fmt/format.h>
 #include <magic_enum.hpp>
 

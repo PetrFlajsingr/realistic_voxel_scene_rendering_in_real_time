@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <imgui.h>
 #include <utility>
+
 namespace pf::ui::ig {
 
 Window::Window(const std::string &elementName, std::string title)

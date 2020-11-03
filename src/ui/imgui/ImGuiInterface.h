@@ -5,8 +5,8 @@
 #ifndef VOXEL_RENDER_IMGUIBASE_H
 #define VOXEL_RENDER_IMGUIBASE_H
 
-#include "../../utils/config.h"
-#include "../../vulkan/types/CommandBuffer.h"
+#include "utils/config.h"
+#include "vulkan/types/CommandBuffer.h"
 #include "elements/Dialog.h"
 #include "elements/MenuBars.h"
 #include "elements/interface/Container.h"

@@ -6,6 +6,7 @@
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_IMAGE_H
 
 #include "interface/ResizableElement.h"
+
 namespace pf::ui::ig {
 
 class Image : public ResizableElement {

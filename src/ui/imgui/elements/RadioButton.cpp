@@ -3,6 +3,7 @@
 //
 
 #include "RadioButton.h"
+
 namespace pf::ui::ig {
 
 RadioButton::RadioButton(const std::string &elementName, const std::string &caption,
