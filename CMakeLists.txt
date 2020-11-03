@@ -36,13 +36,11 @@ project(
         realistic_voxel_rendering
         VERSION 0.1.0
 )
-add_compile_definitions(GLFW_INCLUDE_VULKAN
+add_compile_definitions(
         GLM_FORCE_RADIANS
         GLM_FORCE_DEPTH_ZERO_TO_ONE
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_SWIZZLE
-        VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
-        VULKAN_HPP_NO_NODISCARD_WARNINGS
         STB_IMAGE_IMPLEMENTATION
         STACKTRACE_VULKAN_REPORT
         )
@@ -105,18 +103,12 @@ find_package(glm CONFIG REQUIRED)
 hunter_add_package(spdlog)
 find_package(spdlog CONFIG REQUIRED)
 add_compile_definitions(SPDLOG_FMT_EXTERNAL)
-hunter_add_package(stb)
-find_package(stb CONFIG REQUIRED)
+
 
 CPMAddPackage(
         NAME magic_enum
         GITHUB_REPOSITORY Neargye/magic_enum
         GIT_TAG v0.6.6
-)
-CPMAddPackage(
-        NAME units
-        GITHUB_REPOSITORY nholthaus/units
-        GIT_TAG v2.3.1
 )
 
 CPMAddPackage(
@@ -157,12 +149,6 @@ CPMAddPackage(
         GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
         GIT_TAG master
 )
-CPMAddPackage(
-        NAME pf_glfw_vulkan
-        GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
-        GIT_TAG master
-)
-
 
 CPMAddPackage(
         NAME glslang
@@ -188,7 +174,15 @@ CPMAddPackage(
         NAME shaderc
         GITHUB_REPOSITORY google/shaderc
         GIT_TAG v2020.3
+        OPTIONS
+        "SHADERC_SKIP_INSTALL ON"
 )
+CPMAddPackage(
+        NAME pf_glfw_vulkan
+        GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
+        GIT_TAG master
+)
+
 
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
@@ -202,41 +196,9 @@ set(SOURCES
         src/args/ValidPathCheckAction.cpp
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
-        src/concepts/Window.cpp
-        src/ui/GlfwWindow.cpp
-        src/vulkan/VulkanException.cpp
-        src/vulkan/DefaultDeviceSuitabilityScorer.cpp
         src/rendering/TriangleRenderer.cpp
-        src/vulkan/types/SwapChain.cpp
-        src/vulkan/types/PhysicalDevice.cpp
-        src/vulkan/types/Instance.cpp
-        src/vulkan/types/ImageView.cpp
-        src/vulkan/types/Image.cpp
-        src/vulkan/types/RenderPass.cpp
-        src/vulkan/types/builders/RenderPassBuilder.cpp
-        src/vulkan/types/Shader.cpp
-        src/vulkan/types/GraphicsPipeline.cpp
-        src/vulkan/types/builders/GraphicsPipelineBuilder.cpp
-        src/vulkan/types/DescriptorSetLayout.cpp
-        src/vulkan/types/CommandPool.cpp
-        src/vulkan/types/FrameBuffer.cpp
-        src/vulkan/types/Surface.cpp
-        src/ui/events/EventDispatchImpl.cpp
-        src/rendering/TriangleRenderer.cpp
-        src/vulkan/types/VulkanCommon.cpp
-        src/vulkan/types/LogicalDevice.cpp
-        src/vulkan/types/CommandBuffer.cpp
-        src/vulkan/types/Fence.cpp
-        src/vulkan/glsl/Compiler.cpp
-        src/vulkan/types/Buffer.cpp
-        src/vulkan/types/BufferView.cpp
-        src/threading/ThreadPool.cpp
-        src/ui/ImGuiGlfwVulkan.cpp
-        src/vulkan/types/DescriptorPool.cpp
-        src/vulkan/types/Semaphore.cpp
-        src/vulkan/types/Texture.cpp
-        src/vulkan/types/TextureSampler.cpp
         src/logging/CallbackSink.cpp
+        src/ui/ImGuiGlfwVulkan.cpp
         include/imgui/imgui_impl_glfw.cpp
         include/imgui/imgui_impl_vulkan.cpp
         include/ogt_vox.h)
@@ -249,43 +211,14 @@ set(INCLUDES
         src/ui/GlfwWindow.h
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
-        src/vulkan/VulkanException.h
-        src/vulkan/DefaultDeviceSuitabilityScorer.h
         src/rendering/TriangleRenderer.h
-        src/vulkan/types/SwapChain.h
-        src/vulkan/types/PhysicalDevice.h
-        src/vulkan/types/Instance.h
-        src/vulkan/types/VulkanCommon.h
-        src/vulkan/types/Surface.h
         src/concepts/Renderer.h
-        src/vulkan/types/ImageView.h
-        src/vulkan/types/Image.h
-        src/vulkan/types/RenderPass.h
-        src/vulkan/types/builders/RenderPassBuilder.h
-        src/vulkan/types/Shader.h
-        src/vulkan/types/GraphicsPipeline.h
-        src/vulkan/types/builders/GraphicsPipelineBuilder.h
-        src/vulkan/types/DescriptorSetLayout.h
-        src/vulkan/types/CommandPool.h
-        src/vulkan/types/FrameBuffer.h
-        src/vulkan/types/VulkanObject.h
-        src/vulkan/types/fwd.h
-        src/vulkan/types/types.h
-        src/vulkan/types/LogicalDevice.h
-        src/vulkan/types/CommandBuffer.h
-        src/vulkan/types/Fence.h
-        src/vulkan/glsl/Compiler.h
-        src/vulkan/types/Buffer.h
-        src/vulkan/types/BufferView.h
         src/threading/ThreadPool.h
         src/ui/ImGuiGlfwVulkan.h
-        src/vulkan/types/DescriptorPool.h
-        src/vulkan/types/Semaphore.h
         src/utils/common_enums.h
-        src/vulkan/types/Texture.h
-        src/vulkan/types/TextureSampler.h
         src/logging/CallbackSink.h
         src/utils/config.h
+        src/ui/ImGuiGlfwVulkan.h
         include/imgui/imgui_impl_glfw.h
         include/imgui/imgui_impl_vulkan.h)
 
@@ -293,8 +226,9 @@ add_executable(realistic_voxel_rendering src/main.cpp
         ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
-        magic_enum imgui::imgui units nanobench subprocess argparse chaiscript
-        shaderc glslang pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
+        magic_enum imgui::imgui nanobench subprocess argparse chaiscript
+        pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
+        shaderc glslang
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_rendering)
 

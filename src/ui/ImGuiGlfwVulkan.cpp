@@ -3,9 +3,9 @@
 //
 
 #include "ImGuiGlfwVulkan.h"
-#include "vulkan/types/types.h"
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
+#include <pf_glfw_vulkan/vulkan/types.h>
 
 namespace pf::ui::ig {
 
@@ -22,9 +22,8 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                                  std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
                                  ImGuiConfigFlags flags, toml::table config)
-    : Element("imgui"), ImGuiInterface(flags, config),
-      logicalDevice(std::move(device)), renderPass(std::move(pass)), surface(std::move(surf)),
-      swapChain(std::move(swapCh)) {
+    : Element("imgui"), ImGuiInterface(flags, config), logicalDevice(std::move(device)),
+      renderPass(std::move(pass)), surface(std::move(surf)), swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
   const auto imageCount = swapChain->getImageViews().size();
@@ -117,4 +116,4 @@ void ImGuiGlfwVulkan::addToCommandBuffer(vulkan::CommandBufferRecording &recordi
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *recording.getCommandBuffer());
 }
 
-}// namespace pf::ui
+}// namespace pf::ui::ig

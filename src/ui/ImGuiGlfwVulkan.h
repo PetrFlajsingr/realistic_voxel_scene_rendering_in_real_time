@@ -5,13 +5,13 @@
 #ifndef VOXEL_RENDER_IMGUIGLFWVULKAN_H
 #define VOXEL_RENDER_IMGUIGLFWVULKAN_H
 
-#include "vulkan/types/fwd.h"
+#include <pf_glfw_vulkan/vulkan/types/fwd.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui/imgui_impl_vulkan.h>
 #include <memory>
 #include <pf_imgui/ImGuiInterface.h>
-#include <vulkan/types/types.h>
+#include <pf_glfw_vulkan/vulkan/types.h>
 #include <vulkan/vulkan.hpp>
 
 namespace pf::ui::ig {

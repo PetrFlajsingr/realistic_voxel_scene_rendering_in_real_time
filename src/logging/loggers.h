@@ -8,6 +8,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
+#include <pf_common/ILogger.h>
 #include <experimental/source_location>
 #include <filesystem>
 #include <vector>
@@ -17,6 +18,12 @@ struct GlobalLoggerSettings {
   bool console;
   bool debug;
   std::filesystem::path logDir;
+};
+
+class GlobalLoggerInterface : public pf::ILogger {
+ public:
+  explicit GlobalLoggerInterface(const std::string &loggerName);
+  void log(pf::LogLevel level, std::string_view tag, std::string_view msg) override;
 };
 
 std::vector<std::shared_ptr<spdlog::sinks::sink>>

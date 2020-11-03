@@ -5,22 +5,21 @@
 #ifndef VOXEL_RENDER_TRIANGLERENDERER_H
 #define VOXEL_RENDER_TRIANGLERENDERER_H
 
-#include "concepts/Window.h"
 #include "imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_vulkan.h"
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
-#include <pf_imgui/elements.h>
-#include <pf_imgui/serialization.h>
 #include "utils/common_enums.h"
-#include "vulkan/types/builders/GraphicsPipelineBuilder.h"
-#include "vulkan/types/builders/RenderPassBuilder.h"
-#include "vulkan/types/types.h"
 #include <chaiscript/chaiscript.hpp>
 #include <iostream>
 #include <pf_common/Visitor.h>
 #include <pf_common/coroutines/Sequence.h>
+#include <pf_glfw_vulkan/concepts/Window.h>
+#include <pf_glfw_vulkan/lib_config.h>
+#include <pf_glfw_vulkan/vulkan/types.h>
+#include <pf_imgui/elements.h>
+#include <pf_imgui/serialization.h>
 #include <range/v3/view.hpp>
 
 using namespace pf::vulkan::literals;
@@ -38,6 +37,7 @@ class TriangleRenderer {
 
   template<pf::ui::Window Window>
   void init(Window &window) {
+    pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
     using namespace vulkan;
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
     using namespace ranges;
@@ -259,7 +259,8 @@ class TriangleRenderer {
     rgroup->addButton("rb3", "3");
     rgroup->addButton("rb4", "4");
 
-    testWindow->createChild<Slider<glm::vec2>>("Slider1", "Slider1", -100.f, 100, glm::vec2{}, Persistent::Yes);
+    testWindow->createChild<Slider<glm::vec2>>("Slider1", "Slider1", -100.f, 100, glm::vec2{},
+                                               Persistent::Yes);
     testWindow->createChild<Slider<int>>("Slider2", "Slide2", -100, 100, 0, Persistent::Yes);
 
     imgui->setStateFromConfig();

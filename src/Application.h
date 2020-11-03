@@ -7,13 +7,9 @@
 
 #include "logging/loggers.h"
 #include "concepts/Renderer.h"
-#include "concepts/Window.h"
+#include <pf_glfw_vulkan/concepts/Window.h>
+#include <pf_glfw_vulkan/vulkan/types.h>
 #include <pf_common/exceptions/StackTraceException.h>
-#include "vulkan/types/Instance.h"
-#include "vulkan/types/PhysicalDevice.h"
-#include "vulkan/types/Surface.h"
-#include "vulkan/types/SwapChain.h"
-#include "vulkan/types/VulkanCommon.h"
 #include <iostream>
 #include <memory>
 #include <range/v3/view.hpp>

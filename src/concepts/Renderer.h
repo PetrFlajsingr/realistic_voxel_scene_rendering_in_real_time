@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_RENDERER_H
 #define VOXEL_RENDER_RENDERER_H
 
-#include "Window.h"
+#include <pf_glfw_vulkan/concepts/Window.h>
 #include <concepts>
 
 namespace pf {

@@ -4,7 +4,7 @@
 #include <pf_common/coroutines/Sequence.h>
 #include "logging/loggers.h"
 #include "rendering/TriangleRenderer.h"
-#include "ui/GlfwWindow.h"
+#include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include "utils/config.h"
 #include <experimental/array>
 #include <filesystem>

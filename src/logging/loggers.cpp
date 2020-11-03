@@ -3,8 +3,10 @@
 //
 
 #include "loggers.h"
+
 #include "CallbackSink.h"
 #include "SomeLevelsSink.h"
+#include <utility>
 
 std::vector<std::shared_ptr<spdlog::sinks::sink>>
 createConsoleLogSinks(const GlobalLoggerSettings &settings, std::string_view tag) {
@@ -58,9 +60,7 @@ void createLoggerForTag(const GlobalLoggerSettings &settings, std::string_view t
 }
 
 void pf::initGlobalLogger(const GlobalLoggerSettings &settings) {
-  if (globalLogger != nullptr) {
-    spdlog::drop(GLOBAL_LOGGER_NAME);
-  }
+  if (globalLogger != nullptr) { spdlog::drop(GLOBAL_LOGGER_NAME); }
   details::settings = settings;
   createLoggerForTag(settings, GLOBAL_LOGGER_NAME);
   globalLogger = spdlog::get(GLOBAL_LOGGER_NAME);
@@ -75,21 +75,26 @@ void pf::logSrc(spdlog::level::level_enum level, std::string_view tag, std::stri
   const auto format = "[{}:{}] {}";
   log(level, tag, fmt::format(format, src_loc.file_name(), src_loc.function_name(), msg));
 }
-void pf::logt(std::string_view tag, std::string_view msg) {
-  log(spdlog::level::trace, tag, msg);
-}
-void pf::logi(std::string_view tag, std::string_view msg) {
-  log(spdlog::level::info, tag, msg);
-}
-void pf::logd(std::string_view tag, std::string_view msg) {
-  log(spdlog::level::debug, tag, msg);
-}
-void pf::logw(std::string_view tag, std::string_view msg) {
-  log(spdlog::level::warn, tag, msg);
-}
+void pf::logt(std::string_view tag, std::string_view msg) { log(spdlog::level::trace, tag, msg); }
+void pf::logi(std::string_view tag, std::string_view msg) { log(spdlog::level::info, tag, msg); }
+void pf::logd(std::string_view tag, std::string_view msg) { log(spdlog::level::debug, tag, msg); }
+void pf::logw(std::string_view tag, std::string_view msg) { log(spdlog::level::warn, tag, msg); }
 void pf::logc(std::string_view tag, std::string_view msg) {
   log(spdlog::level::critical, tag, msg);
 }
-void pf::loge(std::string_view tag, std::string_view msg) {
-  log(spdlog::level::err, tag, msg);
+void pf::loge(std::string_view tag, std::string_view msg) { log(spdlog::level::err, tag, msg); }
+
+GlobalLoggerInterface::GlobalLoggerInterface(const std::string &loggerName) : ILogger(loggerName) {}
+void GlobalLoggerInterface::log(pf::LogLevel level, std::string_view tag, std::string_view msg) {
+  auto spdlogLevel = spdlog::level::trace;
+  switch (level) {
+    case pf::LogLevel::Trace: spdlogLevel = spdlog::level::trace; break;
+    case pf::LogLevel::Debug: spdlogLevel = spdlog::level::debug; break;
+    case pf::LogLevel::Info: spdlogLevel = spdlog::level::info; break;
+    case pf::LogLevel::Warn: spdlogLevel = spdlog::level::warn; break;
+    case pf::LogLevel::Err: spdlogLevel = spdlog::level::err; break;
+    case pf::LogLevel::Critical: spdlogLevel = spdlog::level::critical; break;
+    case pf::LogLevel::Off: spdlogLevel = spdlog::level::off; break;
+  }
+  pf::log(spdlogLevel, tag, msg);
 }
