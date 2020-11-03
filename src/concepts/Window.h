@@ -5,10 +5,10 @@
 #ifndef VOXEL_RENDER_WINDOW_H
 #define VOXEL_RENDER_WINDOW_H
 
-#include "ui/events/Subscription.h"
+#include <pf_common/Subscription.h>
 #include "ui/events/common.h"
 #include <pf_common/concepts/StreamConcepts.h>
-#include "fmt/format.h"
+#include <fmt/format.h>
 #include <concepts>
 #include <fmt/ostream.h>
 #include <functional>
@@ -70,9 +70,9 @@ concept Window = std::constructible_from<T, WindowSettings> &&requires(
 &&requires(T t, events::MouseEventType m_type, events::KeyEventType k_type,
            events::details::MouseEventFnc m_fnc, events::details::KeyEventFnc k_fnc) {
   { t.addMouseListener(m_type, m_fnc) }
-  ->std::same_as<events::Subscription>;
+  ->std::same_as<Subscription>;
   { t.addKeyListener(k_type, k_fnc) }
-  ->std::same_as<events::Subscription>;
+  ->std::same_as<Subscription>;
 }
 &&requires(T t, const vk::Instance &instance) {
   { t.createVulkanSurface(instance) }

@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_COMPILER_H
 #define VOXEL_RENDER_COMPILER_H
 
-#include "exceptions/StackTraceException.h"
+#include <pf_common/exceptions/StackTraceException.h>
 #include <shaderc/shaderc.hpp>
 #include <string>
 #include <utility>

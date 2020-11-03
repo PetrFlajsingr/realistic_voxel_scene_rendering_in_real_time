@@ -21,7 +21,7 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                                  std::shared_ptr<vulkan::RenderPass> pass,
                                  std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
-                                 ImGuiConfigFlags flags, TomlConfig config)
+                                 ImGuiConfigFlags flags, toml::table config)
     : Element("imgui"), ImGuiInterface(flags, config),
       logicalDevice(std::move(device)), renderPass(std::move(pass)), surface(std::move(surf)),
       swapChain(std::move(swapCh)) {

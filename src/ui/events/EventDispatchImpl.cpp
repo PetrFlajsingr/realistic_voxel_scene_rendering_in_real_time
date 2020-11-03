@@ -3,35 +3,31 @@
 //
 #include "EventDispatchImpl.h"
 
-pf::events::Subscription
-pf::events::EventDispatchImpl::addMouseListener(pf::events::MouseEventType type,
-                                                MouseEventListener auto listener) {
+namespace pf::events {
+Subscription EventDispatchImpl::addMouseListener(MouseEventType type,
+                                                 MouseEventListener auto listener) {
   const auto id = generateListenerId();
   mouseListeners[magic_enum::enum_integer(type)][id] = listener;
   return Subscription(
       [id, type, this] { mouseListeners[magic_enum::enum_integer(type)].erase(id); });
 }
 
-pf::events::Subscription
-pf::events::EventDispatchImpl::addKeyListener(pf::events::KeyEventType type,
-                                              KeyEventListener auto listener) {
+Subscription EventDispatchImpl::addKeyListener(KeyEventType type, KeyEventListener auto listener) {
   const auto id = generateListenerId();
   keyListeners[magic_enum::enum_integer(type)][id] = listener;
   return Subscription([id, type, this] { keyListeners[magic_enum::enum_integer(type)].erase(id); });
 }
 
-pf::events::Subscription
-pf::events::EventDispatchImpl::addTextListener(TextEventListener auto listener) {
+Subscription EventDispatchImpl::addTextListener(TextEventListener auto listener) {
   const auto id = generateListenerId();
   textListeners[id] = listener;
   return Subscription([id, this] { textListeners.erase(id); });
 }
 
-bool pf::events::EventDispatchImpl::isMouseDown() const { return isMouseDown_; }
-void pf::events::EventDispatchImpl::notifyMouse(pf::events::MouseEventType type,
-                                                pf::events::MouseButton button,
-                                                std::pair<double, double> location,
-                                                std::pair<double, double> delta) {
+bool EventDispatchImpl::isMouseDown() const { return isMouseDown_; }
+void EventDispatchImpl::notifyMouse(MouseEventType type, MouseButton button,
+                                    std::pair<double, double> location,
+                                    std::pair<double, double> delta) {
   auto mouseClicked = false;
   if (type == MouseEventType::Down) {
     isMouseDown_ = true;
@@ -61,41 +57,41 @@ void pf::events::EventDispatchImpl::notifyMouse(pf::events::MouseEventType type,
     }
   }
 }
-void pf::events::EventDispatchImpl::notifyKey(pf::events::KeyEventType type, char key) {
+void EventDispatchImpl::notifyKey(KeyEventType type, char key) {
   const auto &listeners = keyListeners[magic_enum::enum_integer(type)];
   const auto event = KeyEvent{.type = type, .key = key};
   for (auto &[id, listener] : listeners) {
     if (listener(event)) { break; }
   }
 }
-void pf::events::EventDispatchImpl::notifyText(std::string text) {
+void EventDispatchImpl::notifyText(std::string text) {
   const auto event = TextEvent{.text = std::move(text)};
   for (auto &[id, listener] : textListeners) {
     if (listener(event)) { break; }
   }
 }
-void pf::events::EventDispatchImpl::onFrame() {
+void EventDispatchImpl::onFrame() {
   const auto currTime = std::chrono::steady_clock::now();
   while (!eventQueue.empty() && eventQueue.top().execTime <= currTime) {
     eventQueue.top()();
     eventQueue.pop();
   }
 }
-void pf::events::EventDispatchImpl::enqueue(std::invocable auto &&fnc,
-                                            std::chrono::milliseconds delay) {
+void EventDispatchImpl::enqueue(std::invocable auto &&fnc, std::chrono::milliseconds delay) {
   const auto execTime = std::chrono::steady_clock::now() + delay;
   eventQueue.emplace(fnc, execTime);
 }
-pf::events::EventDispatchImpl::ListenerId pf::events::EventDispatchImpl::generateListenerId() {
+EventDispatchImpl::ListenerId EventDispatchImpl::generateListenerId() {
   return getNext(idGenerator);
 }
-bool pf::events::EventDispatchImpl::isDblClick() {
+bool EventDispatchImpl::isDblClick() {
   const auto currTime = std::chrono::steady_clock::now();
   const auto difference = currTime - lastClickTime;
   return difference < DBL_CLICK_LIMIT;
 }
-bool pf::events::EventDispatchImpl::DelayEvent::operator<(
-    const pf::events::EventDispatchImpl::DelayEvent &rhs) const {
+bool EventDispatchImpl::DelayEvent::operator<(const EventDispatchImpl::DelayEvent &rhs) const {
   return execTime < rhs.execTime;
 }
-void pf::events::EventDispatchImpl::DelayEvent::operator()() const { fnc(); }
+void EventDispatchImpl::DelayEvent::operator()() const { fnc(); }
+
+}// namespace pf::events

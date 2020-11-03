@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_VULKANEXCEPTION_H
 #define VOXEL_RENDER_VULKANEXCEPTION_H
 
-#include "exceptions/StackTraceException.h"
+#include <pf_common/exceptions/StackTraceException.h>
 
 namespace pf::vulkan {
 class VulkanException : public StackTraceException {

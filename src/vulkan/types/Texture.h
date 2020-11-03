@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_VULKAN_TYPES_TEXTURE_H
 #define REALISTIC_VOXEL_RENDERING_VULKAN_TYPES_TEXTURE_H
 
-#include "exceptions/StackTraceException.h"
+#include <pf_common/exceptions/StackTraceException.h>
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <filesystem>

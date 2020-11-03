@@ -8,7 +8,7 @@
 #include "concepts/Window.h"
 #include <pf_common/coroutines/Sequence.h>
 #include "events/EventDispatchImpl.h"
-#include "events/Subscription.h"
+#include <pf_common/Subscription.h>
 #include "events/common.h"
 #include <GLFW/glfw3.h>
 #include <array>

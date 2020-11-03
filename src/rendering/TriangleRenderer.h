@@ -6,31 +6,31 @@
 #define VOXEL_RENDER_TRIANGLERENDERER_H
 
 #include "concepts/Window.h"
-#include <pf_common/coroutines/Sequence.h>
+#include "imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_vulkan.h"
 #include "logging/loggers.h"
-#include "ui/imgui/ImGuiGlfwVulkan.h"
-#include "ui/imgui/elements.h"
-#include "ui/imgui/serialization.h"
-#include <pf_common/Visitor.h>
+#include "ui/ImGuiGlfwVulkan.h"
+#include <pf_imgui/elements.h>
+#include <pf_imgui/serialization.h>
 #include "utils/common_enums.h"
 #include "vulkan/types/builders/GraphicsPipelineBuilder.h"
 #include "vulkan/types/builders/RenderPassBuilder.h"
 #include "vulkan/types/types.h"
-#include "imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_vulkan.h"
 #include <chaiscript/chaiscript.hpp>
 #include <iostream>
+#include <pf_common/Visitor.h>
+#include <pf_common/coroutines/Sequence.h>
 #include <range/v3/view.hpp>
 
 using namespace pf::vulkan::literals;
 
 namespace pf {
 class TriangleRenderer {
-  std::reference_wrapper<TomlConfig> config;
+  std::reference_wrapper<toml::table> config;
 
  public:
-  explicit TriangleRenderer(TomlConfig &tomlConfig) : config(tomlConfig){};
+  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig){};
   TriangleRenderer(TriangleRenderer &&other) = default;
   TriangleRenderer &operator=(TriangleRenderer &&other) = default;
   TriangleRenderer(const TriangleRenderer &) = delete;
@@ -335,7 +335,7 @@ class TriangleRenderer {
   std::shared_ptr<vulkan::Shader> vertShader;
   std::shared_ptr<vulkan::Shader> fragShader;
 
-  std::unique_ptr<ui::ig::ImGuiInterface> imgui;
+  std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
 
   bool isMoved = false;
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();

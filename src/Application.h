@@ -8,7 +8,7 @@
 #include "logging/loggers.h"
 #include "concepts/Renderer.h"
 #include "concepts/Window.h"
-#include "exceptions/StackTraceException.h"
+#include <pf_common/exceptions/StackTraceException.h>
 #include "vulkan/types/Instance.h"
 #include "vulkan/types/PhysicalDevice.h"
 #include "vulkan/types/Surface.h"

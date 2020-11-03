@@ -6,7 +6,7 @@
 #define VOXEL_RENDER_EVENTDISPATCHIMPL_H
 
 #include <pf_common/coroutines/Sequence.h>
-#include "Subscription.h"
+#include <pf_common/Subscription.h>
 #include "common.h"
 #include <array>
 #include <chrono>
@@ -19,7 +19,7 @@
 namespace pf::events {
 class EventDispatchImpl {
  public:
-  events::Subscription addMouseListener(MouseEventType type, MouseEventListener auto listener);
+  Subscription addMouseListener(MouseEventType type, MouseEventListener auto listener);
 
   Subscription addKeyListener(KeyEventType type, KeyEventListener auto listener);
 

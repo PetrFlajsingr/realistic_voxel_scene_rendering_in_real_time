@@ -51,6 +51,7 @@ void saveConfig(const std::filesystem::path &dst, TomlConfig &config) {
   ofstream << config;
 }
 
+
 int main(int argc, char *argv[]) {
   using namespace pf;
   auto argumentParser = createArgumentParser();
