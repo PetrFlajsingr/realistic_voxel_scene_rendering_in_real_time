@@ -3,8 +3,8 @@
 //
 
 #include "SwapChain.h"
-#include "coroutines/Sequence.h"
-#include "utils/algorithms.h"
+#include <pf_common/coroutines/Sequence.h>
+#include <pf_common/algorithms.h>
 #include "../VulkanException.h"
 #include "FrameBuffer.h"
 #include "Image.h"

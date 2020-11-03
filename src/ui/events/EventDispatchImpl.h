@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_EVENTDISPATCHIMPL_H
 #define VOXEL_RENDER_EVENTDISPATCHIMPL_H
 
-#include "coroutines/Sequence.h"
+#include <pf_common/coroutines/Sequence.h>
 #include "Subscription.h"
 #include "common.h"
 #include <array>

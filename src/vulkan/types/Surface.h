@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_SURFACE_H
 #define VOXEL_RENDER_SURFACE_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "concepts/Window.h"
 #include "Instance.h"
 #include "VulkanObject.h"

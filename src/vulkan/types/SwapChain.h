@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_SWAPCHAIN_H
 #define VOXEL_RENDER_SWAPCHAIN_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "concepts/Window.h"
 #include "VulkanObject.h"
 #include "fwd.h"

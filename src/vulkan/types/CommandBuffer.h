@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_COMMANDBUFFER_H
 #define VOXEL_RENDER_COMMANDBUFFER_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "Fence.h"
 #include "VulkanObject.h"
 #include "fwd.h"

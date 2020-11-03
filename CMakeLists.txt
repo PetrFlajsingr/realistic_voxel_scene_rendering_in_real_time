@@ -162,6 +162,12 @@ CPMAddPackage(
         GIT_TAG 4b1951ff3c25fea78198a5c0aabb50589946b694
 )
 
+CPMAddPackage(
+        NAME pf_common
+        GITHUB_REPOSITORY PetrFlajsingr/pf_common
+        GIT_TAG master
+)
+
 include_directories(${cppcoro_SOURCE_DIR}/include)
 
 CPMAddPackage(
@@ -197,59 +203,175 @@ endif ()
 
 include_directories("${CMAKE_SOURCE_DIR}/src")
 
+set(SOURCES
+        src/main.cpp
+        src/exceptions/StackTraceException.cpp
+        src/args/ValidPathCheckAction.cpp
+        src/logging/loggers.cpp
+        src/args/RegexCheckAction.cpp
+        src/concepts/Window.cpp
+        src/ui/GlfwWindow.cpp
+        src/ui/events/Subscription.cpp
+        src/vulkan/VulkanException.cpp
+        src/vulkan/DefaultDeviceSuitabilityScorer.cpp
+        src/rendering/TriangleRenderer.cpp
+        src/vulkan/types/SwapChain.cpp
+        src/vulkan/types/PhysicalDevice.cpp
+        src/vulkan/types/Instance.cpp
+        src/vulkan/types/ImageView.cpp
+        src/vulkan/types/Image.cpp
+        src/vulkan/types/RenderPass.cpp
+        src/vulkan/types/builders/RenderPassBuilder.cpp
+        src/vulkan/types/Shader.cpp
+        src/vulkan/types/GraphicsPipeline.cpp
+        src/vulkan/types/builders/GraphicsPipelineBuilder.cpp
+        src/vulkan/types/DescriptorSetLayout.cpp
+        src/vulkan/types/CommandPool.cpp
+        src/vulkan/types/FrameBuffer.cpp
+        src/vulkan/types/Surface.cpp
+        src/ui/events/EventDispatchImpl.cpp
+        src/rendering/TriangleRenderer.cpp
+        src/vulkan/types/VulkanCommon.cpp
+        src/vulkan/types/LogicalDevice.cpp
+        src/vulkan/types/CommandBuffer.cpp
+        src/vulkan/types/Fence.cpp
+        src/vulkan/glsl/Compiler.cpp
+        src/vulkan/types/Buffer.cpp
+        src/vulkan/types/BufferView.cpp
+        src/threading/ThreadPool.cpp
+        include/imgui/imgui_impl_glfw.cpp
+        include/imgui/imgui_impl_vulkan.cpp
+        src/ui/imgui/ImGuiInterface.cpp
+        src/ui/imgui/ImGuiGlfwVulkan.cpp
+        src/vulkan/types/DescriptorPool.cpp
+        src/vulkan/types/Semaphore.cpp
+        src/ui/imgui/elements/interface/Element.cpp
+        src/ui/imgui/elements/interface/Container.cpp
+        src/ui/imgui/elements/Panel.cpp
+        src/ui/imgui/elements/Button.cpp
+        src/ui/imgui/elements/Text.cpp
+        src/ui/imgui/elements/InputText.cpp
+        src/ui/imgui/elements/interface/LabeledElement.cpp
+        src/ui/imgui/elements/interface/ResizableElement.cpp
+        src/ui/imgui/elements/Window.cpp
+        src/ui/imgui/elements/Tree.cpp
+        src/ui/imgui/elements/ComboBox.cpp
+        src/ui/imgui/elements/RadioButton.cpp
+        src/ui/imgui/elements/RadioGroup.cpp
+        src/ui/imgui/elements/Image.cpp
+        src/ui/imgui/elements/Checkbox.cpp
+        src/ui/imgui/elements/Dialog.cpp
+        src/ui/imgui/elements/Group.cpp
+        src/ui/imgui/elements/ListBox.cpp
+        src/ui/imgui/elements/Plot.cpp
+        src/ui/imgui/elements/MenuBars.cpp
+        src/vulkan/types/Texture.cpp
+        src/vulkan/types/TextureSampler.cpp
+        src/ui/imgui/elements/Memo.cpp
+        src/logging/CallbackSink.cpp
+        src/ui/imgui/elements/TabBar.cpp
+        src/ui/imgui/elements/interface/SavableElement.cpp
+        )
+
+set(INCLUDES
+        src/exceptions/StackTraceException.h
+        src/logging/loggers.h
+        src/logging/SomeLevelsSink.h
+        src/args/RegexCheckAction.h
+        src/Application.h
+        src/ui/GlfwWindow.h
+        src/ui/events/common.h
+        src/ui/events/Subscription.h
+        src/concepts/Iterable.h
+        src/concepts/StreamConcepts.h
+        src/coroutines/Sequence.h
+        src/concepts/Incrementable.h
+        src/ui/events/EventDispatchImpl.h
+        src/vulkan/VulkanException.h
+        src/vulkan/DefaultDeviceSuitabilityScorer.h
+        src/rendering/TriangleRenderer.h
+        src/vulkan/types/SwapChain.h
+        src/vulkan/types/PhysicalDevice.h
+        src/vulkan/types/Instance.h
+        src/vulkan/types/VulkanCommon.h
+        src/vulkan/types/Surface.h
+        src/concepts/Renderer.h
+        src/vulkan/types/ImageView.h
+        src/vulkan/types/Image.h
+        src/vulkan/types/RenderPass.h
+        src/vulkan/types/builders/RenderPassBuilder.h
+        src/vulkan/types/Shader.h
+        src/vulkan/types/GraphicsPipeline.h
+        src/vulkan/types/builders/GraphicsPipelineBuilder.h
+        src/vulkan/types/DescriptorSetLayout.h
+        src/vulkan/types/CommandPool.h
+        src/vulkan/types/FrameBuffer.h
+        src/vulkan/types/VulkanObject.h
+        src/concepts/PtrConstructible.h
+        src/vulkan/types/fwd.h
+        src/vulkan/types/types.h
+        src/vulkan/types/LogicalDevice.h
+        src/vulkan/types/CommandBuffer.h
+        src/vulkan/types/Fence.h
+        src/vulkan/glsl/Compiler.h
+        src/concepts/OneOf.h
+        src/vulkan/types/Buffer.h
+        src/vulkan/types/BufferView.h
+        src/utils/tuple.h
+        src/utils/algorithms.h
+        src/threading/ThreadPool.h include/imgui/imgui_impl_glfw.h
+        include/imgui/imgui_impl_vulkan.h
+        src/ui/imgui/ImGuiInterface.h
+        src/ui/imgui/ImGuiGlfwVulkan.h
+        src/vulkan/types/DescriptorPool.h
+        src/vulkan/types/Semaphore.h
+        src/utils/common_enums.h
+        src/ui/imgui/elements/interface/Element.h
+        src/ui/imgui/elements/interface/Container.h
+        src/ui/imgui/elements/Panel.h
+        src/ui/imgui/elements/Button.h
+        src/ui/imgui/elements/Text.h
+        src/ui/imgui/elements/InputText.h
+        src/ui/imgui/elements/interface/LabeledElement.h
+        src/ui/imgui/elements/interface/ResizableElement.h
+        src/ui/imgui/elements/Window.h
+        src/ui/imgui/elements/interface/ValueObservableElement.h
+        src/ui/imgui/elements/Slider.h
+        src/ui/imgui/elements.h
+        src/ui/imgui/elements/Input.h
+        src/ui/imgui/elements/DragInput.h
+        src/ui/imgui/elements/ColorChooser.h
+        src/ui/imgui/elements/Tree.h
+        src/ui/imgui/elements/ComboBox.h
+        src/ui/imgui/elements/RadioButton.h
+        src/ui/imgui/elements/RadioGroup.h
+        src/ui/imgui/elements/Image.h
+        src/ui/imgui/elements/Checkbox.h
+        src/ui/imgui/elements/ProgressBar.h
+        src/ui/imgui/elements/Dialog.h
+        src/ui/imgui/elements/Group.h
+        src/utils/math.h
+        src/ui/imgui/elements/ListBox.h
+        src/ui/imgui/elements/Plot.h
+        src/ui/imgui/elements/MenuBars.h
+        src/utils/Visitor.h
+        src/vulkan/types/Texture.h
+        src/utils/RAII.h
+        src/vulkan/types/TextureSampler.h
+        src/ui/imgui/elements/Memo.h
+        src/logging/CallbackSink.h
+        src/ui/imgui/elements/TabBar.h
+        src/ui/imgui/elements/interface/SavableElement.h
+        src/utils/config.h
+        src/ui/imgui/serialization.h
+        src/ui/imgui/ui_tree_traversal.h)
 
 add_executable(realistic_voxel_rendering src/main.cpp ${BACKWARD_ENABLE}
-        src/exceptions/StackTraceException.cpp src/exceptions/StackTraceException.h
-        src/args/ValidPathCheckAction.cpp
-        src/logging/loggers.cpp src/logging/loggers.h src/logging/SomeLevelsSink.h
-        src/args/RegexCheckAction.h src/args/RegexCheckAction.cpp src/Application.h
-        src/concepts/Window.cpp src/ui/GlfwWindow.cpp src/ui/GlfwWindow.h src/ui/events/common.h
-        src/ui/events/Subscription.cpp src/ui/events/Subscription.h src/concepts/Iterable.h src/concepts/StreamConcepts.h
-        src/coroutines/Sequence.h src/concepts/Incrementable.h src/ui/events/EventDispatchImpl.h
-        src/vulkan/VulkanException.cpp src/vulkan/VulkanException.h src/vulkan/DefaultDeviceSuitabilityScorer.cpp
-        src/vulkan/DefaultDeviceSuitabilityScorer.h src/rendering/TriangleRenderer.cpp
-        src/rendering/TriangleRenderer.h src/vulkan/types/SwapChain.cpp
-        src/vulkan/types/SwapChain.h src/vulkan/types/PhysicalDevice.cpp src/vulkan/types/PhysicalDevice.h src/vulkan/types/Instance.cpp
-        src/vulkan/types/Instance.h src/vulkan/types/VulkanCommon.h
-        src/vulkan/types/Surface.h src/concepts/Renderer.h src/vulkan/types/ImageView.cpp src/vulkan/types/ImageView.h
-        src/vulkan/types/Image.cpp src/vulkan/types/Image.h src/vulkan/types/RenderPass.cpp src/vulkan/types/RenderPass.h
-        src/vulkan/types/builders/RenderPassBuilder.cpp src/vulkan/types/builders/RenderPassBuilder.h src/vulkan/types/Shader.cpp
-        src/vulkan/types/Shader.h src/vulkan/types/GraphicsPipeline.cpp src/vulkan/types/GraphicsPipeline.h
-        src/vulkan/types/builders/GraphicsPipelineBuilder.cpp src/vulkan/types/builders/GraphicsPipelineBuilder.h
-        src/vulkan/types/DescriptorSetLayout.cpp src/vulkan/types/DescriptorSetLayout.h src/vulkan/types/CommandPool.cpp
-        src/vulkan/types/CommandPool.h src/vulkan/types/FrameBuffer.cpp src/vulkan/types/FrameBuffer.h
-        src/vulkan/types/VulkanObject.h src/vulkan/types/Surface.cpp src/ui/events/EventDispatchImpl.cpp src/concepts/PtrConstructible.h
-        src/rendering/TriangleRenderer.cpp src/vulkan/types/fwd.h src/vulkan/types/types.h src/vulkan/types/VulkanCommon.cpp
-        src/vulkan/types/LogicalDevice.cpp src/vulkan/types/LogicalDevice.h src/vulkan/types/CommandBuffer.cpp src/vulkan/types/CommandBuffer.h
-        src/vulkan/types/Fence.cpp src/vulkan/types/Fence.h src/vulkan/glsl/Compiler.cpp src/vulkan/glsl/Compiler.h src/concepts/OneOf.h
-        src/vulkan/types/Buffer.cpp src/vulkan/types/Buffer.h src/vulkan/types/BufferView.cpp src/vulkan/types/BufferView.h
-        src/utils/tuple.h src/utils/algorithms.h src/threading/ThreadPool.cpp src/threading/ThreadPool.h include/imgui/imgui_impl_glfw.h
-        include/imgui/imgui_impl_glfw.cpp include/imgui/imgui_impl_vulkan.cpp include/imgui/imgui_impl_vulkan.h
-        src/ui/imgui/ImGuiInterface.cpp src/ui/imgui/ImGuiInterface.h src/ui/imgui/ImGuiGlfwVulkan.cpp src/ui/imgui/ImGuiGlfwVulkan.h
-        src/vulkan/types/DescriptorPool.cpp src/vulkan/types/DescriptorPool.h src/vulkan/types/Semaphore.cpp src/vulkan/types/Semaphore.h
-        src/utils/common_enums.h src/ui/imgui/elements/interface/Element.cpp src/ui/imgui/elements/interface/Element.h
-        src/ui/imgui/elements/interface/Container.cpp src/ui/imgui/elements/interface/Container.h src/ui/imgui/elements/Panel.cpp
-        src/ui/imgui/elements/Panel.h src/ui/imgui/elements/Button.cpp src/ui/imgui/elements/Button.h src/ui/imgui/elements/Text.cpp
-        src/ui/imgui/elements/Text.h src/ui/imgui/elements/InputText.cpp src/ui/imgui/elements/InputText.h src/ui/imgui/elements/interface/LabeledElement.cpp
-        src/ui/imgui/elements/interface/LabeledElement.h src/ui/imgui/elements/interface/ResizableElement.cpp
-        src/ui/imgui/elements/interface/ResizableElement.h src/ui/imgui/elements/Window.cpp src/ui/imgui/elements/Window.h
-        src/ui/imgui/elements/interface/ValueObservableElement.h
-        src/ui/imgui/elements/Slider.h src/ui/imgui/elements.h src/ui/imgui/elements/Input.h src/ui/imgui/elements/DragInput.h
-        src/ui/imgui/elements/ColorChooser.h src/ui/imgui/elements/Tree.cpp src/ui/imgui/elements/Tree.h
-        src/ui/imgui/elements/ComboBox.cpp src/ui/imgui/elements/ComboBox.h src/ui/imgui/elements/RadioButton.cpp src/ui/imgui/elements/RadioButton.h
-        src/ui/imgui/elements/RadioGroup.cpp src/ui/imgui/elements/RadioGroup.h src/ui/imgui/elements/Image.cpp src/ui/imgui/elements/Image.h
-        src/ui/imgui/elements/Checkbox.cpp src/ui/imgui/elements/Checkbox.h src/ui/imgui/elements/ProgressBar.h
-        src/ui/imgui/elements/Dialog.cpp src/ui/imgui/elements/Dialog.h src/ui/imgui/elements/Group.cpp src/ui/imgui/elements/Group.h src/utils/math.h
-        src/ui/imgui/elements/ListBox.cpp src/ui/imgui/elements/ListBox.h src/ui/imgui/elements/Plot.cpp src/ui/imgui/elements/Plot.h
-        src/ui/imgui/elements/MenuBars.cpp src/ui/imgui/elements/MenuBars.h src/utils/Visitor.h src/vulkan/types/Texture.cpp
-        src/vulkan/types/Texture.h src/utils/RAII.h src/vulkan/types/TextureSampler.cpp src/vulkan/types/TextureSampler.h
-        src/ui/imgui/elements/Memo.cpp src/ui/imgui/elements/Memo.h src/logging/CallbackSink.cpp src/logging/CallbackSink.h
-        src/ui/imgui/elements/TabBar.cpp src/ui/imgui/elements/TabBar.h src/ui/imgui/elements/interface/SavableElement.cpp
-        src/ui/imgui/elements/interface/SavableElement.h src/utils/config.h src/ui/imgui/serialization.h src/ui/imgui/ui_tree_traversal.h)
+        ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
         magic_enum imgui::imgui units fmt::fmt range-v3 nanobench subprocess argparse chaiscript
-        shaderc glslang cppcoro
+        shaderc glslang cppcoro pf_common::pf_common
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_rendering)
 

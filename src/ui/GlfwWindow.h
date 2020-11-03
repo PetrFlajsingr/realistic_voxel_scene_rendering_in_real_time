@@ -6,7 +6,7 @@
 #define VOXEL_RENDER_GLFWWINDOW_H
 
 #include "concepts/Window.h"
-#include "coroutines/Sequence.h"
+#include <pf_common/coroutines/Sequence.h>
 #include "events/EventDispatchImpl.h"
 #include "events/Subscription.h"
 #include "events/common.h"

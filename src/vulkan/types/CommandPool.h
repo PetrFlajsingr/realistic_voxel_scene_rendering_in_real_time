@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_COMMANDPOOL_H
 #define VOXEL_RENDER_COMMANDPOOL_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "CommandBuffer.h"
 #include "VulkanObject.h"
 #include "fwd.h"

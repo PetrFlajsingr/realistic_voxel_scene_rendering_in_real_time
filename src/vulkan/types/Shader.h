@@ -4,7 +4,7 @@
 
 #ifndef VOXEL_RENDER_SHADER_H
 #define VOXEL_RENDER_SHADER_H
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "../glsl/Compiler.h"
 #include "VulkanObject.h"
 #include "fwd.h"

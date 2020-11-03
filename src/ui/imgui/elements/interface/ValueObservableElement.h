@@ -7,7 +7,7 @@
 
 #include "ui/events/Subscription.h"
 #include "Element.h"
-#include "coroutines/Sequence.h"
+#include <pf_common/coroutines/Sequence.h>
 #include <algorithm>
 #include <functional>
 #include <ranges>

@@ -5,7 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_COLORCHOOSER_H
 #define REALISTIC_VOXEL_RENDERING_UI_IMGUI_ELEMENTS_COLORCHOOSER_H
 
-#include "concepts/OneOf.h"
+#include <pf_common/concepts/OneOf.h>
 #include "../serialization.h"
 #include "interface/LabeledElement.h"
 #include "interface/SavableElement.h"

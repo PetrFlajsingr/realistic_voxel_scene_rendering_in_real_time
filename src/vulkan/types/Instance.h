@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_INSTANCE_H
 #define VOXEL_RENDER_INSTANCE_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "../DefaultDeviceSuitabilityScorer.h"
 #include "PhysicalDevice.h"
 #include "VulkanCommon.h"

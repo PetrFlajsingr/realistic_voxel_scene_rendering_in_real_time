@@ -1,7 +1,7 @@
 #include "Application.h"
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
-#include "coroutines/Sequence.h"
+#include <pf_common/coroutines/Sequence.h>
 #include "logging/loggers.h"
 #include "rendering/TriangleRenderer.h"
 #include "ui/GlfwWindow.h"

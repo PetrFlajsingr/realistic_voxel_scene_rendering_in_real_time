@@ -3,7 +3,7 @@
 //
 
 #include "Texture.h"
-#include "utils/RAII.h"
+#include <pf_common/RAII.h>
 #include "../VulkanException.h"
 #include "LogicalDevice.h"
 #include <stb/stb_image.h>

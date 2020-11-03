@@ -6,12 +6,12 @@
 #define VOXEL_RENDER_TRIANGLERENDERER_H
 
 #include "concepts/Window.h"
-#include "coroutines/Sequence.h"
+#include <pf_common/coroutines/Sequence.h>
 #include "logging/loggers.h"
 #include "ui/imgui/ImGuiGlfwVulkan.h"
 #include "ui/imgui/elements.h"
 #include "ui/imgui/serialization.h"
-#include "utils/Visitor.h"
+#include <pf_common/Visitor.h>
 #include "utils/common_enums.h"
 #include "vulkan/types/builders/GraphicsPipelineBuilder.h"
 #include "vulkan/types/builders/RenderPassBuilder.h"
@@ -119,7 +119,7 @@ class TriangleRenderer {
     vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle vert",
         .type = ShaderType::Vertex,
-        .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/shaders/"
+        .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders/"
                 "triangle.vert",
         .macros = {},
         .replaceMacros = {}});
@@ -127,7 +127,7 @@ class TriangleRenderer {
     fragShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle frag",
         .type = ShaderType::Fragment,
-        .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/shaders/"
+        .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders/"
                 "triangle.frag",
         .macros = {},
         .replaceMacros = {}});

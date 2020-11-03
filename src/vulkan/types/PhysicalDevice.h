@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_PHYSICALDEVICE_H
 #define VOXEL_RENDER_PHYSICALDEVICE_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "concepts/Window.h"
 #include "logging/loggers.h"
 #include "../DefaultDeviceSuitabilityScorer.h"

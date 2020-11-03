@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_BUFFER_H
 #define VOXEL_RENDER_BUFFER_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "BufferView.h"
 #include "VulkanObject.h"
 #include "fwd.h"

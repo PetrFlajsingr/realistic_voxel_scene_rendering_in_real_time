@@ -5,7 +5,7 @@
 #ifndef VOXEL_RENDER_IMAGEVIEW_H
 #define VOXEL_RENDER_IMAGEVIEW_H
 
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/PtrConstructible.h>
 #include "VulkanObject.h"
 #include "fwd.h"
 #include <vulkan/vulkan.hpp>

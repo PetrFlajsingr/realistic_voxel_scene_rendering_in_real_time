@@ -5,8 +5,8 @@
 #ifndef VOXEL_RENDER_LOGICALDEVICE_H
 #define VOXEL_RENDER_LOGICALDEVICE_H
 
-#include "concepts/OneOf.h"
-#include "concepts/PtrConstructible.h"
+#include <pf_common/concepts/OneOf.h>
+#include <pf_common/concepts/PtrConstructible.h>
 #include "concepts/Window.h"
 #include "Buffer.h"
 #include "CommandPool.h"
