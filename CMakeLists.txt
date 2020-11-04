@@ -151,33 +151,6 @@ CPMAddPackage(
 )
 
 CPMAddPackage(
-        NAME glslang
-        GITHUB_REPOSITORY KhronosGroup/glslang
-        GIT_TAG master-tot
-)
-CPMAddPackage(
-        NAME spirvheaders
-        GITHUB_REPOSITORY KhronosGroup/SPIRV-Headers
-        GIT_TAG 1.5.3.reservations1
-)
-CPMAddPackage(
-        NAME spirvtools
-        GITHUB_REPOSITORY KhronosGroup/SPIRV-Tools
-        GIT_TAG v2020.4
-)
-CPMAddPackage(
-        NAME spirvcross
-        GITHUB_REPOSITORY KhronosGroup/SPIRV-Cross
-        GIT_TAG 2020-09-17
-)
-CPMAddPackage(
-        NAME shaderc
-        GITHUB_REPOSITORY google/shaderc
-        GIT_TAG v2020.3
-        OPTIONS
-        "SHADERC_SKIP_INSTALL ON"
-)
-CPMAddPackage(
         NAME pf_glfw_vulkan
         GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
         GIT_TAG master
