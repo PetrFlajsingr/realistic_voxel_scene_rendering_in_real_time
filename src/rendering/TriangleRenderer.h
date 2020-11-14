@@ -5,15 +5,11 @@
 #ifndef VOXEL_RENDER_TRIANGLERENDERER_H
 #define VOXEL_RENDER_TRIANGLERENDERER_H
 
-#include "imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_vulkan.h"
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
 #include <chaiscript/chaiscript.hpp>
 #include <iostream>
-#include <pf_common/Visitor.h>
 #include <pf_common/coroutines/Sequence.h>
 #include <pf_glfw_vulkan/concepts/Window.h>
 #include <pf_glfw_vulkan/lib_config.h>
@@ -21,15 +17,18 @@
 #include <pf_imgui/elements.h>
 #include <pf_imgui/serialization.h>
 #include <range/v3/view.hpp>
+#include <utils/Camera.h>
+#include <utils/FPSCounter.h>
 
 using namespace pf::vulkan::literals;
 
 namespace pf {
+
 class TriangleRenderer {
   std::reference_wrapper<toml::table> config;
-
+  Camera camera;
  public:
-  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig){};
+  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}) {};
   TriangleRenderer(TriangleRenderer &&other) = default;
   TriangleRenderer &operator=(TriangleRenderer &&other) = default;
   TriangleRenderer(const TriangleRenderer &) = delete;
@@ -115,6 +114,13 @@ class TriangleRenderer {
                                               window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
     initUI();
 
+    camera.setScreenWidth(window.getResolution().width);
+    camera.setScreenHeight(window.getResolution().height);
+    window.setInputIgnorePredicate([this] {
+      return imgui->isWindowHovered() || imgui->isKeyboardCaptured();
+    });
+    camera.registerControls(window);
+
     // clang-format on
     vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle vert",
@@ -185,133 +191,21 @@ class TriangleRenderer {
   }
 
   template<typename T>
-  static std::function<void(T)> makeChaiPrintFnc(const std::shared_ptr<ui::ig::Memo> &memo) {
+  static std::function<void(T)> makeChaiPrintFnc(ui::ig::Memo &memo) {
     using namespace std::string_literals;
-    return [memo](const T &val) {
-      memo->addRecord("<<< "s + fmt::format("{}", val));
+    return [&memo = memo](const T &val) {
+      memo.addRecord("<<< "s + fmt::format("{}", val));
       log(spdlog::level::debug, MAIN_TAG, fmt::format("{}", val));
     };
   }
 
-  void initUI() {
-    using namespace std::string_literals;
-    using namespace pf::ui::ig;
-    auto logWindow = imgui->createChild<Window>("log_window", "Log");
-    logWindow->createChild<Checkbox>("chkbx", "test check")->addValueListener([](auto a) {
-      std::cout << std::boolalpha << a << std::endl;
-    });
-    auto logMemo = logWindow->createChild<Memo>("log_output", "Log:", 100, true, true, 100);
-    addLogListener([logMemo](auto record) { logMemo->addRecord(record); });
-    auto logErrMemo =
-        logWindow->createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
-    addLogListener([logErrMemo](auto record) { logErrMemo->addRecord(record); }, true);
+  void initUI();
 
-    auto chaiWindow = imgui->createChild<Window>("chai_window", "ChaiScript");
-    auto chaiInputPanel = chaiWindow->createChild<Panel>("chai_input_panel", "Input",
-                                                         PanelLayout::Horizontal, ImVec2{0, 50});
-
-    chaiInputPanel->createChild<Text>("chain_input_label", "Input:");
-    auto chaiInput =
-        chaiInputPanel->createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
-    auto chai_output =
-        chaiWindow->createChild<Memo>("chai_output", "Output:", 100, true, true, 100);
-
-    chai->add(chaiscript::fun(makeChaiPrintFnc<int>(chai_output)), "print");
-    chai->add(chaiscript::fun(makeChaiPrintFnc<double>(chai_output)), "print");
-    chai->add(chaiscript::fun(makeChaiPrintFnc<float>(chai_output)), "print");
-    chai->add(chaiscript::fun(makeChaiPrintFnc<std::string>(chai_output)), "print");
-    chaiInputPanel->createChild<Button>("chain_input_confirm", "Confirm")
-        ->setOnClick([chaiInput, chai_output, this] {
-          const auto input = chaiInput->getText();
-          chai_output->addRecord(">>> "s + input);
-          chaiInput->clear();
-          try {
-            chai->eval(input);
-          } catch (const chaiscript::exception::eval_error &e) {
-            chai_output->addRecord("<<< "s + e.pretty_print());
-          }
-        });
-
-    chai->add(
-        chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }),
-        "log");
-
-    auto testWindow = imgui->createChild<Window>("test window", "TEST");
-    testWindow->createChild<ColorChooser<ColorChooserType::Picker, glm::vec4>>("col1", "col1",
-                                                                               Persistent::Yes);
-    testWindow->createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>("col2", "col2",
-                                                                             Persistent::Yes);
-    testWindow
-        ->createChild<ComboBox>("cb1", "cb1", "preview", std::vector{"1"s, "2"s, "3"s},
-                                Persistent::Yes)
-        ->addValueListener([](auto str) { logdFmt(MAIN_TAG, "cb1: {}", str); });
-
-    testWindow->createChild<Input<glm::vec2>>("input1", "input1", Persistent::Yes)
-        ->addValueListener([](auto val) { logdFmt(MAIN_TAG, "input1 :{}x{}", val.x, val.y); });
-    testWindow
-        ->createChild<InputText>("input2", "input2", "", TextInputType::SingleLine, Persistent::Yes)
-        ->addValueListener([](auto val) { logdFmt(MAIN_TAG, "input2 :{}", val); });
-
-    auto rgroup = testWindow->createChild<RadioGroup>("rgroup", "group", std::vector<RadioButton>{},
-                                                      std::nullopt, Persistent::Yes);
-    rgroup->addButton("rb1", "1");
-    rgroup->addButton("rb2", "2");
-    rgroup->addButton("rb3", "3");
-    rgroup->addButton("rb4", "4");
-
-    testWindow->createChild<Slider<glm::vec2>>("Slider1", "Slider1", -100.f, 100, glm::vec2{},
-                                               Persistent::Yes);
-    testWindow->createChild<Slider<int>>("Slider2", "Slide2", -100, 100, 0, Persistent::Yes);
-
-    imgui->setStateFromConfig();
-  }
-
-  void updateCommandBuffer() {
-    for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
-      auto clearValues = std::vector<vk::ClearValue>(2);
-      clearValues[0].setColor({std::array<float, 4>{0.f, 1.f, 0.f, 0.f}});
-      clearValues[1].setDepthStencil({1.f, 0});
-      auto recorder =
-          vkCommandBuffers[i]->begin(vk::CommandBufferUsageFlagBits::eRenderPassContinue);
-      recorder
-          .beginRenderPass({.renderPass = *vkRenderPass,
-                            .frameBuffer = *vkSwapChain->getFrameBuffers()[i],
-                            .clearValues = clearValues,
-                            .extent = vkSwapChain->getExtent()})
-          .bindPipeline(vk::PipelineBindPoint::eGraphics, *vkGraphicsPipeline)
-          .draw({3, 1, 0, 0});
-      imgui->addToCommandBuffer(recorder);
-
-      recorder.endRenderPass();
-    }
-  }
+  void updateCommandBuffer();
 
   ~TriangleRenderer();
 
-  void render() {
-    vkSwapChain->swap();
-
-    imgui->render();
-
-    updateCommandBuffer();
-
-    auto &semaphore = vkSwapChain->getCurrentSemaphore();
-    auto &fence = vkSwapChain->getCurrentFence();
-    const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
-    const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
-
-    fence.reset();
-    vkCommandBuffers[commandBufferIndex]->submit(
-        {.waitSemaphores = {semaphore},
-         .signalSemaphores = {*renderSemaphores[frameIndex]},
-         .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-         .fence = fence,
-         .wait = true});
-
-    vkSwapChain->present(vulkan::PresentConfig{.waitSemaphores = {*renderSemaphores[frameIndex]},
-                                               .presentQueue = vkLogicalDevice->getPresentQueue()});
-    vkSwapChain->frameDone();
-  }
+  void render();
 
  private:
   static bool debugCallback(const vulkan::DebugCallbackData &data,
@@ -337,6 +231,8 @@ class TriangleRenderer {
   std::shared_ptr<vulkan::Shader> fragShader;
 
   std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
+  FPSCounter fpsCounter;
+  ui::ig::FlameGraph *statsFlameGraph;
 
   bool isMoved = false;
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();

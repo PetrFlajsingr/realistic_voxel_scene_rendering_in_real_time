@@ -1,12 +1,9 @@
 #include "Application.h"
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
-#include <pf_common/coroutines/Sequence.h>
 #include "logging/loggers.h"
 #include "rendering/TriangleRenderer.h"
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
-#include "utils/config.h"
-#include <experimental/array>
 #include <filesystem>
 #include <toml++/toml.h>
 
@@ -46,13 +43,10 @@ void createLogger(argparse::ArgumentParser &argument_parser) {
   pf::initGlobalLogger(loggerSettings);
 }
 
-void saveConfig(const std::filesystem::path &dst, TomlConfig &config) {
+void saveConfig(const std::filesystem::path &dst, toml::table &config) {
   auto ofstream = std::ofstream(dst);
   ofstream << config;
 }
-
-
-
 
 int main(int argc, char *argv[]) {
   using namespace pf;

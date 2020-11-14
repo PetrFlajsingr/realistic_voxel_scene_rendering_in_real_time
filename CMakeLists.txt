@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
 include("cmake/HunterGate.cmake")
-set(CPM_SOURCE_CACHE ${CMAKE_SOURCE_DIR}/.cache)
 include(FetchContent)
 
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_SOURCE_DIR}/cmake/CPM.cmake")
@@ -43,14 +42,21 @@ add_compile_definitions(
         GLM_FORCE_SWIZZLE
         STB_IMAGE_IMPLEMENTATION
         STACKTRACE_VULKAN_REPORT
-        )
+)
 
 include_directories(include)
 
 set(CMAKE_CXX_STANDARD 20)
 list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
-        "-Wpointer-arith" "-Wcast-qual" "-Wno-type-limits")
+        "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits")
+
+if (USE_LLD_LINKER)
+    list(APPEND flags "-fuse-ld=lld")
+elseif (USE_GOLD_LINKER)
+    list(APPEND flags "-fuse-ld=gold")
+endif ()
+
 
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     message(" ")
@@ -96,14 +102,12 @@ set(RANGE_V3_TESTS OFF)
 set(SHADERC_SKIP_TESTS ON)
 set(SPIRV_CROSS_ENABLE_TESTS OFF)
 
-hunter_add_package(imgui)
-find_package(imgui CONFIG REQUIRED)
+
 hunter_add_package(glm)
 find_package(glm CONFIG REQUIRED)
 hunter_add_package(spdlog)
 find_package(spdlog CONFIG REQUIRED)
 add_compile_definitions(SPDLOG_FMT_EXTERNAL)
-
 
 CPMAddPackage(
         NAME magic_enum
@@ -155,6 +159,7 @@ CPMAddPackage(
         GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
         GIT_TAG master
 )
+find_package(imgui REQUIRED)
 
 
 if (chaiscript_ADDED)
@@ -174,7 +179,10 @@ set(SOURCES
         src/ui/ImGuiGlfwVulkan.cpp
         include/imgui/imgui_impl_glfw.cpp
         include/imgui/imgui_impl_vulkan.cpp
-        include/ogt_vox.h)
+        src/utils/Camera.cpp
+        src/utils/FPSCounter.cpp
+        src/utils/FlameGraphSampler.cpp
+        )
 
 set(INCLUDES
         src/logging/loggers.h
@@ -193,16 +201,24 @@ set(INCLUDES
         src/utils/config.h
         src/ui/ImGuiGlfwVulkan.h
         include/imgui/imgui_impl_glfw.h
-        include/imgui/imgui_impl_vulkan.h)
+        include/imgui/imgui_impl_vulkan.h
+        src/utils/Camera.h
+        src/utils/FPSCounter.h
+        src/utils/FlameGraphSampler.h
+        )
 
-add_executable(realistic_voxel_rendering src/main.cpp
-        ${SOURCES})
+add_executable(realistic_voxel_rendering ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
-        magic_enum imgui::imgui nanobench subprocess argparse chaiscript
+        magic_enum nanobench subprocess argparse chaiscript
         pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
         shaderc glslang
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 add_backward(realistic_voxel_rendering)
 
 target_compile_options(realistic_voxel_rendering PRIVATE ${flags})
+
+if (MEASURE_BUILD_TIME)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
+endif ()
+

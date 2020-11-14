@@ -6,6 +6,7 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
+#include <pf_imgui/elements/FileDialog.h>
 
 namespace pf::ui::ig {
 
@@ -93,15 +94,15 @@ void ImGuiGlfwVulkan::uploadFonts() {
                                      .wait = true});
 
   logicalDevice->wait();
-
-  ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
+
 void ImGuiGlfwVulkan::renderImpl() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
   if (hasMenuBar()) { menuBar->render(); }
   std::ranges::for_each(getChildren(), [](auto &child) { child.get().render(); });
+  renderFileDialogs();
   ImGui::Render();
 }
 

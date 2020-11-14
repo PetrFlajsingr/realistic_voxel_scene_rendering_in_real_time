@@ -11,6 +11,7 @@
 #include <imgui/imgui_impl_vulkan.h>
 #include <memory>
 #include <pf_imgui/ImGuiInterface.h>
+#include <pf_imgui/elements/FileDialog.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <vulkan/vulkan.hpp>
 
