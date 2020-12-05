@@ -114,6 +114,7 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
   std::shared_ptr<vulkan::SwapChain> vkSwapChain;
+  std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
   std::shared_ptr<vulkan::GraphicsPipeline> vkGraphicsPipeline;
   std::shared_ptr<vulkan::CommandPool> vkCommandPool;

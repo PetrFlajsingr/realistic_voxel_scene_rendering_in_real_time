@@ -46,7 +46,8 @@ void RTTriangleRenderer::createBuffers() {
   throw NotImplementedException("createBuffers not implemented");
 }
 void RTTriangleRenderer::createDescriptorPool() {
-  throw NotImplementedException("createDescriptorPool not implemented");
+  vkDescPool = vkLogicalDevice->createDescriptorPool(
+      {.flags = {}, .maxSets = 1, .poolSizes = {{vk::DescriptorType::eStorageImage, 3}}});
 }
 void RTTriangleRenderer::createPipeline() {
   throw NotImplementedException("createPipeline not implemented");
