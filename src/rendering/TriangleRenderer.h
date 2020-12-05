@@ -5,6 +5,7 @@
 #ifndef VOXEL_RENDER_TRIANGLERENDERER_H
 #define VOXEL_RENDER_TRIANGLERENDERER_H
 
+#include "VulkanDebugCallbackImpl.h"
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
@@ -24,7 +25,7 @@ using namespace pf::vulkan::literals;
 
 namespace pf {
 
-class TriangleRenderer {
+class TriangleRenderer : VulkanDebugCallbackImpl {
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
@@ -214,9 +215,7 @@ class TriangleRenderer {
   void render();
 
  private:
-  static bool debugCallback(const vulkan::DebugCallbackData &data,
-                            vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                            const vk::DebugUtilsMessageTypeFlagsEXT &);
+
 
   vk::Format getDepthFormat();
 
