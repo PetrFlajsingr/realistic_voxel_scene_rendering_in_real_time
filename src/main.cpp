@@ -2,7 +2,7 @@
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
-#include "rendering/TriangleRenderer.h"
+#include "rendering/RTTriangleRenderer.h"
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <filesystem>
 #include <toml++/toml.h>
@@ -74,8 +74,8 @@ int main(int argc, char *argv[]) {
       .mode = ui::Mode::Windowed};
 
   {
-    auto app = Application<ui::GlfwWindow, TriangleRenderer>(
-        TriangleRenderer(*config.as_table()),
+    auto app = Application<ui::GlfwWindow, RTTriangleRenderer>(
+        RTTriangleRenderer(*config.as_table()),
         application_settings{.debug = argumentParser.get<bool>("-d"),
                              .window_settings = windowSettings});
     app.run();

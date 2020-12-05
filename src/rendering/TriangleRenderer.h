@@ -27,6 +27,10 @@ namespace pf {
 class TriangleRenderer {
   std::reference_wrapper<toml::table> config;
   Camera camera;
+
+  std::shared_ptr<vulkan::Texture> testTexture;
+  std::shared_ptr<vulkan::TextureSampler> testTextureSampler;
+  std::shared_ptr<vulkan::ImageView> testTextureView;
  public:
   explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}) {};
   TriangleRenderer(TriangleRenderer &&other) = default;
@@ -108,18 +112,6 @@ class TriangleRenderer {
                     .subpassDone()
                     .build();
 
-    auto imguiConfig = config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
-    imgui =
-        std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
-                                              window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
-    initUI();
-
-    camera.setScreenWidth(window.getResolution().width);
-    camera.setScreenHeight(window.getResolution().height);
-    window.setInputIgnorePredicate([this] {
-      return imgui->isWindowHovered() || imgui->isKeyboardCaptured();
-    });
-    camera.registerControls(window);
 
     // clang-format on
     vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -186,6 +178,20 @@ class TriangleRenderer {
       return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
     });
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
+
+    auto imguiConfig = config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
+    imgui =
+        std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                                  window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
+    initUI();
+
+    camera.setScreenWidth(window.getResolution().width);
+    camera.setScreenHeight(window.getResolution().height);
+    window.setInputIgnorePredicate([this] {
+      return imgui->isWindowHovered() || imgui->isKeyboardCaptured();
+    });
+    camera.registerControls(window);
+
 
     window.setMainLoopCallback([&] { render(); });
   }

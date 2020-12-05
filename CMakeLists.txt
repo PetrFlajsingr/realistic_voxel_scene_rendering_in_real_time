@@ -175,6 +175,7 @@ set(SOURCES
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
         src/rendering/TriangleRenderer.cpp
+        src/rendering/RTTriangleRenderer.cpp
         src/logging/CallbackSink.cpp
         src/ui/ImGuiGlfwVulkan.cpp
         include/imgui/imgui_impl_glfw.cpp
@@ -193,6 +194,7 @@ set(INCLUDES
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
         src/rendering/TriangleRenderer.h
+        src/rendering/RTTriangleRenderer.h
         src/concepts/Renderer.h
         src/threading/ThreadPool.h
         src/ui/ImGuiGlfwVulkan.h

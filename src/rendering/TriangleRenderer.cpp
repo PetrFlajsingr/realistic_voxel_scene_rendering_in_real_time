@@ -158,7 +158,7 @@ void pf::TriangleRenderer::initUI() {
   chai->add(chaiscript::fun(makeChaiPrintFnc<float>(chai_output)), "print");
   chai->add(chaiscript::fun(makeChaiPrintFnc<std::string>(chai_output)), "print");
   chaiInputPanel.createChild<Button>("chain_input_confirm", "Confirm")
-      .setOnClick([&chaiInput = chaiInput, &chai_output = chai_output, this] {
+      .addClickListener([&chaiInput = chaiInput, &chai_output = chai_output, this] {
         const auto input = chaiInput.getText();
         chai_output.addRecord(">>> "s + input);
         chaiInput.clear();
@@ -179,7 +179,7 @@ void pf::TriangleRenderer::initUI() {
                                                      ImVec2{0, 50});
   const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
   auto fpsLabel = &infoWindow.createChild<Text>("fpsText", "FPS");
-  infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").setOnClick([this] {
+  infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] {
     fpsCounter.reset();
   });
 
@@ -212,10 +212,53 @@ void pf::TriangleRenderer::initUI() {
     cameraDirText->setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
   });
   statsFlameGraph = &infoWindow.createChild<FlameGraph>("statsFlameGraph", "Main loop");
+
+  testTexture = vkLogicalDevice->createTexture(
+      {.path = std::filesystem::path("/home/petr/Downloads/tex.png"),
+       .channels = vulkan::TextureChannels::rgb_alpha,
+       .mipLevels = 1,
+       .usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst},
+      *vkCommandPool);
+
+  auto sub = vk::ImageSubresourceRange();
+  sub.layerCount = 1;
+  sub.levelCount = 1;
+  sub.baseMipLevel = 0;
+  sub.baseArrayLayer = 0;
+  sub.aspectMask = vk::ImageAspectFlagBits::eColor;
+  testTextureView = testTexture->getImage().createImageView(vk::ColorSpaceKHR::eSrgbNonlinear,
+                                                            vk::ImageViewType::e2D, sub);
+
+  testTextureSampler = testTexture->createSampler(
+      {.magFilter = vk::Filter::eNearest,
+       .minFilter = vk::Filter::eNearest,
+       .addressMode = {.u = vk::SamplerAddressMode::eClampToBorder,
+                       .v = vk::SamplerAddressMode::eClampToBorder,
+                       .w = vk::SamplerAddressMode::eClampToBorder},
+       .maxAnisotropy = std::nullopt,
+       .borderColor = vk::BorderColor::eFloatOpaqueBlack,
+       .unnormalizedCoordinates = false,
+       .compareOp = std::nullopt,
+       .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
+
+  infoWindow
+      .createChild<Image>(
+          "img1",
+          [&] {
+            return (ImTextureID) ImGui_ImplVulkan_AddTexture(
+                **testTextureSampler, **testTextureView,
+                static_cast<VkImageLayout>(testTexture->getImage().getLayout()));
+          },
+          ImVec2{300, 300}, IsButton::Yes,
+          [] {
+            return std::pair(ImVec2{0, 0}, ImVec2{1, 1});
+          })
+      .addClickListener([] { std::cout << "Image clicked" << std::endl; });
+
   imgui->setStateFromConfig();
 }
 void pf::TriangleRenderer::updateCommandBuffer() {
-  for (std::weakly_incrementable auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
+  for (auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
     auto clearValues = std::vector<vk::ClearValue>(2);
     clearValues[0].setColor({std::array<float, 4>{0.f, 1.f, 0.f, 0.f}});
     clearValues[1].setDepthStencil({1.f, 0});
