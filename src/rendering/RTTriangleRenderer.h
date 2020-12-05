@@ -41,7 +41,7 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
     createDescriptorPool();
     createPipeline();
 
-    prepareCommands();
+    createCommands();
     createFences();
     createSemaphores();
   }
@@ -102,7 +102,8 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   void createBuffers();
   void createDescriptorPool();
   void createPipeline();
-  void prepareCommands();
+  void createCommands();
+  void recordCommands();
   void createFences();
   void createSemaphores();
 
@@ -115,8 +116,6 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
   std::shared_ptr<vulkan::SwapChain> vkSwapChain;
   std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
-  std::shared_ptr<vulkan::RenderPass> vkRenderPass;
-  std::shared_ptr<vulkan::GraphicsPipeline> vkGraphicsPipeline;
   std::shared_ptr<vulkan::CommandPool> vkCommandPool;
   std::vector<std::shared_ptr<vulkan::CommandBuffer>> vkCommandBuffers;
 
@@ -124,9 +123,8 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
 
-  vk::UniquePipelineLayout computePipelineLayout;
   std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
-  vk::UniquePipeline vkComputePipeline;
+  std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
 };
 
 
