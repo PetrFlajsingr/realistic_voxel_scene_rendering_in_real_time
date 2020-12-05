@@ -44,9 +44,11 @@ void RTTriangleRenderer::createRenderTexture() {
       vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 }
+
 void RTTriangleRenderer::createBuffers() {
   throw NotImplementedException("createBuffers not implemented");
 }
+
 void RTTriangleRenderer::createDescriptorPool() {
   vkDescPool = vkLogicalDevice->createDescriptorPool(
       {.flags = {}, .maxSets = 1, .poolSizes = {{vk::DescriptorType::eStorageImage, 3}}});
@@ -100,6 +102,7 @@ void RTTriangleRenderer::createPipeline() {
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value,
       std::move(computePipelineLayout));
 }
+
 void RTTriangleRenderer::createCommands() {
   vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute,
@@ -108,6 +111,7 @@ void RTTriangleRenderer::createCommands() {
   vkCommandBuffers =
       vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1});
 }
+
 void RTTriangleRenderer::recordCommands() {
   // TODO: add these calls to recording
   auto &buffer = vkCommandBuffers[0];
@@ -165,9 +169,11 @@ void RTTriangleRenderer::recordCommands() {
                               vk::PipelineStageFlagBits::eTopOfPipe, {}, {}, imageBarriers);
   }
 }
+
 void RTTriangleRenderer::createFences() {
-  throw NotImplementedException("createFences not implemented");
+  vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
 }
+
 void RTTriangleRenderer::createSemaphores() {
   throw pf::NotImplementedException("not implemented");
 }

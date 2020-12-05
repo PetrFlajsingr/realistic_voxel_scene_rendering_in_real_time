@@ -125,6 +125,7 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
 
   std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
+  std::shared_ptr<vulkan::Fence> vkComputeFence;
 };
 
 
