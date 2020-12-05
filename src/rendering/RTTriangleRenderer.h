@@ -26,13 +26,36 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   RTTriangleRenderer& operator=(RTTriangleRenderer&&) = default;
 
   template<pf::ui::Window Window>
-  void init([[maybe_unused]] Window &window) {
+  void init(Window &window) {
     pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
-    using namespace vulkan;
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
-    using namespace ranges;
+
+    createInstance(window);
+    createSurface(window);
+    createDevices();
+
+    createSwapchain();
+    createRenderTexture();
+    createBuffers();
+    createDescriptorPool();
+    createPipeline();
+
+    prepareCommands();
+    createFences();
+    createSemaphores();
+  }
+
+  void render();
+
+ private:
+  std::unordered_set<std::string> getValidationLayers() {
+    return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
+  }
+  template<pf::ui::Window Window>
+  void createInstance(Window &window) {
+    using namespace vulkan;
     const auto windowExtensions = window.requiredVulkanExtensions();
-    auto validationLayers = std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
+    auto validationLayers = getValidationLayers();
     vkInstance = Instance::CreateShared(
         InstanceConfig{.appName = "Realistic voxel rendering in real time",
             .appVersion = "0.1.0"_v,
@@ -45,23 +68,24 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
                                const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
               return debugCallback(data, severity, type_flags);
             }});
-    vkSurface = Surface::CreateShared(vkInstance, window);
-    vkDevice = vkInstance->selectDevice(
-        DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
-    vkLogicalDevice = vkDevice->createLogicalDevice(
-        {.id = "dev1",
-            .deviceFeatures = vk::PhysicalDeviceFeatures{},
-            .queueTypes = {vk::QueueFlagBits::eCompute, vk::QueueFlagBits::eGraphics},
-            .presentQueueEnabled = true,
-            .requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                                         VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME},
-            .validationLayers = validationLayers,
-            .surface = *vkSurface});
   }
 
-  void render();
+  template<pf::ui::Window Window>
+  void createSurface(Window &window) {
+    using namespace vulkan;
+    vkSurface = Surface::CreateShared(vkInstance, window);
+  }
+  void createDevices();
 
- private:
+  void createSwapchain();
+  void createRenderTexture();
+  void createBuffers();
+  void createDescriptorPool();
+  void createPipeline();
+  void prepareCommands();
+  void createFences();
+  void createSemaphores();
+
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
