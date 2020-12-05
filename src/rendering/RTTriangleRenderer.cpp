@@ -27,9 +27,7 @@ void RTTriangleRenderer::createDevices() {
           .validationLayers = getValidationLayers(),
           .surface = *vkSurface});
 }
-void RTTriangleRenderer::createSwapchain() {
-  throw NotImplementedException("createSwapchain not implemented");
-}
+
 void RTTriangleRenderer::createRenderTexture() {
   throw NotImplementedException("createRenderTexture not implemented");
 }
@@ -49,7 +47,7 @@ void RTTriangleRenderer::createFences() {
   throw NotImplementedException("createFences not implemented");
 }
 void RTTriangleRenderer::createSemaphores() {
-  throw NotImplementedException("createSemaphores not implemented");
+  throw pf::NotImplementedException("not implemented");
 }
 
 }

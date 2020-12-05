@@ -13,6 +13,7 @@
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <toml++/toml.h>
 #include <utils/Camera.h>
+#include <range/v3/view/map.hpp>
 
 using namespace pf::vulkan::literals;
 
@@ -77,7 +78,26 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   }
   void createDevices();
 
-  void createSwapchain();
+  template<pf::ui::Window Window>
+  void createSwapchain(Window &window) {
+    using namespace ranges;
+    auto queuesView = vkLogicalDevice->getQueueIndices() | views::values;
+    auto sharingQueues = std::unordered_set(queuesView.begin(), queuesView.end());
+    if (const auto presentIdx = vkLogicalDevice->getPresentQueueIndex(); presentIdx.has_value()) {
+      sharingQueues.emplace(*presentIdx);
+    }
+    vkSwapChain = vkLogicalDevice->createSwapChain(
+        vkSurface,
+        {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
+            .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+            .resolution = {window.getResolution().width, window.getResolution().height},
+            .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+            .sharingQueues = sharingQueues,
+            .imageArrayLayers = 1,
+            .clipped = true,
+            .oldSwapChain = std::nullopt,
+            .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
+  }
   void createRenderTexture();
   void createBuffers();
   void createDescriptorPool();
