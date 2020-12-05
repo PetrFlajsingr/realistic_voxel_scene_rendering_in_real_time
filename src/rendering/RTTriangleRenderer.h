@@ -123,6 +123,8 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
 
+  std::shared_ptr<vulkan::Semaphore> renderSemaphore;
+
   std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
   std::shared_ptr<vulkan::Fence> vkComputeFence;

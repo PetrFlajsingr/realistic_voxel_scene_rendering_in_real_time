@@ -175,7 +175,7 @@ void RTTriangleRenderer::createFences() {
 }
 
 void RTTriangleRenderer::createSemaphores() {
-  throw pf::NotImplementedException("not implemented");
+  renderSemaphore = vkLogicalDevice->createSemaphore()
 }
 
 }// namespace pf
