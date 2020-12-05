@@ -42,6 +42,7 @@ add_compile_definitions(
         GLM_FORCE_SWIZZLE
         STB_IMAGE_IMPLEMENTATION
         STACKTRACE_VULKAN_REPORT
+        VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 )
 
 include_directories(include)

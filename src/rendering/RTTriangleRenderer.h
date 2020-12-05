@@ -35,7 +35,7 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
     createSurface(window);
     createDevices();
 
-    createSwapchain();
+    createSwapchain(window);
     createRenderTexture();
     createBuffers();
     createDescriptorPool();
@@ -122,6 +122,11 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::Image> vkRenderImage;
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
+  std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
+
+  vk::UniquePipelineLayout computePipelineLayout;
+  std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
+  vk::UniquePipeline vkComputePipeline;
 };
 
 
