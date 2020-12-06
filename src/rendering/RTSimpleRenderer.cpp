@@ -3,12 +3,12 @@
 //
 
 #include "RTSimpleRenderer.h"
+#include <pf_imgui/elements.h>
 
 namespace pf {
 using namespace vulkan;
 
-RTSimpleRenderer::RTSimpleRenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}) {}
+RTSimpleRenderer::RTSimpleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}) {}
 
 void RTSimpleRenderer::render() {
   vkSwapChain->swap();
@@ -17,20 +17,33 @@ void RTSimpleRenderer::render() {
   auto &fence = vkSwapChain->getCurrentFence();
 
   fence.reset();
-  vkComputeFence->wait();
   vkComputeFence->reset();
 
+  imgui->render();
   recordCommands();
 
   vkCommandBuffers[0]->submit({.waitSemaphores = {semaphore},
-                               .signalSemaphores = {*renderSemaphore},
+                               .signalSemaphores = {*computeSemaphore},
                                .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
                                .fence = fence,
                                .wait = true});
 
-  vkSwapChain->present(
-      {.waitSemaphores = {*renderSemaphore}, .presentQueue = vkLogicalDevice->getPresentQueue()});
+  fence.reset();
+
+  const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
+  const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
+
+  vkGraphicsCommandBuffers[commandBufferIndex]->submit(
+      {.waitSemaphores = {*computeSemaphore},
+       .signalSemaphores = {*renderSemaphores[frameIndex]},
+       .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+       .fence = fence,
+       .wait = true});
+
+  vkSwapChain->present({.waitSemaphores = {*renderSemaphores[frameIndex]},
+                        .presentQueue = vkLogicalDevice->getPresentQueue()});
   vkSwapChain->frameDone();
+  fpsCounter.onFrame();
 }
 
 void RTSimpleRenderer::createDevices() {
@@ -135,6 +148,14 @@ void RTSimpleRenderer::createCommands() {
 
   vkCommandBuffers =
       vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1});
+
+  vkGraphicsCommandPool = vkLogicalDevice->createCommandPool(
+      {.queueFamily = vk::QueueFlagBits::eGraphics,
+       .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
+
+  vkGraphicsCommandBuffers = vkGraphicsCommandPool->createCommandBuffers(
+      {.level = vk::CommandBufferLevel::ePrimary,
+       .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
 }
 
 void RTSimpleRenderer::recordCommands() {
@@ -193,14 +214,187 @@ void RTSimpleRenderer::recordCommands() {
     recording.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
                               vk::PipelineStageFlagBits::eTopOfPipe, {}, {}, imageBarriers);
   }
+  recording.end();
+
+  for (auto i : std::views::iota(0ul, vkGraphicsCommandBuffers.size())) {
+    auto graphRecording =
+        vkGraphicsCommandBuffers[i]->begin(vk::CommandBufferUsageFlagBits::eRenderPassContinue);
+
+    graphRecording.beginRenderPass(
+        {.renderPass = *vkRenderPass,
+         .frameBuffer = *vkSwapChain->getFrameBuffers()[vkSwapChain->getCurrentImageIndex()],
+         .clearValues = {},
+         .extent = vkSwapChain->getExtent()});
+    imgui->addToCommandBuffer(graphRecording);
+    graphRecording.endRenderPass();
+  }
 }
 
 void RTSimpleRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+  std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(), [&] {
+    return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
+  });
 }
 
 void RTSimpleRenderer::createSemaphores() {
-  renderSemaphore = vkLogicalDevice->createSemaphore();
+  computeSemaphore = vkLogicalDevice->createSemaphore();
+  std::ranges::generate_n(std::back_inserter(renderSemaphores),
+                          vkSwapChain->getFrameBuffers().size(),
+                          [&] { return vkLogicalDevice->createSemaphore(); });
+}
+void RTSimpleRenderer::initUI() {
+  using namespace std::string_literals;
+  using namespace pf::ui::ig;
+
+  auto styleSetter = [](ImGuiStyle &style) {
+    ImVec4 *colors = style.Colors;
+
+    colors[ImGuiCol_Text] = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.500f, 0.500f, 0.500f, 1.000f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.180f, 0.180f, 0.180f, 1.000f);
+    colors[ImGuiCol_ChildBg] = ImVec4(0.280f, 0.280f, 0.280f, 0.000f);
+    colors[ImGuiCol_PopupBg] = ImVec4(0.313f, 0.313f, 0.313f, 1.000f);
+    colors[ImGuiCol_Border] = ImVec4(0.266f, 0.266f, 0.266f, 1.000f);
+    colors[ImGuiCol_BorderShadow] = ImVec4(0.000f, 0.000f, 0.000f, 0.000f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.160f, 0.160f, 0.160f, 1.000f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.200f, 0.200f, 0.200f, 1.000f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.280f, 0.280f, 0.280f, 1.000f);
+    colors[ImGuiCol_TitleBg] = ImVec4(0.148f, 0.148f, 0.148f, 1.000f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.148f, 0.148f, 0.148f, 1.000f);
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.148f, 0.148f, 0.148f, 1.000f);
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.195f, 0.195f, 0.195f, 1.000f);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.160f, 0.160f, 0.160f, 1.000f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.277f, 0.277f, 0.277f, 1.000f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.300f, 0.300f, 0.300f, 1.000f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_CheckMark] = ImVec4(1.000f, 1.000f, 1.000f, 1.000f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.391f, 0.391f, 0.391f, 1.000f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_Button] = ImVec4(1.000f, 1.000f, 1.000f, 0.000f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(1.000f, 1.000f, 1.000f, 0.156f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(1.000f, 1.000f, 1.000f, 0.391f);
+    colors[ImGuiCol_Header] = ImVec4(0.313f, 0.313f, 0.313f, 1.000f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.469f, 0.469f, 0.469f, 1.000f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.469f, 0.469f, 0.469f, 1.000f);
+    colors[ImGuiCol_Separator] = colors[ImGuiCol_Border];
+    colors[ImGuiCol_SeparatorHovered] = ImVec4(0.391f, 0.391f, 0.391f, 1.000f);
+    colors[ImGuiCol_SeparatorActive] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_ResizeGrip] = ImVec4(1.000f, 1.000f, 1.000f, 0.250f);
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.000f, 1.000f, 1.000f, 0.670f);
+    colors[ImGuiCol_ResizeGripActive] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_Tab] = ImVec4(0.098f, 0.098f, 0.098f, 1.000f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.352f, 0.352f, 0.352f, 1.000f);
+    colors[ImGuiCol_TabActive] = ImVec4(0.195f, 0.195f, 0.195f, 1.000f);
+    colors[ImGuiCol_TabUnfocused] = ImVec4(0.098f, 0.098f, 0.098f, 1.000f);
+    colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.195f, 0.195f, 0.195f, 1.000f);
+    colors[ImGuiCol_PlotLines] = ImVec4(0.469f, 0.469f, 0.469f, 1.000f);
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_PlotHistogram] = ImVec4(0.586f, 0.586f, 0.586f, 1.000f);
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(1.000f, 1.000f, 1.000f, 0.156f);
+    colors[ImGuiCol_DragDropTarget] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_NavHighlight] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.000f, 0.391f, 0.000f, 1.000f);
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.000f, 0.000f, 0.000f, 0.586f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.000f, 0.000f, 0.000f, 0.586f);
+
+    style.ChildRounding = 4.0f;
+    style.FrameBorderSize = 1.0f;
+    style.FrameRounding = 2.0f;
+    style.GrabMinSize = 7.0f;
+    style.PopupRounding = 2.0f;
+    style.ScrollbarRounding = 12.0f;
+    style.ScrollbarSize = 13.0f;
+    style.TabBorderSize = 1.0f;
+    style.TabRounding = 0.0f;
+    style.WindowRounding = 4.0f;
+  };
+  imgui->setStyle(styleSetter);
+
+  auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
+
+  auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
+  auto &chaiTab = debugWindowTabs.addTab("chai_tab", "ChaiScript");
+  auto &logTab = debugWindowTabs.addTab("log_tab", "Log");
+
+  auto &logMemo = logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100);
+  addLogListener([&logMemo = logMemo](auto record) { logMemo.addRecord(record); });
+  auto &logErrMemo = logTab.createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
+  addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true);
+
+  auto &chaiInputPanel = chaiTab.createChild<Panel>("chai_input_panel", "Input",
+                                                    PanelLayout::Horizontal, ImVec2{0, 50});
+
+  chaiInputPanel.createChild<Text>("chain_input_label", "Input:");
+  auto &chaiInput =
+      chaiInputPanel.createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
+  auto &chai_output = chaiTab.createChild<Memo>("chai_output", "Output:", 100, true, true, 100);
+
+  chaiInputPanel.createChild<Button>("chain_input_confirm", "Confirm")
+      .addClickListener([&chaiInput = chaiInput, &chai_output = chai_output, this] {
+        const auto input = chaiInput.getText();
+        chai_output.addRecord(">>> "s + input);
+        chaiInput.clear();
+        try {
+          chai->eval(input);
+        } catch (const chaiscript::exception::eval_error &e) {
+          chai_output.addRecord("<<< "s + e.pretty_print());
+        }
+      });
+
+  chai->add(
+      chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }),
+      "log");
+
+  auto &infoWindow = imgui->createChild<Window>("infoWindow", "Stats");
+  auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram,
+                                                     std::vector<float>{}, std::nullopt, 200, 0, 60,
+                                                     ImVec2{0, 50});
+  const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
+  auto fpsLabel = &infoWindow.createChild<Text>("fpsText", "FPS");
+  infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] {
+    fpsCounter.reset();
+  });
+
+  auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
+  const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
+  const auto cameraDirTemplate = "Direction: {0:0.2f}x{1:0.2f}x{2:0.2f}";
+  auto cameraPosText = &cameraGroup.createChild<Text>("cameraPositionText", "");
+  auto cameraDirText = &cameraGroup.createChild<Text>("cameraDirText", "");
+  cameraGroup
+      .createChild<Slider<float>>("cameraMoveSpeedSlider", "Movement speed", 0.1f, 50.f,
+                                  camera.getMovementSpeed(), Persistent::Yes)
+      .addValueListener([this](auto value) { camera.setMovementSpeed(value); });
+  cameraGroup
+      .createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f,
+                                  camera.getMouseSpeed(), Persistent::Yes)
+      .addValueListener([this](auto value) { camera.setMouseSpeed(value); });
+  cameraGroup
+      .createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f,
+                                  camera.getFieldOfView(), Persistent::Yes)
+      .addValueListener([this](auto value) { camera.setFieldOfView(value); });
+
+  fpsCounter.setOnNewFrame([this, cameraPosText, cameraDirText, cameraDirTemplate,
+                            cameraPosTemplate, fpsPlot, fpsMsgTemplate,
+                            fpsLabel](const FPSCounter &counter) {
+    fpsPlot->addValue(counter.currentFPS());
+    fpsLabel->setText(fmt::format(fpsMsgTemplate, counter.currentFPS(), counter.averageFPS()));
+    const auto camPos = camera.getPosition();
+    cameraPosText->setText(fmt::format(cameraPosTemplate, camPos.x, camPos.y, camPos.z));
+    const auto camDir = camera.getFront();
+    cameraDirText->setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
+  });
+
+  imgui->setStateFromConfig();
+}
+RTSimpleRenderer::~RTSimpleRenderer() {
+  if (vkLogicalDevice == nullptr) { return; }
+  log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
+  vkLogicalDevice->wait();
+  log(spdlog::level::info, APP_TAG, "Saving UI to config");
+  imgui->updateConfig();
+  config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }
 
 }// namespace pf

@@ -112,9 +112,8 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
                       .dependencyDone()
                     .subpassDone()
                     .build();
-
-
     // clang-format on
+
     vertShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
         .name = "Triangle vert",
         .type = ShaderType::Vertex,
@@ -239,7 +238,6 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
   FPSCounter fpsCounter;
   ui::ig::FlameGraph *statsFlameGraph;
 
-  bool isMoved = false;
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
 };
 

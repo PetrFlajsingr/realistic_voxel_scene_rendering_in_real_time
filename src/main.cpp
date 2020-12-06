@@ -3,6 +3,7 @@
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
 #include "rendering/RTSimpleRenderer.h"
+#include "rendering/TriangleRenderer.h"
 #include <filesystem>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
@@ -75,9 +76,13 @@ int main(int argc, char *argv[]) {
 
   {
     auto app = Application<ui::GlfwWindow, RTSimpleRenderer>(
-        RTSimpleRenderer(*config.as_table()),
-        application_settings{.debug = argumentParser.get<bool>("-d"),
-                             .window_settings = windowSettings});
+       RTSimpleRenderer(*config.as_table()),
+       application_settings{.debug = argumentParser.get<bool>("-d"),
+                            .window_settings = windowSettings});
+    //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
+    //    TriangleRenderer(*config.as_table()),
+    //    application_settings{.debug = argumentParser.get<bool>("-d"),
+    //                         .window_settings = windowSettings});
     app.run();
   }
 

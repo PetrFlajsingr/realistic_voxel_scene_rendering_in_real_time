@@ -7,13 +7,16 @@
 
 #include "VulkanDebugCallbackImpl.h"
 #include "logging/loggers.h"
+#include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
+#include <chaiscript/chaiscript.hpp>
 #include <pf_glfw_vulkan/concepts/Window.h>
 #include <pf_glfw_vulkan/lib_config.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view/map.hpp>
 #include <toml++/toml.h>
 #include <utils/Camera.h>
+#include <utils/FPSCounter.h>
 
 using namespace pf::vulkan::literals;
 
@@ -25,6 +28,7 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
   RTSimpleRenderer &operator=(const RTSimpleRenderer &) = delete;
   RTSimpleRenderer(RTSimpleRenderer &&) = default;
   RTSimpleRenderer &operator=(RTSimpleRenderer &&) = default;
+  virtual ~RTSimpleRenderer();
 
   template<pf::ui::Window Window>
   void init(Window &window) {
@@ -43,6 +47,47 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
     createCommands();
     createFences();
     createSemaphores();
+
+    // clang-format off
+    vkRenderPass = vulkan::RenderPassBuilder(vkLogicalDevice)
+        .attachment("color")
+        .format(vkSwapChain->getFormat())
+        .samples(vk::SampleCountFlagBits::e1)
+        .loadOp(vk::AttachmentLoadOp::eDontCare)
+        .storeOp(vk::AttachmentStoreOp::eStore)
+        .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+        .initialLayout(vk::ImageLayout::eUndefined)
+        .finalLayout(vk::ImageLayout::ePresentSrcKHR)
+        .attachmentDone()
+        .subpass("main")
+        .pipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+        .colorAttachment("color")
+        .dependency()
+        .srcSubpass()
+        .dstSubpass("main")
+        .srcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+        .dstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+        .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
+        .dependencyDone()
+        .subpassDone()
+        .build();
+    // clang-format on
+
+    auto imguiConfig = config.get()["ui"].as_table()->contains("imgui")
+        ? *config.get()["ui"]["imgui"].as_table()
+        : toml::table{};
+    imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface,
+                                                      vkSwapChain, window.getHandle(),
+                                                      ImGuiConfigFlags{}, imguiConfig);
+
+    camera.setScreenWidth(window.getResolution().width);
+    camera.setScreenHeight(window.getResolution().height);
+    window.setInputIgnorePredicate(
+        [this] { return imgui->isWindowHovered() || imgui->isKeyboardCaptured(); });
+    camera.registerControls(window);
+    initUI();
+    window.setMainLoopCallback([&] { render(); });
   }
 
   void render();
@@ -90,7 +135,8 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
         {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
          .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
          .resolution = {window.getResolution().width, window.getResolution().height},
-         .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst,
+         .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst
+             | vk::ImageUsageFlagBits::eColorAttachment,
          .sharingQueues = {},
          .imageArrayLayers = 1,
          .clipped = true,
@@ -105,6 +151,8 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
   void createFences();
   void createSemaphores();
 
+  void initUI();
+
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
@@ -115,17 +163,28 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::SwapChain> vkSwapChain;
   std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
   std::shared_ptr<vulkan::CommandPool> vkCommandPool;
+  std::shared_ptr<vulkan::CommandPool> vkGraphicsCommandPool;
   std::vector<std::shared_ptr<vulkan::CommandBuffer>> vkCommandBuffers;
+  std::vector<std::shared_ptr<vulkan::CommandBuffer>> vkGraphicsCommandBuffers;
 
   std::shared_ptr<vulkan::Image> vkRenderImage;
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
 
-  std::shared_ptr<vulkan::Semaphore> renderSemaphore;
+  std::shared_ptr<vulkan::Semaphore> computeSemaphore;
+  std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
+  std::vector<std::shared_ptr<vulkan::Fence>> fences;
 
   std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
   std::shared_ptr<vulkan::Fence> vkComputeFence;
+  std::shared_ptr<vulkan::RenderPass> vkRenderPass;
+
+  std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
+
+  FPSCounter fpsCounter;
+
+  std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
 };
 
 }// namespace pf
