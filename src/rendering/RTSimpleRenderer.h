@@ -32,6 +32,7 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
 
   template<pf::ui::Window Window>
   void init(Window &window) {
+    camera.setSwapLeftRight(true);
     pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
 
@@ -170,6 +171,7 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Image> vkRenderImage;
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
+  std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
 
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;

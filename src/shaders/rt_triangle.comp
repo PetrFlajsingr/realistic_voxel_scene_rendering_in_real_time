@@ -5,6 +5,11 @@
 layout (local_size_x = 4, local_size_y = 4) in;
 layout (binding = 0, rgba8) uniform image2D computeImage;
 
+layout(binding = 1) uniform UniformCamera {
+    vec4 pos;
+    vec4 dir;
+} camera;
+
 #define PI 3.141592
 #define Inf 1000000.0
 #define Epsilon 0.0001
@@ -42,24 +47,14 @@ struct Sphere
     Material mat;
 };
 
-Sphere spheres[12] = Sphere[12](
-Sphere(vec3(0.0, 0.0, 1.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(0.0, 1.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(1.0, 0.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(0.0, 1.0, 1.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(1.0, 0.0, 1.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(1.0, 1.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-
-Sphere(vec3(0.0, 0.0, -10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(0.0, -10.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(-10.0, 0.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(0.0, -1.0, -10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(-1.0, 0.0, -1.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(-1.0, -1.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1))
+Sphere spheres[4] = Sphere[4](
+Sphere(vec3(0.0, 0.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
+Sphere(vec3(10.0, 0.0, 0.0), 0.5, Material(vec3(0.0, 1.0, 0.0), 1)),
+Sphere(vec3(0.0, 0.0, -10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), 1)),
+Sphere(vec3(-10.0, 0.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 1.0), 1))
 );
-Plane planes[2] = Plane[2](
-Plane(vec3(0.0, 1.0, 0.0), 10.0, Material(vec3(0.0, 1.0, 1.0), 1)),
-Plane(vec3(0.0, 1.0, 0.0), 10.0, Material(vec3(0.0, 1.0, 1.0), 1))
+Plane planes[1] = Plane[1](
+Plane(vec3(0.0, -1.0, 0.0), 1.0, Material(vec3(1.0, 1.0, 0.0), 1))
 );
 float time = 1.0;
 
@@ -79,6 +74,19 @@ vec3 Camera (in float x, in float y)
     float _y = -((2 * y - h) / h) * tan(fovY);
 
     return vec3(_x, _y, -1.0);
+}
+
+vec3 getCameraRayDir(vec2 coord, vec3 camPos, vec3 camForward) {
+    const vec3 camRight = normalize(cross(vec3(0.0, 1.0, 0.0), camForward));
+    const vec3 camUp = normalize(cross(camForward, camRight));
+    const float fPersp = 1;
+    return normalize(coord.x * camRight + coord.y * camUp + camForward * fPersp);
+}
+
+vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
+    vec2 result = 2.0 * (screenCoord/resolution.xy - 0.5);
+    result.x *= resolution.x/float(resolution.y);
+    return result;
 }
 
 
@@ -201,7 +209,7 @@ void ReflectRay(inout Ray ray, in vec3 hitNormal, in Material mat)
 
 vec3 lightPos ()
 {
-    return vec3(0, 2.95, -3.2);
+    return vec3(0, -10, 0);
 }
 
 
@@ -277,11 +285,14 @@ void main()
     uint idx = gl_GlobalInvocationID.x;
     uint idy = gl_GlobalInvocationID.y;
 
+    ivec2 dimensions = imageSize(computeImage);
 
     Ray ray;
-    ray.origin = vec3(0, 0, -25.1);
-    vec3 cam = Camera(idx, idy);
-    ray.direction = normalize((cam - ray.origin));
+    ray.origin = camera.pos.xyz;
+    ray.direction = getCameraRayDir(normalizeScreenCoords(vec2(idx, idy), vec2(dimensions)), ray.origin, camera.dir.xyz);
+
+    //vec3 cam = Camera(idx, idy);
+    //ray.direction = normalize((cam - ray.origin));
 
     vec3 finalColor = vec3(0.0);
     vec3 hitNormal;
@@ -289,8 +300,5 @@ void main()
 
     finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));
 
-    if (idx < 200 && idy < 200) {
-        finalColor = vec3(0, 1, 0);
-    }
     imageStore(computeImage, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 0.0));
 }

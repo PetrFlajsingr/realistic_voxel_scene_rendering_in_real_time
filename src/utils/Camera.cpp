@@ -24,8 +24,8 @@ const glm::vec3 &Camera::move(Direction direction, float deltaTime) {
   switch (direction) {
     case Direction::Forward: position += front * velocity; break;
     case Direction::Backward: position -= front * velocity; break;
-    case Direction::Left: position -= right * velocity; break;
-    case Direction::Right: position += right * velocity; break;
+    case Direction::Left: position += right * velocity; break;
+    case Direction::Right: position -= right * velocity; break;
   }
   return position;
 }
@@ -33,6 +33,10 @@ const glm::vec3 &Camera::move(Direction direction, float deltaTime) {
 void Camera::mouse(float xDelta, float yDelta, bool contrainPitch) {
   xDelta *= mouseSpeed;
   yDelta *= mouseSpeed;
+
+  if (swapLeftRight) {
+    xDelta = -xDelta;
+  }
 
   yaw += xDelta;
   pitch += yDelta;
@@ -111,7 +115,9 @@ void Camera::update() {
   front = glm::normalize(front);
 
   right = glm::normalize(glm::cross(front, up));
-  up = glm::normalize(glm::cross(right, front));
+  //up = glm::normalize(glm::cross(right, front));
 }
+bool Camera::isSwapLeftRight() const { return swapLeftRight; }
+void Camera::setSwapLeftRight(bool swap) { swapLeftRight = swap; }
 
 }// namespace pf

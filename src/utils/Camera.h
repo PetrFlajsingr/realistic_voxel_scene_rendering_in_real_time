@@ -80,6 +80,9 @@ class Camera {
   void setRoll(float roll);
   [[nodiscard]] const glm::vec3 &getRight() const;
 
+  [[nodiscard]] bool isSwapLeftRight() const;
+  void setSwapLeftRight(bool swap);
+
  private:
   void update();
 
@@ -93,6 +96,8 @@ class Camera {
   glm::vec3 front;
   glm::vec3 up;
   glm::vec3 right;
+
+  bool swapLeftRight;
 
   float fieldOfView;
 

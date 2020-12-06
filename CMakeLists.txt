@@ -104,8 +104,6 @@ set(SHADERC_SKIP_TESTS ON)
 set(SPIRV_CROSS_ENABLE_TESTS OFF)
 
 
-hunter_add_package(glm)
-find_package(glm CONFIG REQUIRED)
 hunter_add_package(spdlog)
 find_package(spdlog CONFIG REQUIRED)
 add_compile_definitions(SPDLOG_FMT_EXTERNAL)

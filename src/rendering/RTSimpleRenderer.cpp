@@ -3,7 +3,21 @@
 //
 
 #include "RTSimpleRenderer.h"
+#include "logging/loggers.h"
+#include <fmt/chrono.h>
 #include <pf_imgui/elements.h>
+
+struct TimeMeasure {
+  TimeMeasure(std::string n) : name(n) { start = std::chrono::steady_clock::now(); }
+  virtual ~TimeMeasure() {
+    const auto us = std::chrono::steady_clock::now() - start;
+    pf::logdFmt("measure", "{}: {}", name,
+                std::chrono::duration_cast<std::chrono::microseconds>(us));
+  }
+
+  std::chrono::steady_clock::time_point start;
+  std::string name;
+};
 
 namespace pf {
 using namespace vulkan;
@@ -11,37 +25,62 @@ using namespace vulkan;
 RTSimpleRenderer::RTSimpleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}) {}
 
 void RTSimpleRenderer::render() {
-  vkSwapChain->swap();
-
+  {
+    TimeMeasure t("swap");
+    vkSwapChain->swap();
+  }
   auto &semaphore = vkSwapChain->getCurrentSemaphore();
   auto &fence = vkSwapChain->getCurrentFence();
 
   fence.reset();
   vkComputeFence->reset();
 
-  imgui->render();
-  recordCommands();
+  {
+    TimeMeasure t("imgui render");
+    imgui->render();
+  }
+  {
+    TimeMeasure t("command record");
+    recordCommands();
+  }
 
-  vkCommandBuffers[0]->submit({.waitSemaphores = {semaphore},
-                               .signalSemaphores = {*computeSemaphore},
-                               .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                               .fence = fence,
-                               .wait = true});
-
-  fence.reset();
+  {
+    auto cameraMapping = cameraUniformBuffer->mapping();
+    cameraMapping.set(
+        std::vector{glm::vec4{camera.getPosition(), 0}, glm::vec4{camera.getFront(), 0}});
+  }
 
   const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
-  vkGraphicsCommandBuffers[commandBufferIndex]->submit(
-      {.waitSemaphores = {*computeSemaphore},
-       .signalSemaphores = {*renderSemaphores[frameIndex]},
-       .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-       .fence = fence,
-       .wait = true});
+  {
+    TimeMeasure t("submit 1");
+    vkCommandBuffers[commandBufferIndex]->submit(
+        {.waitSemaphores = {semaphore},
+         .signalSemaphores = {*computeSemaphore},
+         .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+         .fence = fence,
+         .wait = true});
 
-  vkSwapChain->present({.waitSemaphores = {*renderSemaphores[frameIndex]},
-                        .presentQueue = vkLogicalDevice->getPresentQueue()});
+    fence.reset();
+  }
+
+  {
+    TimeMeasure t("submit 2");
+    vkGraphicsCommandBuffers[commandBufferIndex]->submit(
+        {.waitSemaphores = {*computeSemaphore},
+         .signalSemaphores = {*renderSemaphores[frameIndex]},
+         .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+         .fence = fence,
+         .wait = true});
+  }
+
+  {
+    TimeMeasure t("present");
+    vkSwapChain->present({.waitSemaphores = {*renderSemaphores[frameIndex]},
+                          .presentQueue = vkLogicalDevice->getPresentQueue()});
+  }
+  logd("measure", "_____________________________________");
   vkSwapChain->frameDone();
   fpsCounter.onFrame();
 }
@@ -82,7 +121,10 @@ void RTSimpleRenderer::createRenderTexture() {
 
 void RTSimpleRenderer::createDescriptorPool() {
   vkDescPool = vkLogicalDevice->createDescriptorPool(
-      {.flags = {}, .maxSets = 1, .poolSizes = {{vk::DescriptorType::eStorageImage, 1}}});
+      {.flags = {},
+       .maxSets = 1,
+       .poolSizes = {{vk::DescriptorType::eStorageImage, 1},
+                     {vk::DescriptorType::eUniformBuffer, 1}}});
 }
 
 void RTSimpleRenderer::createPipeline() {
@@ -92,7 +134,12 @@ void RTSimpleRenderer::createPipeline() {
       {.bindings = {{.binding = 0,
                      .type = vk::DescriptorType::eStorageImage,
                      .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute},
+                    {.binding = 1,
+                     .type = vk::DescriptorType::eUniformBuffer,
+                     .count = 1,
                      .stageFlags = vk::ShaderStageFlagBits::eCompute}}});
+
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
   const auto pipelineLayoutInfo =
       vk::PipelineLayoutCreateInfo{.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
@@ -103,19 +150,36 @@ void RTSimpleRenderer::createPipeline() {
   allocInfo.descriptorPool = **vkDescPool;
   computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
 
+  cameraUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(float) * 8,
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
+
   const auto computeInfo = vk::DescriptorImageInfo{.sampler = {},
                                                    .imageView = **vkRenderImageView,
                                                    .imageLayout = vk::ImageLayout::eGeneral};
-  const auto imageInfo = std::vector{computeInfo};
+  ;
   const auto computeWrite =
       vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
                              .dstBinding = 0,
                              .dstArrayElement = {},
                              .descriptorCount = 1,
                              .descriptorType = vk::DescriptorType::eStorageImage,
-                             .pImageInfo = imageInfo.data()};
+                             .pImageInfo = &computeInfo};
 
-  const auto writeSets = std::vector{computeWrite};
+  const auto uniformCameraInfo = vk::DescriptorBufferInfo{.buffer = **cameraUniformBuffer,
+                                                          .offset = 0,
+                                                          .range = cameraUniformBuffer->getSize()};
+  const auto uniformCameraWrite =
+      vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                             .dstBinding = 1,
+                             .dstArrayElement = {},
+                             .descriptorCount = 1,
+                             .descriptorType = vk::DescriptorType::eUniformBuffer,
+                             .pBufferInfo = &uniformCameraInfo};
+
+  const auto writeSets = std::vector{computeWrite, uniformCameraWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -147,7 +211,7 @@ void RTSimpleRenderer::createCommands() {
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 
   vkCommandBuffers =
-      vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1});
+      vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 3});
 
   vkGraphicsCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eGraphics,
@@ -160,74 +224,83 @@ void RTSimpleRenderer::createCommands() {
 
 void RTSimpleRenderer::recordCommands() {
   // TODO: add these calls to recording
-  auto &buffer = vkCommandBuffers[0];
-  auto recording = buffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
-  recording.bindPipeline(vk::PipelineBindPoint::eCompute, *vkComputePipeline);
+  static bool isComputeRecorded = false;
 
-  const auto vkDescSets = computeDescriptorSets
-      | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
-  recording.getCommandBuffer()->bindDescriptorSets(
-      vk::PipelineBindPoint::eCompute, vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
-  recording.dispatch(vkSwapChain->getExtent().width, vkSwapChain->getExtent().height, 1);
-  {
-    auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
-    imageBarriers.emplace_back(vkRenderImage->createImageBarrier(
-        {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, {}, vk::AccessFlagBits::eShaderWrite,
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral));
-    imageBarriers.emplace_back(vkRenderImage->createImageBarrier(
-        {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, vk::AccessFlagBits::eShaderWrite,
-        vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eGeneral,
-        vk::ImageLayout::eTransferSrcOptimal));
-    imageBarriers.emplace_back(vkRenderImage->createImageBarrier(
-        {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, {}, vk::AccessFlagBits::eTransferWrite,
-        vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal));
-    recording.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
-                              vk::PipelineStageFlagBits::eAllCommands, {}, {}, imageBarriers);
+  if (!isComputeRecorded) {
+    isComputeRecorded = true;
+    for (auto i : std::views::iota(0ul, vkCommandBuffers.size())) {
+      auto &buffer = vkCommandBuffers[i];
+      auto recording = buffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
+      recording.bindPipeline(vk::PipelineBindPoint::eCompute, *vkComputePipeline);
+
+      const auto vkDescSets = computeDescriptorSets
+          | ranges::views::transform([](const auto &descSet) { return *descSet; })
+          | ranges::to_vector;
+      recording.getCommandBuffer()->bindDescriptorSets(vk::PipelineBindPoint::eCompute,
+                                                       vkComputePipeline->getVkPipelineLayout(), 0,
+                                                       vkDescSets, {});
+      recording.dispatch(vkSwapChain->getExtent().width, vkSwapChain->getExtent().height, 1);
+      auto &currentSwapchainImage = *vkSwapChain->getImages()[i];
+      {
+        auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
+        imageBarriers.emplace_back(vkRenderImage->createImageBarrier(
+            {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, {}, vk::AccessFlagBits::eShaderWrite,
+            vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral));
+        imageBarriers.emplace_back(vkRenderImage->createImageBarrier(
+            {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, vk::AccessFlagBits::eShaderWrite,
+            vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eGeneral,
+            vk::ImageLayout::eTransferSrcOptimal));
+        imageBarriers.emplace_back(currentSwapchainImage.createImageBarrier(
+            {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, {}, vk::AccessFlagBits::eTransferWrite,
+            vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal));
+        recording.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
+                                  vk::PipelineStageFlagBits::eAllCommands, {}, {}, imageBarriers);
+      }
+
+      recording.copyImage({.src = *vkRenderImage,
+                           .dst = currentSwapchainImage,
+                           .srcLayout = vk::ImageLayout::eTransferSrcOptimal,
+                           .dstLayout = vk::ImageLayout::eTransferDstOptimal,
+                           .srcLayers = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                         .mipLevel = 0,
+                                         .baseArrayLayer = 0,
+                                         .layerCount = 1},
+                           .dstLayers = {.aspectMask = vk::ImageAspectFlagBits::eColor,
+                                         .mipLevel = 0,
+                                         .baseArrayLayer = 0,
+                                         .layerCount = 1},
+                           .srcOffset = {0, 0, 0},
+                           .dstOffset = {0, 0, 0}});
+
+      {
+        auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
+        imageBarriers.emplace_back(currentSwapchainImage.createImageBarrier(
+            {.aspectMask = vk::ImageAspectFlagBits::eColor,
+             .baseMipLevel = 0,
+             .levelCount = 1,
+             .baseArrayLayer = 0,
+             .layerCount = 1},
+            vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eMemoryRead,
+            vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR));
+        imageBarriers.emplace_back(vkRenderImage->createImageBarrier(
+            {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}, vk::AccessFlagBits::eTransferRead, {},
+            vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eGeneral));
+        recording.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
+                                  vk::PipelineStageFlagBits::eTopOfPipe, {}, {}, imageBarriers);
+      }
+    }
   }
 
-  auto &currentSwapchainImage = *vkSwapChain->getImages()[vkSwapChain->getCurrentImageIndex()];
-  recording.copyImage({.src = *vkRenderImage,
-                       .dst = currentSwapchainImage,
-                       .srcLayout = vk::ImageLayout::eTransferSrcOptimal,
-                       .dstLayout = vk::ImageLayout::eTransferDstOptimal,
-                       .srcLayers = {.aspectMask = vk::ImageAspectFlagBits::eColor,
-                                     .mipLevel = 0,
-                                     .baseArrayLayer = 0,
-                                     .layerCount = 1},
-                       .dstLayers = {.aspectMask = vk::ImageAspectFlagBits::eColor,
-                                     .mipLevel = 0,
-                                     .baseArrayLayer = 0,
-                                     .layerCount = 1},
-                       .srcOffset = {0, 0, 0},
-                       .dstOffset = {0, 0, 0}});
+  auto graphRecording = vkGraphicsCommandBuffers[vkSwapChain->getCurrentImageIndex()]->begin(
+      vk::CommandBufferUsageFlagBits::eRenderPassContinue);
 
-  {
-    auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
-    imageBarriers.emplace_back(currentSwapchainImage.createImageBarrier(
-        {.aspectMask = vk::ImageAspectFlagBits::eColor,
-         .baseMipLevel = 0,
-         .levelCount = 1,
-         .baseArrayLayer = 0,
-         .layerCount = 1},
-        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eMemoryRead,
-        vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::ePresentSrcKHR));
-    recording.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands,
-                              vk::PipelineStageFlagBits::eTopOfPipe, {}, {}, imageBarriers);
-  }
-  recording.end();
-
-  for (auto i : std::views::iota(0ul, vkGraphicsCommandBuffers.size())) {
-    auto graphRecording =
-        vkGraphicsCommandBuffers[i]->begin(vk::CommandBufferUsageFlagBits::eRenderPassContinue);
-
-    graphRecording.beginRenderPass(
-        {.renderPass = *vkRenderPass,
-         .frameBuffer = *vkSwapChain->getFrameBuffers()[vkSwapChain->getCurrentImageIndex()],
-         .clearValues = {},
-         .extent = vkSwapChain->getExtent()});
-    imgui->addToCommandBuffer(graphRecording);
-    graphRecording.endRenderPass();
-  }
+  graphRecording.beginRenderPass(
+      {.renderPass = *vkRenderPass,
+       .frameBuffer = *vkSwapChain->getFrameBuffers()[vkSwapChain->getCurrentImageIndex()],
+       .clearValues = {},
+       .extent = vkSwapChain->getExtent()});
+  imgui->addToCommandBuffer(graphRecording);
+  graphRecording.endRenderPass();
 }
 
 void RTSimpleRenderer::createFences() {
