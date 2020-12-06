@@ -2,9 +2,9 @@
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
-#include "rendering/RTTriangleRenderer.h"
-#include <pf_glfw_vulkan/ui/GlfwWindow.h>
+#include "rendering/RTSimpleRenderer.h"
 #include <filesystem>
+#include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
 
 // TODO: change include guards
@@ -74,8 +74,8 @@ int main(int argc, char *argv[]) {
       .mode = ui::Mode::Windowed};
 
   {
-    auto app = Application<ui::GlfwWindow, RTTriangleRenderer>(
-        RTTriangleRenderer(*config.as_table()),
+    auto app = Application<ui::GlfwWindow, RTSimpleRenderer>(
+        RTSimpleRenderer(*config.as_table()),
         application_settings{.debug = argumentParser.get<bool>("-d"),
                              .window_settings = windowSettings});
     app.run();

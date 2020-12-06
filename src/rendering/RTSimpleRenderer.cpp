@@ -2,17 +2,38 @@
 // Created by petr on 12/5/20.
 //
 
-#include "RTTriangleRenderer.h"
+#include "RTSimpleRenderer.h"
 
 namespace pf {
 using namespace vulkan;
 
-RTTriangleRenderer::RTTriangleRenderer(toml::table &tomlConfig)
+RTSimpleRenderer::RTSimpleRenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}) {}
 
-void RTTriangleRenderer::render() { throw NotImplementedException("render not implemented"); }
+void RTSimpleRenderer::render() {
+  vkSwapChain->swap();
 
-void RTTriangleRenderer::createDevices() {
+  auto &semaphore = vkSwapChain->getCurrentSemaphore();
+  auto &fence = vkSwapChain->getCurrentFence();
+
+  fence.reset();
+  vkComputeFence->wait();
+  vkComputeFence->reset();
+
+  recordCommands();
+
+  vkCommandBuffers[0]->submit({.waitSemaphores = {semaphore},
+                               .signalSemaphores = {*renderSemaphore},
+                               .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                               .fence = fence,
+                               .wait = true});
+
+  vkSwapChain->present(
+      {.waitSemaphores = {*renderSemaphore}, .presentQueue = vkLogicalDevice->getPresentQueue()});
+  vkSwapChain->frameDone();
+}
+
+void RTSimpleRenderer::createDevices() {
   vkDevice = vkInstance->selectDevice(
       DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
   vkLogicalDevice = vkDevice->createLogicalDevice(
@@ -26,7 +47,7 @@ void RTTriangleRenderer::createDevices() {
        .surface = *vkSurface});
 }
 
-void RTTriangleRenderer::createRenderTexture() {
+void RTSimpleRenderer::createRenderTexture() {
   vkRenderImage = vkLogicalDevice->createImage(
       {.imageType = vk::ImageType::e2D,
        .format = vkSwapChain->getFormat(),
@@ -37,7 +58,8 @@ void RTTriangleRenderer::createRenderTexture() {
        .arrayLayers = 1,
        .sampleCount = vk::SampleCountFlagBits::e1,
        .tiling = vk::ImageTiling::eOptimal,
-       .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc,
+       .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+           | vk::ImageUsageFlagBits::eTransferDst,
        .sharingQueues = {},
        .layout = vk::ImageLayout::eUndefined});
   vkRenderImageView = vkRenderImage->createImageView(
@@ -45,16 +67,12 @@ void RTTriangleRenderer::createRenderTexture() {
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 }
 
-void RTTriangleRenderer::createBuffers() {
-  throw NotImplementedException("createBuffers not implemented");
-}
-
-void RTTriangleRenderer::createDescriptorPool() {
+void RTSimpleRenderer::createDescriptorPool() {
   vkDescPool = vkLogicalDevice->createDescriptorPool(
-      {.flags = {}, .maxSets = 1, .poolSizes = {{vk::DescriptorType::eStorageImage, 3}}});
+      {.flags = {}, .maxSets = 1, .poolSizes = {{vk::DescriptorType::eStorageImage, 1}}});
 }
 
-void RTTriangleRenderer::createPipeline() {
+void RTSimpleRenderer::createPipeline() {
   // TODO: compute pipeline builder
   // TODO: descriptor sets
   vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
@@ -69,6 +87,7 @@ void RTTriangleRenderer::createPipeline() {
   auto computePipelineLayout = (*vkLogicalDevice)->createPipelineLayoutUnique(pipelineLayoutInfo);
   auto allocInfo = vk::DescriptorSetAllocateInfo{};
   allocInfo.setSetLayouts(setLayouts);
+  allocInfo.descriptorPool = **vkDescPool;
   computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
 
   const auto computeInfo = vk::DescriptorImageInfo{.sampler = {},
@@ -95,7 +114,9 @@ void RTTriangleRenderer::createPipeline() {
       .replaceMacros = {}});
 
   const auto computeStageInfo =
-      vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(), .pName = "main"};
+      vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
+                                        .module = **computeShader,
+                                        .pName = "main"};
   const auto pipelineInfo =
       vk::ComputePipelineCreateInfo{.stage = computeStageInfo, .layout = *computePipelineLayout};
   vkComputePipeline = ComputePipeline::CreateShared(
@@ -103,23 +124,27 @@ void RTTriangleRenderer::createPipeline() {
       std::move(computePipelineLayout));
 }
 
-void RTTriangleRenderer::createCommands() {
+void RTSimpleRenderer::createCommands() {
   vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute,
        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
+
+  vkRenderImage->transitionLayout(
+      *vkCommandPool, vk::ImageLayout::eGeneral,
+      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 
   vkCommandBuffers =
       vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1});
 }
 
-void RTTriangleRenderer::recordCommands() {
+void RTSimpleRenderer::recordCommands() {
   // TODO: add these calls to recording
   auto &buffer = vkCommandBuffers[0];
   auto recording = buffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
   recording.bindPipeline(vk::PipelineBindPoint::eCompute, *vkComputePipeline);
 
   const auto vkDescSets = computeDescriptorSets
-      | ranges::views::transform([](auto &descSet) { return *descSet; }) | ranges::to_vector;
+      | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
   recording.getCommandBuffer()->bindDescriptorSets(
       vk::PipelineBindPoint::eCompute, vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
   recording.dispatch(vkSwapChain->getExtent().width, vkSwapChain->getExtent().height, 1);
@@ -170,12 +195,12 @@ void RTTriangleRenderer::recordCommands() {
   }
 }
 
-void RTTriangleRenderer::createFences() {
+void RTSimpleRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
 }
 
-void RTTriangleRenderer::createSemaphores() {
-  renderSemaphore = vkLogicalDevice->createSemaphore()
+void RTSimpleRenderer::createSemaphores() {
+  renderSemaphore = vkLogicalDevice->createSemaphore();
 }
 
 }// namespace pf

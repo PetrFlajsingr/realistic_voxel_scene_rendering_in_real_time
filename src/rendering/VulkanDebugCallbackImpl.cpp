@@ -10,8 +10,8 @@
 namespace pf {
 
 bool VulkanDebugCallbackImpl::debugCallback(const pf::vulkan::DebugCallbackData &data,
-                                         vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                                         const vk::DebugUtilsMessageTypeFlagsEXT &) {
+                                            vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                                            const vk::DebugUtilsMessageTypeFlagsEXT &) {
   auto log_level = spdlog::level::trace;
 #ifdef STACKTRACE_VULKAN_REPORT
   auto stacktraceSrc = std::string();
@@ -29,16 +29,25 @@ bool VulkanDebugCallbackImpl::debugCallback(const pf::vulkan::DebugCallbackData 
       log_level = spdlog::level::err;
       break;
   }
+  const auto messageToPrint = makeValidationMessageReadable(data.message, 125);
 #ifdef STACKTRACE_VULKAN_REPORT
   if (log_level == spdlog::level::err) {
-    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}, stacktrace:\n{}", data.message,
-           data.messageId, stacktraceSrc);
+    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}, stacktrace:\n{}",
+           messageToPrint, data.messageId, stacktraceSrc);
   } else {
-    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", data.message, data.messageId);
+    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", messageToPrint,
+           data.messageId);
   }
 #else
-  logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", data.message, data.messageId);
+  logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", messageToPrint, data.messageId);
 #endif
   return false;
 }
+std::string VulkanDebugCallbackImpl::makeValidationMessageReadable(std::string message,
+                                                                   uint maxLineLength) {
+  for (std::size_t i = maxLineLength; i < message.size(); i += maxLineLength) {
+    message.insert(message.begin() + i, '\n');
+  }
+  return message;
 }
+}// namespace pf

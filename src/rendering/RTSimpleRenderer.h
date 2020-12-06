@@ -2,8 +2,8 @@
 // Created by petr on 12/5/20.
 //
 
-#ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_RTTRIANGLERENDERER_H
-#define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_RTTRIANGLERENDERER_H
+#ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_RTSIMPLERENDERER_H
+#define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_RTSIMPLERENDERER_H
 
 #include "VulkanDebugCallbackImpl.h"
 #include "logging/loggers.h"
@@ -11,20 +11,20 @@
 #include <pf_glfw_vulkan/concepts/Window.h>
 #include <pf_glfw_vulkan/lib_config.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
+#include <range/v3/view/map.hpp>
 #include <toml++/toml.h>
 #include <utils/Camera.h>
-#include <range/v3/view/map.hpp>
 
 using namespace pf::vulkan::literals;
 
 namespace pf {
-class RTTriangleRenderer : VulkanDebugCallbackImpl {
+class RTSimpleRenderer : VulkanDebugCallbackImpl {
  public:
-  explicit RTTriangleRenderer(toml::table &tomlConfig);
-  RTTriangleRenderer(const RTTriangleRenderer&) = delete;
-  RTTriangleRenderer& operator=(const RTTriangleRenderer&) = delete;
-  RTTriangleRenderer(RTTriangleRenderer&&) = default;
-  RTTriangleRenderer& operator=(RTTriangleRenderer&&) = default;
+  explicit RTSimpleRenderer(toml::table &tomlConfig);
+  RTSimpleRenderer(const RTSimpleRenderer &) = delete;
+  RTSimpleRenderer &operator=(const RTSimpleRenderer &) = delete;
+  RTSimpleRenderer(RTSimpleRenderer &&) = default;
+  RTSimpleRenderer &operator=(RTSimpleRenderer &&) = default;
 
   template<pf::ui::Window Window>
   void init(Window &window) {
@@ -37,7 +37,6 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
 
     createSwapchain(window);
     createRenderTexture();
-    createBuffers();
     createDescriptorPool();
     createPipeline();
 
@@ -59,16 +58,16 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
     auto validationLayers = getValidationLayers();
     vkInstance = Instance::CreateShared(
         InstanceConfig{.appName = "Realistic voxel rendering in real time",
-            .appVersion = "0.1.0"_v,
-            .vkVersion = "1.2.0"_v,
-            .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
-            .requiredWindowExtensions = windowExtensions,
-            .validationLayers = validationLayers,
-            .callback = [this](const DebugCallbackData &data,
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                               const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
-              return debugCallback(data, severity, type_flags);
-            }});
+                       .appVersion = "0.1.0"_v,
+                       .vkVersion = "1.2.0"_v,
+                       .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
+                       .requiredWindowExtensions = windowExtensions,
+                       .validationLayers = validationLayers,
+                       .callback = [this](const DebugCallbackData &data,
+                                          vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                                          const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
+                         return debugCallback(data, severity, type_flags);
+                       }});
   }
 
   template<pf::ui::Window Window>
@@ -89,17 +88,16 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
     vkSwapChain = vkLogicalDevice->createSwapChain(
         vkSurface,
         {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
-            .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
-            .resolution = {window.getResolution().width, window.getResolution().height},
-            .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-            .sharingQueues = sharingQueues,
-            .imageArrayLayers = 1,
-            .clipped = true,
-            .oldSwapChain = std::nullopt,
-            .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
+         .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+         .resolution = {window.getResolution().width, window.getResolution().height},
+         .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst,
+         .sharingQueues = {},
+         .imageArrayLayers = 1,
+         .clipped = true,
+         .oldSwapChain = std::nullopt,
+         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
   }
   void createRenderTexture();
-  void createBuffers();
   void createDescriptorPool();
   void createPipeline();
   void createCommands();
@@ -130,7 +128,6 @@ class RTTriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Fence> vkComputeFence;
 };
 
+}// namespace pf
 
-}
-
-#endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_RTTRIANGLERENDERER_H
+#endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_RTSIMPLERENDERER_H
