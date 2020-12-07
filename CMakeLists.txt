@@ -183,6 +183,8 @@ set(SOURCES
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
+        src/voxel/Model.cpp
+        src/voxel/ModelLoader.cpp
         )
 
 set(INCLUDES
@@ -208,6 +210,8 @@ set(INCLUDES
         src/utils/Camera.h
         src/utils/FPSCounter.h
         src/utils/FlameGraphSampler.h
+        src/voxel/Model.h
+        src/voxel/ModelLoader.h
         )
 
 add_executable(realistic_voxel_rendering ${SOURCES})
