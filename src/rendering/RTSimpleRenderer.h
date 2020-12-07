@@ -157,6 +157,7 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
+  std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
   std::shared_ptr<vulkan::Instance> vkInstance;
   std::shared_ptr<vulkan::Surface> vkSurface;
   std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
@@ -171,13 +172,12 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Image> vkRenderImage;
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
-  std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
 
+  std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
-  std::vector<std::shared_ptr<vulkan::Fence>> fences;
 
-  std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
+  std::vector<std::shared_ptr<vulkan::Fence>> fences;
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
   std::shared_ptr<vulkan::Fence> vkComputeFence;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;

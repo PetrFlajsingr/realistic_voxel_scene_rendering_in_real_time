@@ -11,12 +11,15 @@ layout(binding = 1) uniform UniformCamera {
 } camera;
 
 #define PI 3.141592
-#define Inf 1000000.0
-#define Epsilon 0.0001
+#define Inf 10000000000000.0
+#define Epsilon 0.001
 
 #define MaxBounces 40
 #define SHADOW 0.35
 
+#define MAT_NORMAL 1
+#define MAT_REFLECT 2
+#define MAT_REFRACT 3
 
 struct Ray
 {
@@ -30,6 +33,9 @@ struct Material
     int type;
 };
 
+struct Box {
+    vec4 pos;
+};
 
 struct Plane
 {
@@ -47,14 +53,28 @@ struct Sphere
     Material mat;
 };
 
-Sphere spheres[4] = Sphere[4](
-Sphere(vec3(0.0, 0.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), 1)),
-Sphere(vec3(10.0, 0.0, 0.0), 0.5, Material(vec3(0.0, 1.0, 0.0), 1)),
-Sphere(vec3(0.0, 0.0, -10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), 1)),
-Sphere(vec3(-10.0, 0.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 1.0), 1))
+Box boxes[1] = Box[1] (
+Box(vec4(0, -1, 0, 0))
+);
+
+Sphere spheres[12] = Sphere[12](
+Sphere(vec3(0.0, 0.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), MAT_NORMAL)),
+Sphere(vec3(10.0, 0.0, 0.0), 0.5, Material(vec3(0.0, 1.0, 0.0), MAT_NORMAL)),
+Sphere(vec3(0.0, 0.0, -10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), MAT_NORMAL)),
+Sphere(vec3(-10.0, 0.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 1.0), MAT_NORMAL)),
+
+Sphere(vec3(10.0, 0.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), MAT_REFLECT)),
+Sphere(vec3(10.0, 0.0, -10.0), 0.5, Material(vec3(0.0, 1.0, 0.0), MAT_REFLECT)),
+Sphere(vec3(-10.0, 0.0, 10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), MAT_REFLECT)),
+Sphere(vec3(-10.0, 0.0, -10.0), 0.5, Material(vec3(1.0, 0.0, 1.0), MAT_REFLECT)),
+
+Sphere(vec3(10.0, -3.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), MAT_REFRACT)),
+Sphere(vec3(10.0, -3.0, -10.0), 0.5, Material(vec3(0.0, 1.0, 0.0), MAT_REFRACT)),
+Sphere(vec3(-10.0, -3.0, 10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), MAT_REFRACT)),
+Sphere(vec3(-10.0, -3.0, -10.0), 0.5, Material(vec3(1.0, 0.0, 1.0), MAT_REFRACT))
 );
 Plane planes[1] = Plane[1](
-Plane(vec3(0.0, -1.0, 0.0), 1.0, Material(vec3(1.0, 1.0, 0.0), 1))
+Plane(vec3(0.0, -1.0, 0.0), 1.0, Material(vec3(1.0, 1.0, 0.0), MAT_NORMAL))
 );
 float time = 1.0;
 
@@ -122,6 +142,44 @@ float SphereIntersection (in Ray ray, in Sphere sphere)
     return (result2 > Epsilon) ? result2 / 2 : ((result1 > Epsilon) ? result1 / 2 : 0);
 }
 
+bool inBoxBounds(vec3 corner, float size, vec3 position)
+{
+    bool inside = true;
+    //Put the position in the coordinate frame of the box
+    position -= corner;
+    //The point is inside only if all of it's components are inside
+    for (int i = 0; i < 3; i++)
+    {
+        inside = inside && (position[i] > -Epsilon);
+        inside = inside && (position[i] < size + Epsilon);
+    }
+
+    return inside;
+}
+
+float BoxIntersection (in Ray ray, in Box box) {
+    //calculate opposite corner
+    vec3 corner0 = box.pos.xyz;
+    vec3 corner1 = corner0 + vec3(1);
+
+    //Set the ray plane intersections
+    float coeffs[6];
+    coeffs[0] = (corner0.x - ray.origin.x) / (ray.direction.x);
+    coeffs[1] = (corner0.y - ray.origin.y) / (ray.direction.y);
+    coeffs[2] = (corner0.z - ray.origin.z) / (ray.direction.z);
+    coeffs[3] = (corner1.x - ray.origin.x) / (ray.direction.x);
+    coeffs[4] = (corner1.y - ray.origin.y) / (ray.direction.y);
+    coeffs[5] = (corner1.z - ray.origin.z) / (ray.direction.z);
+
+    float t = 1.f/0.f;
+    //Check for the smallest valid intersection distance
+    for (uint i = 0; i < 6; i++) {
+        t = coeffs[i] >= 0 && inBoxBounds(corner0, 1, ray.origin + ray.direction * coeffs[i]) ? min(coeffs[i], t) : t;
+    }
+
+    return t;
+}
+
 vec3 GetSphereNormal (in vec3 hitPos, in Sphere sphere)
 {
     return (hitPos - sphere.position) / sphere.radius;
@@ -148,6 +206,18 @@ bool TryGetIntersection (in Ray ray, out int id, out float distance, out bool sp
     {
         Sphere s = spheres[i];
         float dist = SphereIntersection(ray, s);
+        if (dist > Epsilon && dist < distance)
+        {
+            distance = dist;
+            id = i;
+            sphere = true;
+        }
+    }
+
+    for (int i = 0; i < boxes.length(); i++)
+    {
+        Box s = boxes[i];
+        float dist = BoxIntersection(ray, s);
         if (dist > Epsilon && dist < distance)
         {
             distance = dist;
@@ -198,13 +268,24 @@ float GetShadow (in Ray ray, in int id, in bool isSphere, in float maxDist)
 void ReflectRay(inout Ray ray, in vec3 hitNormal, in Material mat)
 {
     // Specular BRDF
-    if (mat.type == 2)
+    if (mat.type == MAT_REFLECT)
     {
         float cost = dot(ray.direction, hitNormal);
         vec3 direction = (ray.direction - hitNormal * (cost * 2));
         ray.direction = normalize(direction);
     }
 }
+
+void RefractRay(inout Ray ray, in vec3 hitNormal, in Material mat) {
+    if (mat.type == MAT_REFRACT) {
+        float eta = 1.1;
+        if (dot(ray.direction, hitNormal) < 0)
+        ray.direction = refract(ray.direction, hitNormal, 1.0/eta);
+        else
+        ray.direction = refract(ray.direction, -hitNormal, eta);
+    }
+}
+
 
 
 vec3 lightPos ()
@@ -227,6 +308,7 @@ vec3 Light(in vec3 hitPoint)
 vec3 Trace (inout Ray ray, out vec3 hitNormal)
 {
     vec3 finalColor = vec3(1.0);
+    float multiplier = 1.0;
 
     for (int i = 0; i < MaxBounces; i++)
     {
@@ -236,7 +318,7 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
         bool intersection = TryGetIntersection(ray, id, dist, isSphere);
         if (!intersection)
         {
-            finalColor *= vec3(1.0);
+            finalColor *= vec3(1.0) * multiplier;
             break;
         }
 
@@ -252,16 +334,17 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
 
         vec3 emission = Light(hitPoint);
         if (length(emission) > Epsilon)
-        return finalColor * emission;
+        return finalColor * emission * multiplier;
 
         ReflectRay(ray, hitNormal, mat);
+        RefractRay(ray, hitNormal, mat);
 
-        if (mat.type == 1)
+        if (mat.type == MAT_NORMAL)
         {
             vec3 lightDir = normalize(lightPos() - hitPoint);
             float lightAttenuation = clamp(dot(hitNormal, lightDir), 0.1, 1.0);
 
-            finalColor = finalColor * lightAttenuation * mat.color;
+            finalColor = finalColor * lightAttenuation * mat.color * multiplier;
 
             // Shadow Ray
             Ray shadowRay;
@@ -269,10 +352,26 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
             shadowRay.direction = lightDir;
             float maxDist = length(lightPos() - hitPoint);
 
-            finalColor *= GetShadow(shadowRay, id, isSphere, maxDist);
+            finalColor *= GetShadow(shadowRay, id, isSphere, maxDist) * multiplier;
             //
 
             break;
+        } else {
+            vec3 addColor = vec3(multiplier);
+            vec3 lightDir = normalize(lightPos() - hitPoint);
+            float lightAttenuation = clamp(dot(hitNormal, lightDir), 0.1, 1.0);
+
+            addColor = addColor * lightAttenuation * mat.color;
+
+            // Shadow Ray
+            Ray shadowRay;
+            shadowRay.origin = hitPoint;
+            shadowRay.direction = lightDir;
+            float maxDist = length(lightPos() - hitPoint);
+
+            addColor *= GetShadow(shadowRay, id, isSphere, maxDist);
+            finalColor += addColor;
+            multiplier *= 0.5;
         }
     }
 
