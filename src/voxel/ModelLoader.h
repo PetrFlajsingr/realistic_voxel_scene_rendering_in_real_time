@@ -1,0 +1,11 @@
+//
+// Created by petr on 12/7/20.
+//
+
+#ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MODELLOADER_H
+#define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MODELLOADER_H
+
+namespace pf::vox {
+class ModelLoader {};
+}
+#endif//REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MODELLOADER_H
