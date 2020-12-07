@@ -100,7 +100,7 @@ bool inBoxBounds(vec3 corner, float size, vec3 position)
 float BoxIntersection (in Ray ray, in Box box) {
     //calculate opposite corner
     vec3 corner0 = box.pos.xyz;
-    vec3 corner1 = corner0 + vec3(.1);
+    vec3 corner1 = corner0 + vec3(1);
 
     //Set the ray plane intersections
     float coeffs[6];
