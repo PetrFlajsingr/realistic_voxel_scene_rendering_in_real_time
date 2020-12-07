@@ -6,13 +6,14 @@
 #include "logging/loggers.h"
 #include <fmt/chrono.h>
 #include <pf_imgui/elements.h>
+#include <voxel/ModelLoading.h>
 
 struct TimeMeasure {
   TimeMeasure(std::string n) : name(n) { start = std::chrono::steady_clock::now(); }
   virtual ~TimeMeasure() {
     const auto us = std::chrono::steady_clock::now() - start;
-    pf::logdFmt("measure", "{}: {}", name,
-                std::chrono::duration_cast<std::chrono::microseconds>(us));
+    //pf::logdFmt("measure", "{}: {}", name,
+    //            std::chrono::duration_cast<std::chrono::microseconds>(us));
   }
 
   std::chrono::steady_clock::time_point start;
@@ -80,7 +81,7 @@ void RTSimpleRenderer::render() {
     vkSwapChain->present({.waitSemaphores = {*renderSemaphores[frameIndex]},
                           .presentQueue = vkLogicalDevice->getPresentQueue()});
   }
-  logd("measure", "_____________________________________");
+  //logd("measure", "_____________________________________");
   vkSwapChain->frameDone();
   fpsCounter.onFrame();
 }
@@ -186,7 +187,7 @@ void RTSimpleRenderer::createPipeline() {
       .name = "Triangle compute",
       .type = ShaderType::Compute,
       .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders/"
-              "rt_triangle.comp",
+              "naive_vox.comp",
       .macros = {},
       .replaceMacros = {}});
 
@@ -316,6 +317,7 @@ void RTSimpleRenderer::createSemaphores() {
                           vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createSemaphore(); });
 }
+
 void RTSimpleRenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
@@ -429,6 +431,9 @@ void RTSimpleRenderer::initUI() {
   infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] {
     fpsCounter.reset();
   });
+
+  infoWindow.createChild<Checkbox>("vsync_chckbx", "Enable vsync", Persistent::Yes, true)
+      .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); });
 
   auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
