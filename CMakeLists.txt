@@ -175,6 +175,7 @@ set(SOURCES
         src/args/RegexCheckAction.cpp
         src/rendering/TriangleRenderer.cpp
         src/rendering/RTSimpleRenderer.cpp
+        src/rendering/NaiveVoxelRenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
         src/ui/ImGuiGlfwVulkan.cpp
@@ -184,7 +185,8 @@ set(SOURCES
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
         src/voxel/Model.cpp
-        src/voxel/ModelLoader.cpp
+        src/voxel/ModelLoading.cpp
+        src/voxel/Scene.cpp
         )
 
 set(INCLUDES
@@ -197,6 +199,7 @@ set(INCLUDES
         src/ui/events/EventDispatchImpl.h
         src/rendering/TriangleRenderer.h
         src/rendering/RTSimpleRenderer.h
+        src/rendering/NaiveVoxelRenderer.h
         src/rendering/VulkanDebugCallbackImpl.h
         src/concepts/Renderer.h
         src/threading/ThreadPool.h
@@ -211,7 +214,8 @@ set(INCLUDES
         src/utils/FPSCounter.h
         src/utils/FlameGraphSampler.h
         src/voxel/Model.h
-        src/voxel/ModelLoader.h
+        src/voxel/ModelLoading.h
+        src/voxel/Scene.h
         )
 
 add_executable(realistic_voxel_rendering ${SOURCES})

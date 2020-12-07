@@ -6,9 +6,22 @@ layout (local_size_x = 4, local_size_y = 4) in;
 layout (binding = 0, rgba8) uniform image2D computeImage;
 
 layout(binding = 1) uniform UniformCamera {
-    vec4 pos;
-    vec4 dir;
+vec4 pos;
+vec4 dir;
 } camera;
+
+struct Box {
+vec4 pos;
+vec4 color;
+};
+
+
+layout(std430, binding = 2) buffer VoxelSSBO {
+Box boxes[];
+};
+layout (binding = 3) uniform BoxCount {
+    uint cnt;
+} boxesCount;
 
 #define PI 3.141592
 #define Inf 10000000000000.0
@@ -33,49 +46,8 @@ struct Material
     int type;
 };
 
-struct Box {
-    vec4 pos;
-};
 
-struct Plane
-{
-    vec3 normal;
-    float leng;
 
-    Material mat;
-};
-
-struct Sphere
-{
-    vec3 position;
-    float radius;
-
-    Material mat;
-};
-
-Box boxes[1] = Box[1] (
-Box(vec4(0, -1, 0, 0))
-);
-
-Sphere spheres[12] = Sphere[12](
-Sphere(vec3(0.0, 0.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), MAT_NORMAL)),
-Sphere(vec3(10.0, 0.0, 0.0), 0.5, Material(vec3(0.0, 1.0, 0.0), MAT_NORMAL)),
-Sphere(vec3(0.0, 0.0, -10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), MAT_NORMAL)),
-Sphere(vec3(-10.0, 0.0, 0.0), 0.5, Material(vec3(1.0, 0.0, 1.0), MAT_NORMAL)),
-
-Sphere(vec3(10.0, 0.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), MAT_REFLECT)),
-Sphere(vec3(10.0, 0.0, -10.0), 0.5, Material(vec3(0.0, 1.0, 0.0), MAT_REFLECT)),
-Sphere(vec3(-10.0, 0.0, 10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), MAT_REFLECT)),
-Sphere(vec3(-10.0, 0.0, -10.0), 0.5, Material(vec3(1.0, 0.0, 1.0), MAT_REFLECT)),
-
-Sphere(vec3(10.0, -3.0, 10.0), 0.5, Material(vec3(1.0, 0.0, 0.0), MAT_REFRACT)),
-Sphere(vec3(10.0, -3.0, -10.0), 0.5, Material(vec3(0.0, 1.0, 0.0), MAT_REFRACT)),
-Sphere(vec3(-10.0, -3.0, 10.0), 0.5, Material(vec3(0.0, 0.0, 1.0), MAT_REFRACT)),
-Sphere(vec3(-10.0, -3.0, -10.0), 0.5, Material(vec3(1.0, 0.0, 1.0), MAT_REFRACT))
-);
-Plane planes[1] = Plane[1](
-Plane(vec3(0.0, -1.0, 0.0), 1.0, Material(vec3(1.0, 1.0, 0.0), MAT_NORMAL))
-);
 float time = 1.0;
 
 
@@ -110,38 +82,6 @@ vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
 }
 
 
-float PlaneIntersection (in Ray ray, in Plane plane)
-{
-    float d0 = dot(plane.normal, ray.direction);
-
-    if (d0 != 0)
-    {
-        float t = -1 * (((dot(plane.normal, ray.origin)) + plane.leng) / d0);
-        return (t > Epsilon) ? t : 0;
-    }
-
-    return 0;
-}
-
-float SphereIntersection (in Ray ray, in Sphere sphere)
-{
-    vec3 delta = ray.origin - sphere.position;
-    float b = dot((delta * 2), ray.direction);
-    float c = dot(delta, delta) - (sphere.radius * sphere.radius);
-
-    float disc = b * b - 4 * c;
-    if (disc < 0)
-    return 0;
-    else
-    disc = sqrt(disc);
-
-    // Always 2 solutions when pulling the square root.
-    float result1 = -b + disc;
-    float result2 = -b - disc;
-
-    return (result2 > Epsilon) ? result2 / 2 : ((result1 > Epsilon) ? result1 / 2 : 0);
-}
-
 bool inBoxBounds(vec3 corner, float size, vec3 position)
 {
     bool inside = true;
@@ -160,7 +100,7 @@ bool inBoxBounds(vec3 corner, float size, vec3 position)
 float BoxIntersection (in Ray ray, in Box box) {
     //calculate opposite corner
     vec3 corner0 = box.pos.xyz;
-    vec3 corner1 = corner0 + vec3(1);
+    vec3 corner1 = corner0 + vec3(.1);
 
     //Set the ray plane intersections
     float coeffs[6];
@@ -180,41 +120,13 @@ float BoxIntersection (in Ray ray, in Box box) {
     return t;
 }
 
-vec3 GetSphereNormal (in vec3 hitPos, in Sphere sphere)
-{
-    return (hitPos - sphere.position) / sphere.radius;
-}
 
-bool TryGetIntersection (in Ray ray, out int id, out float distance, out bool sphere)
+bool TryGetIntersection (in Ray ray, out int id, out float distance)
 {
     id = -1;
     distance = Inf;
 
-    for (int i = 0; i < planes.length(); i++)
-    {
-        Plane p = planes[i];
-        float dist = PlaneIntersection (ray, p);
-        if (dist > Epsilon && dist < distance)
-        {
-            distance = dist;
-            id = i;
-            sphere = false;
-        }
-    }
-
-    for (int i = 0; i < spheres.length(); i++)
-    {
-        Sphere s = spheres[i];
-        float dist = SphereIntersection(ray, s);
-        if (dist > Epsilon && dist < distance)
-        {
-            distance = dist;
-            id = i;
-            sphere = true;
-        }
-    }
-
-    for (int i = 0; i < boxes.length(); i++)
+    for (int i = 0; i < boxesCount.cnt; i++)
     {
         Box s = boxes[i];
         float dist = BoxIntersection(ray, s);
@@ -222,36 +134,23 @@ bool TryGetIntersection (in Ray ray, out int id, out float distance, out bool sp
         {
             distance = dist;
             id = i;
-            sphere = true;
         }
     }
 
     return (id > -1) ? true : false;
 }
 
-float GetShadow (in Ray ray, in int id, in bool isSphere, in float maxDist)
+float GetShadow (in Ray ray, in int id, in float maxDist)
 {
     float distance = Inf;
 
-    for (int i = 0; i < planes.length(); i++)
+    for (int i = 0; i < boxes.length(); i++)
     {
-        Plane p = planes[i];
-        if (!isSphere && i == id)
+        Box s = boxes[i];
+        if (i == id)
         continue;
 
-        float dist = PlaneIntersection (ray, p);
-        if (dist > Epsilon && dist < distance)
-        {
-            distance = dist;
-        }
-    }
-    for (int i = 0; i < spheres.length(); i++)
-    {
-        Sphere s = spheres[i];
-        if (isSphere && i == id)
-        continue;
-
-        float dist = SphereIntersection(ray, s);
+        float dist = BoxIntersection(ray, s);
         if (dist > Epsilon && dist < distance)
         {
             distance = dist;
@@ -314,8 +213,7 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
     {
         int id;
         float dist;
-        bool isSphere;// Is the hitted object a sphere, or a plane ?
-        bool intersection = TryGetIntersection(ray, id, dist, isSphere);
+        bool intersection = TryGetIntersection(ray, id, dist);
         if (!intersection)
         {
             finalColor *= vec3(1.0) * multiplier;
@@ -323,13 +221,13 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
         }
 
 
-        Sphere s = spheres[id];
-        Plane p = planes[id];
+        Box box = boxes[id];
         vec3 hitPoint = ray.origin + ray.direction * dist;
         ray.origin = hitPoint;
-        hitNormal = (isSphere) ? GetSphereNormal(hitPoint, s) : p.normal;
+        // TODO: box normal
+        hitNormal = vec3(0, 1, 0);
 
-        Material mat = (isSphere) ? s.mat : p.mat;
+        Material mat = Material(box.color.xyz, MAT_NORMAL);
 
 
         vec3 emission = Light(hitPoint);
@@ -352,7 +250,7 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
             shadowRay.direction = lightDir;
             float maxDist = length(lightPos() - hitPoint);
 
-            finalColor *= GetShadow(shadowRay, id, isSphere, maxDist) * multiplier;
+            finalColor *= GetShadow(shadowRay, id, maxDist) * multiplier;
             //
 
             break;
@@ -369,7 +267,7 @@ vec3 Trace (inout Ray ray, out vec3 hitNormal)
             shadowRay.direction = lightDir;
             float maxDist = length(lightPos() - hitPoint);
 
-            addColor *= GetShadow(shadowRay, id, isSphere, maxDist);
+            addColor *= GetShadow(shadowRay, id, maxDist);
             finalColor += addColor;
             multiplier *= 0.9;
         }
@@ -389,9 +287,6 @@ void main()
     Ray ray;
     ray.origin = camera.pos.xyz;
     ray.direction = getCameraRayDir(normalizeScreenCoords(vec2(idx, idy), vec2(dimensions)), ray.origin, camera.dir.xyz);
-
-    //vec3 cam = Camera(idx, idy);
-    //ray.direction = normalize((cam - ray.origin));
 
     vec3 finalColor = vec3(0.0);
     vec3 hitNormal;
