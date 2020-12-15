@@ -55,16 +55,16 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
     const auto volSize = ogtModel->size_x * ogtModel->size_y * ogtModel->size_z;
     const auto ogtVoxels = std::span{ogtModel->voxel_data, volSize};
 
-    auto currentPos = glm::vec3{0};
+    auto currentPos = glm::vec3{0, ogtModel->size_z, 0};
 
     auto movePos = [&currentPos, ogtModel] {
       ++currentPos.x;
       if (currentPos.x == ogtModel->size_x) {
         currentPos.x = 0;
-        ++currentPos.y;
-        if (currentPos.y == ogtModel->size_y) {
-          currentPos.y = 0;
-          ++currentPos.z;
+        ++currentPos.z;
+        if (currentPos.z == ogtModel->size_y) {
+          currentPos.z = 0;
+          --currentPos.y;
         }
       }
     };
