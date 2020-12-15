@@ -35,6 +35,30 @@ struct alignas(64) ChildDescriptor {
   } contourData;
 };
 
+struct alignas(32) Contour {
+  uint32_t thickness : 7;
+  uint32_t position : 7;
+  uint32_t nx : 6;
+  uint32_t ny : 6;
+  uint32_t nz : 6;
+};
+
+struct alignas(64) PhongAttachment {
+  struct alignas(32) {
+    uint8_t alpha;
+    uint8_t blue;
+    uint8_t green;
+    uint8_t red;
+  } color;
+
+  struct alignas(32) {
+    uint32_t sign : 1;
+    uint32_t axis : 2;
+    uint32_t uCoord : 15;
+    uint32_t vCoord : 14;
+  } normal;
+};
+
 class SparseVoxelOctree {
  public:
  private:
