@@ -158,12 +158,12 @@ class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
   Camera camera;
 
   std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
+  std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
   std::shared_ptr<vulkan::Instance> vkInstance;
   std::shared_ptr<vulkan::Surface> vkSurface;
   std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
   std::shared_ptr<vulkan::SwapChain> vkSwapChain;
-  std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
   std::shared_ptr<vulkan::CommandPool> vkCommandPool;
   std::shared_ptr<vulkan::CommandPool> vkGraphicsCommandPool;
   std::vector<std::shared_ptr<vulkan::CommandBuffer>> vkCommandBuffers;
@@ -176,6 +176,7 @@ class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
   std::shared_ptr<vulkan::Buffer> boxesBuffer;
   std::shared_ptr<vulkan::Buffer> boxCountUniformBuffer;
+  std::shared_ptr<vulkan::Buffer> lightPosUniformBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 

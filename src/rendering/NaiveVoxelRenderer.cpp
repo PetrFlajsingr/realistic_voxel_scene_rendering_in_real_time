@@ -14,24 +14,17 @@ using namespace vulkan;
 
 NaiveVoxelRenderer::NaiveVoxelRenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}),
-      scene(vox::loadScene(std::filesystem::path(
-          "/home/petr/CLionProjects/"
-          "realistic_voxel_scene_rendering_in_real_time/models/8x8x8.vox"))) {}
+      scene(vox::loadScene(
+          std::filesystem::path(*config.get()["resources"]["model"].value<std::string>()))) {}
 
 void NaiveVoxelRenderer::render() {
   static bool isSceneLoaded = false;
   if (!isSceneLoaded) {
     isSceneLoaded = true;
-    auto mapping = boxesBuffer->mapping();
     auto &voxels = scene.getModels()[0]->getVoxels();
-    for (auto &voxel : voxels) {
-      logdFmt("vox", "{}x{}x{}", voxel.position.x, voxel.position.y, voxel.position.z);
-    }
-    mapping.set(voxels);
-    {
-      auto boxCntMapping = boxCountUniformBuffer->mapping();
-      boxCntMapping.set(std::vector{static_cast<uint>(voxels.size())});
-    }
+    boxesBuffer->mapping().set(voxels);
+    boxCountUniformBuffer->mapping().set(std::vector{static_cast<uint>(voxels.size())});
+    logdFmt("VOXELS", "Voxel count: {}", voxels.size());
   }
 
   vkSwapChain->swap();
@@ -119,6 +112,7 @@ void NaiveVoxelRenderer::createDescriptorPool() {
        .poolSizes = {{vk::DescriptorType::eStorageImage, 1},
                      {vk::DescriptorType::eUniformBuffer, 1},
                      {vk::DescriptorType::eStorageBuffer, 1},
+                     {vk::DescriptorType::eUniformBuffer, 1},
                      {vk::DescriptorType::eUniformBuffer, 1}}});
 }
 
@@ -141,6 +135,10 @@ void NaiveVoxelRenderer::createPipeline() {
                     {.binding = 3,
                      .type = vk::DescriptorType::eUniformBuffer,
                      .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute},
+                    {.binding = 4,
+                     .type = vk::DescriptorType::eUniformBuffer,
+                     .count = 1,
                      .stageFlags = vk::ShaderStageFlagBits::eCompute}}});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -160,13 +158,19 @@ void NaiveVoxelRenderer::createPipeline() {
                                      .queueFamilyIndices = {}});
 
   boxesBuffer =
-      vkLogicalDevice->createBuffer({.size = sizeof(vox::Voxel) * 512,
+      vkLogicalDevice->createBuffer({.size = sizeof(vox::Voxel) * 100000,
                                      .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                      .sharingMode = vk::SharingMode::eExclusive,
                                      .queueFamilyIndices = {}});
 
   boxCountUniformBuffer =
       vkLogicalDevice->createBuffer({.size = sizeof(uint),
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
+
+  lightPosUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4),
                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
                                      .sharingMode = vk::SharingMode::eExclusive,
                                      .queueFamilyIndices = {}});
@@ -216,14 +220,29 @@ void NaiveVoxelRenderer::createPipeline() {
                              .descriptorType = vk::DescriptorType::eUniformBuffer,
                              .pBufferInfo = &boxesCountInfo};
 
-  const auto writeSets = std::vector{computeWrite, uniformCameraWrite, boxesWrite, boxesCountWrite};
+  const auto lightPosInfo = vk::DescriptorBufferInfo{.buffer = **lightPosUniformBuffer,
+                                                     .offset = 0,
+                                                     .range = lightPosUniformBuffer->getSize()};
+  const auto lightPosWrite =
+      vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                             .dstBinding = 4,
+                             .dstArrayElement = {},
+                             .descriptorCount = 1,
+                             .descriptorType = vk::DescriptorType::eUniformBuffer,
+                             .pBufferInfo = &lightPosInfo};
+
+  const auto writeSets =
+      std::vector{computeWrite, uniformCameraWrite, boxesWrite, boxesCountWrite, lightPosWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
+  // TODO: change string paths to filesystem::path
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
       .name = "Triangle compute",
       .type = ShaderType::Compute,
-      .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders/"
-              "naive_vox.comp",
+      .path =
+          (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /=
+           "naive_vox.comp")
+              .string(),
       .macros = {},
       .replaceMacros = {}});
 
@@ -276,7 +295,8 @@ void NaiveVoxelRenderer::recordCommands() {
       recording.getCommandBuffer()->bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                                        vkComputePipeline->getVkPipelineLayout(), 0,
                                                        vkDescSets, {});
-      recording.dispatch(vkSwapChain->getExtent().width, vkSwapChain->getExtent().height, 1);
+      recording.dispatch(vkSwapChain->getExtent().width / 8, vkSwapChain->getExtent().height / 4,
+                         1);
       auto &currentSwapchainImage = *vkSwapChain->getImages()[i];
       {
         auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
@@ -459,6 +479,7 @@ void NaiveVoxelRenderer::initUI() {
       "log");
 
   auto &infoWindow = imgui->createChild<Window>("infoWindow", "Stats");
+
   auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram,
                                                      std::vector<float>{}, std::nullopt, 200, 0, 60,
                                                      ImVec2{0, 50});
@@ -470,6 +491,13 @@ void NaiveVoxelRenderer::initUI() {
 
   infoWindow.createChild<Checkbox>("vsync_chckbx", "Enable vsync", Persistent::Yes, true)
       .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); });
+
+  infoWindow
+      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -10, 10,
+                                      glm::vec3{0, -2, 0}, Persistent::Yes)
+      .addValueListener([&](const auto &pos) {
+        lightPosUniformBuffer->mapping().set(std::span{&pos, 1});
+      });
 
   auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
