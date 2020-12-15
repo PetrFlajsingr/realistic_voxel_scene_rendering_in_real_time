@@ -187,6 +187,7 @@ set(SOURCES
         src/voxel/Model.cpp
         src/voxel/ModelLoading.cpp
         src/voxel/Scene.cpp
+        src/voxel/SparseVoxelOctree.cpp
         )
 
 set(INCLUDES
@@ -216,6 +217,7 @@ set(INCLUDES
         src/voxel/Model.h
         src/voxel/ModelLoading.h
         src/voxel/Scene.h
+        src/voxel/SparseVoxelOctree.h
         )
 
 add_executable(realistic_voxel_rendering ${SOURCES})
