@@ -13,13 +13,10 @@ float FPSCounter::averageFPS() const {
 }
 
 float FPSCounter::currentFPS() const {
-  return 1.f / frameDuration.count()
-      * std::chrono::duration_cast<std::chrono::milliseconds>(1s).count();
+  return 1.f / frameDuration.count() * std::chrono::duration_cast<std::chrono::milliseconds>(1s).count();
 }
 std::chrono::milliseconds FPSCounter::currentDuration() const { return frameDuration; }
-std::chrono::milliseconds FPSCounter::averageDuration() const {
-  return totalTime / totalFrameCount;
-}
+std::chrono::milliseconds FPSCounter::averageDuration() const { return totalTime / totalFrameCount; }
 void FPSCounter::onFrame() {
   ++totalFrameCount;
   const auto now = std::chrono::steady_clock::now();

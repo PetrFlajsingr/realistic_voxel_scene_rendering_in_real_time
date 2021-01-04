@@ -10,12 +10,11 @@
 namespace pf {
 class VulkanDebugCallbackImpl {
  public:
-  static bool debugCallback(const vulkan::DebugCallbackData &data,
-                            vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+  static bool debugCallback(const vulkan::DebugCallbackData &data, vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
                             const vk::DebugUtilsMessageTypeFlagsEXT &);
 
  private:
   static std::string makeValidationMessageReadable(std::string message, uint maxLineLength);
 };
-}
+}// namespace pf
 #endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_VULKANDEBUGCALLBACKIMPL_H

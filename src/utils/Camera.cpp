@@ -10,12 +10,11 @@
 
 namespace pf {
 
-Camera::Camera(ui::Resolution resolution, float movementSpeed, float mouseSpeed,
-               const glm::vec3 &position, const glm::vec3 &front, const glm::vec3 &up,
-               float fieldOfView, float yaw, float pitch, float roll)
+Camera::Camera(ui::Resolution resolution, float movementSpeed, float mouseSpeed, const glm::vec3 &position,
+               const glm::vec3 &front, const glm::vec3 &up, float fieldOfView, float yaw, float pitch, float roll)
     : screenWidth(resolution.width), screenHeight(resolution.height), movementSpeed(movementSpeed),
-      mouseSpeed(mouseSpeed), position(position), front(front), up(up), fieldOfView(fieldOfView),
-      yaw(yaw), pitch(pitch), roll(roll) {
+      mouseSpeed(mouseSpeed), position(position), front(front), up(up), fieldOfView(fieldOfView), yaw(yaw),
+      pitch(pitch), roll(roll) {
   update();
 }
 
@@ -34,9 +33,7 @@ void Camera::mouse(float xDelta, float yDelta, bool contrainPitch) {
   xDelta *= mouseSpeed;
   yDelta *= mouseSpeed;
 
-  if (swapLeftRight) {
-    xDelta = -xDelta;
-  }
+  if (swapLeftRight) { xDelta = -xDelta; }
 
   yaw += xDelta;
   pitch += yDelta;

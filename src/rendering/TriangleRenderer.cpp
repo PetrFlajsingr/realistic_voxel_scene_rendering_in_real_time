@@ -5,20 +5,16 @@
 #include "TriangleRenderer.h"
 #include "../utils/FlameGraphSampler.h"
 
-
 vk::Format pf::TriangleRenderer::getDepthFormat() {
   const auto tiling = vk::ImageTiling::eLinear;
   const auto features = vk::FormatFeatureFlagBits::eDepthStencilAttachment;
   return vk::Format::eD32Sfloat;
-  for (auto format :
-       {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint}) {
+  for (auto format : {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint}) {
     const auto properties = vkDevice->getPhysicalDevice().getFormatProperties(format);
 
-    if (tiling == vk::ImageTiling::eLinear
-        && (properties.linearTilingFeatures & features) == features) {
+    if (tiling == vk::ImageTiling::eLinear && (properties.linearTilingFeatures & features) == features) {
       return format;
-    } else if (tiling == vk::ImageTiling::eOptimal
-               && (properties.optimalTilingFeatures & features) == features) {
+    } else if (tiling == vk::ImageTiling::eOptimal && (properties.optimalTilingFeatures & features) == features) {
       return format;
     }
   }
@@ -113,12 +109,11 @@ void pf::TriangleRenderer::initUI() {
   auto &logErrMemo = logTab.createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
   addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true);
 
-  auto &chaiInputPanel = chaiTab.createChild<Panel>("chai_input_panel", "Input",
-                                                    PanelLayout::Horizontal, ImVec2{0, 50});
+  auto &chaiInputPanel =
+      chaiTab.createChild<Panel>("chai_input_panel", "Input", PanelLayout::Horizontal, ImVec2{0, 50});
 
   chaiInputPanel.createChild<Text>("chain_input_label", "Input:");
-  auto &chaiInput =
-      chaiInputPanel.createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
+  auto &chaiInput = chaiInputPanel.createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
   auto &chai_output = chaiTab.createChild<Memo>("chai_output", "Output:", 100, true, true, 100);
 
   chai->add(chaiscript::fun(makeChaiPrintFnc<int>(chai_output)), "print");
@@ -132,24 +127,17 @@ void pf::TriangleRenderer::initUI() {
         chaiInput.clear();
         try {
           chai->eval(input);
-        } catch (const chaiscript::exception::eval_error &e) {
-          chai_output.addRecord("<<< "s + e.pretty_print());
-        }
+        } catch (const chaiscript::exception::eval_error &e) { chai_output.addRecord("<<< "s + e.pretty_print()); }
       });
 
-  chai->add(
-      chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }),
-      "log");
+  chai->add(chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }), "log");
 
   auto &infoWindow = imgui->createChild<Window>("infoWindow", "Stats");
-  auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram,
-                                                     std::vector<float>{}, std::nullopt, 200, 0, 60,
-                                                     ImVec2{0, 50});
+  auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram, std::vector<float>{},
+                                                     std::nullopt, 200, 0, 60, ImVec2{0, 50});
   const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
   auto fpsLabel = &infoWindow.createChild<Text>("fpsText", "FPS");
-  infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] {
-    fpsCounter.reset();
-  });
+  infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] { fpsCounter.reset(); });
 
   auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
@@ -157,21 +145,20 @@ void pf::TriangleRenderer::initUI() {
   auto cameraPosText = &cameraGroup.createChild<Text>("cameraPositionText", "");
   auto cameraDirText = &cameraGroup.createChild<Text>("cameraDirText", "");
   cameraGroup
-      .createChild<Slider<float>>("cameraMoveSpeedSlider", "Movement speed", 0.1f, 50.f,
-                                  camera.getMovementSpeed(), Persistent::Yes)
+      .createChild<Slider<float>>("cameraMoveSpeedSlider", "Movement speed", 0.1f, 50.f, camera.getMovementSpeed(),
+                                  Persistent::Yes)
       .addValueListener([this](auto value) { camera.setMovementSpeed(value); });
   cameraGroup
-      .createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f,
-                                  camera.getMouseSpeed(), Persistent::Yes)
+      .createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f, camera.getMouseSpeed(),
+                                  Persistent::Yes)
       .addValueListener([this](auto value) { camera.setMouseSpeed(value); });
   cameraGroup
-      .createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f,
-                                  camera.getFieldOfView(), Persistent::Yes)
+      .createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f, camera.getFieldOfView(),
+                                  Persistent::Yes)
       .addValueListener([this](auto value) { camera.setFieldOfView(value); });
 
-  fpsCounter.setOnNewFrame([this, cameraPosText, cameraDirText, cameraDirTemplate,
-                            cameraPosTemplate, fpsPlot, fpsMsgTemplate,
-                            fpsLabel](const FPSCounter &counter) {
+  fpsCounter.setOnNewFrame([this, cameraPosText, cameraDirText, cameraDirTemplate, cameraPosTemplate, fpsPlot,
+                            fpsMsgTemplate, fpsLabel](const FPSCounter &counter) {
     fpsPlot->addValue(counter.currentFPS());
     fpsLabel->setText(fmt::format(fpsMsgTemplate, counter.currentFPS(), counter.averageFPS()));
     const auto camPos = camera.getPosition();
@@ -181,12 +168,12 @@ void pf::TriangleRenderer::initUI() {
   });
   statsFlameGraph = &infoWindow.createChild<FlameGraph>("statsFlameGraph", "Main loop");
 
-  testTexture = vkLogicalDevice->createTexture(
-      {.path = std::filesystem::path("/home/petr/Downloads/tex.png"),
-       .channels = vulkan::TextureChannels::rgb_alpha,
-       .mipLevels = 1,
-       .usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst},
-      *vkCommandPool);
+  testTexture =
+      vkLogicalDevice->createTexture({.path = std::filesystem::path("/home/petr/Downloads/tex.png"),
+                                      .channels = vulkan::TextureChannels::rgb_alpha,
+                                      .mipLevels = 1,
+                                      .usage = vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst},
+                                     *vkCommandPool);
 
   auto sub = vk::ImageSubresourceRange();
   sub.layerCount = 1;
@@ -194,8 +181,8 @@ void pf::TriangleRenderer::initUI() {
   sub.baseMipLevel = 0;
   sub.baseArrayLayer = 0;
   sub.aspectMask = vk::ImageAspectFlagBits::eColor;
-  testTextureView = testTexture->getImage().createImageView(vk::ColorSpaceKHR::eSrgbNonlinear,
-                                                            vk::ImageViewType::e2D, sub);
+  testTextureView =
+      testTexture->getImage().createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D, sub);
 
   testTextureSampler = testTexture->createSampler(
       {.magFilter = vk::Filter::eNearest,
@@ -268,12 +255,11 @@ void pf::TriangleRenderer::render() {
   fencSemSample.end();
 
   auto submitSample = renderSample.blockSampler("submit");
-  vkCommandBuffers[commandBufferIndex]->submit(
-      {.waitSemaphores = {semaphore},
-       .signalSemaphores = {*renderSemaphores[frameIndex]},
-       .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-       .fence = fence,
-       .wait = true});
+  vkCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {semaphore},
+                                                .signalSemaphores = {*renderSemaphores[frameIndex]},
+                                                .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                .fence = fence,
+                                                .wait = true});
   submitSample.end();
 
   auto presentSample = renderSample.blockSampler("present");

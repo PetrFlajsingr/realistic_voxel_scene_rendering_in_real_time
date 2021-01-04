@@ -20,15 +20,11 @@ LoadException::LoadException(std::string_view message) : StackTraceException(mes
 Scene loadScene(const std::filesystem::path &srcFile, FileType fileType) {
   if (fileType == FileType::Unknown) {
     const auto detectedFileType = details::detectFileType(srcFile);
-    if (!detectedFileType.has_value()) {
-      throw LoadException("Could not detect file type for '{}'", srcFile.string());
-    }
+    if (!detectedFileType.has_value()) { throw LoadException("Could not detect file type for '{}'", srcFile.string()); }
     fileType = *detectedFileType;
   }
   auto ifstream = std::ifstream(srcFile, std::ios::binary);
-  if (!ifstream.is_open()) {
-    throw LoadException("Could not load model '{}', can't open file", srcFile.string());
-  }
+  if (!ifstream.is_open()) { throw LoadException("Could not load model '{}', can't open file", srcFile.string()); }
   switch (fileType) {
     case FileType::Vox: return details::loadVoxScene(std::move(ifstream)); break;
     default:
@@ -55,7 +51,7 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
     const auto volSize = ogtModel->size_x * ogtModel->size_y * ogtModel->size_z;
     const auto ogtVoxels = std::span{ogtModel->voxel_data, volSize};
 
-    auto currentPos = glm::vec3{0, ogtModel->size_z, 0};
+    auto currentPos = glm::vec3{0, ogtModel->size_z - 1, 0};
 
     auto movePos = [&currentPos, ogtModel] {
       ++currentPos.x;
@@ -74,9 +70,9 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
     for (const auto ogtVoxel : ogtVoxels) {
       if (ogtVoxel != 0) {
         const auto ogtColor = ogtScene->palette.color[ogtVoxel];
-        voxels.emplace_back(glm::vec4{currentPos, 0},
-                            glm::vec4{ogtColor.r / 255.0f, ogtColor.g / 255.0f, ogtColor.b / 255.0f,
-                                      ogtColor.a / 255.0f});
+        voxels.emplace_back(
+            glm::vec4{currentPos, 0},
+            glm::vec4{ogtColor.r / 255.0f, ogtColor.g / 255.0f, ogtColor.b / 255.0f, ogtColor.a / 255.0f});
       }
       movePos();
     }

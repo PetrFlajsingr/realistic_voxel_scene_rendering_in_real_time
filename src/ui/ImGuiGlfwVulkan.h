@@ -5,23 +5,22 @@
 #ifndef VOXEL_RENDER_IMGUIGLFWVULKAN_H
 #define VOXEL_RENDER_IMGUIGLFWVULKAN_H
 
-#include <pf_glfw_vulkan/vulkan/types/fwd.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui/imgui_impl_vulkan.h>
 #include <memory>
+#include <pf_glfw_vulkan/vulkan/types.h>
+#include <pf_glfw_vulkan/vulkan/types/fwd.h>
 #include <pf_imgui/ImGuiInterface.h>
 #include <pf_imgui/elements/FileDialog.h>
-#include <pf_glfw_vulkan/vulkan/types.h>
 #include <vulkan/vulkan.hpp>
 
 namespace pf::ui::ig {
 
 class ImGuiGlfwVulkan : public ImGuiInterface {
  public:
-  ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
-                  std::shared_ptr<vulkan::RenderPass> pass, std::shared_ptr<vulkan::Surface> surf,
-                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
+  ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device, std::shared_ptr<vulkan::RenderPass> pass,
+                  std::shared_ptr<vulkan::Surface> surf, std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
                   ImGuiConfigFlags flags, toml::table config);
 
   void addToCommandBuffer(vulkan::CommandBufferRecording &recording);
@@ -41,5 +40,5 @@ class ImGuiGlfwVulkan : public ImGuiInterface {
   std::shared_ptr<vulkan::SwapChain> swapChain;
 };
 
-}// namespace pf::ui
+}// namespace pf::ui::ig
 #endif//VOXEL_RENDER_IMGUIGLFWVULKAN_H

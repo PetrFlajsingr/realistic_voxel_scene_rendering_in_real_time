@@ -9,6 +9,7 @@
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
+#include "voxel/ModelLoading.h"
 #include <chaiscript/chaiscript.hpp>
 #include <pf_glfw_vulkan/concepts/Window.h>
 #include <pf_glfw_vulkan/lib_config.h>
@@ -17,7 +18,6 @@
 #include <toml++/toml.h>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
-#include "voxel/ModelLoading.h"
 
 namespace pf {
 class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
@@ -74,17 +74,14 @@ class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
         .build();
     // clang-format on
 
-    auto imguiConfig = config.get()["ui"].as_table()->contains("imgui")
-                       ? *config.get()["ui"]["imgui"].as_table()
-                       : toml::table{};
-    imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface,
-                                                      vkSwapChain, window.getHandle(),
-                                                      ImGuiConfigFlags{}, imguiConfig);
+    auto imguiConfig =
+        config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
+    imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                                      window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
 
     camera.setScreenWidth(window.getResolution().width);
     camera.setScreenHeight(window.getResolution().height);
-    window.setInputIgnorePredicate(
-        [this] { return imgui->isWindowHovered() || imgui->isKeyboardCaptured(); });
+    window.setInputIgnorePredicate([this] { return imgui->isWindowHovered() || imgui->isKeyboardCaptured(); });
     camera.registerControls(window);
     initUI();
     window.setMainLoopCallback([&] { render(); });
@@ -102,18 +99,17 @@ class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
     using namespace vulkan::literals;
     const auto windowExtensions = window.requiredVulkanExtensions();
     auto validationLayers = getValidationLayers();
-    vkInstance = Instance::CreateShared(
-        InstanceConfig{.appName = "Realistic voxel rendering in real time",
-            .appVersion = "0.1.0"_v,
-            .vkVersion = "1.2.0"_v,
-            .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
-            .requiredWindowExtensions = windowExtensions,
-            .validationLayers = validationLayers,
-            .callback = [this](const DebugCallbackData &data,
-                               vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                               const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
-              return debugCallback(data, severity, type_flags);
-            }});
+    vkInstance = Instance::CreateShared(InstanceConfig{
+        .appName = "Realistic voxel rendering in real time",
+        .appVersion = "0.1.0"_v,
+        .vkVersion = "1.2.0"_v,
+        .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
+        .requiredWindowExtensions = windowExtensions,
+        .validationLayers = validationLayers,
+        .callback = [this](const DebugCallbackData &data, vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                           const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
+          return debugCallback(data, severity, type_flags);
+        }});
   }
 
   template<pf::ui::Window Window>
@@ -134,15 +130,15 @@ class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
     vkSwapChain = vkLogicalDevice->createSwapChain(
         vkSurface,
         {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
-            .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
-            .resolution = {window.getResolution().width, window.getResolution().height},
-            .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst
-                | vk::ImageUsageFlagBits::eColorAttachment,
-            .sharingQueues = {},
-            .imageArrayLayers = 1,
-            .clipped = true,
-            .oldSwapChain = std::nullopt,
-            .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
+         .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+         .resolution = {window.getResolution().width, window.getResolution().height},
+         .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst
+             | vk::ImageUsageFlagBits::eColorAttachment,
+         .sharingQueues = {},
+         .imageArrayLayers = 1,
+         .clipped = true,
+         .oldSwapChain = std::nullopt,
+         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
   }
   void createRenderTexture();
   void createDescriptorPool();

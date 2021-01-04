@@ -32,8 +32,9 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Texture> testTexture;
   std::shared_ptr<vulkan::TextureSampler> testTextureSampler;
   std::shared_ptr<vulkan::ImageView> testTextureView;
+
  public:
-  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}) {};
+  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}){};
   TriangleRenderer(TriangleRenderer &&other) = default;
   TriangleRenderer &operator=(TriangleRenderer &&other) = default;
   TriangleRenderer(const TriangleRenderer &) = delete;
@@ -47,21 +48,19 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
     using namespace ranges;
     const auto windowExtensions = window.requiredVulkanExtensions();
     auto validationLayers = std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
-    vkInstance = Instance::CreateShared(
-        InstanceConfig{.appName = "Realistic voxel rendering in real time",
-                       .appVersion = "0.1.0"_v,
-                       .vkVersion = "1.2.0"_v,
-                       .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
-                       .requiredWindowExtensions = windowExtensions,
-                       .validationLayers = validationLayers,
-                       .callback = [this](const DebugCallbackData &data,
-                                          vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                                          const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
-                         return debugCallback(data, severity, type_flags);
-                       }});
+    vkInstance = Instance::CreateShared(InstanceConfig{
+        .appName = "Realistic voxel rendering in real time",
+        .appVersion = "0.1.0"_v,
+        .vkVersion = "1.2.0"_v,
+        .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
+        .requiredWindowExtensions = windowExtensions,
+        .validationLayers = validationLayers,
+        .callback = [this](const DebugCallbackData &data, vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                           const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
+          return debugCallback(data, severity, type_flags);
+        }});
     vkSurface = Surface::CreateShared(vkInstance, window);
-    vkDevice = vkInstance->selectDevice(
-        DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
+    vkDevice = vkInstance->selectDevice(DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
     vkLogicalDevice = vkDevice->createLogicalDevice(
         {.id = "dev1",
          .deviceFeatures = vk::PhysicalDeviceFeatures{},
@@ -76,17 +75,17 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
     if (const auto presentIdx = vkLogicalDevice->getPresentQueueIndex(); presentIdx.has_value()) {
       sharingQueues.emplace(*presentIdx);
     }
-    vkSwapChain = vkLogicalDevice->createSwapChain(
-        vkSurface,
-        {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
-         .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
-         .resolution = {window.getResolution().width, window.getResolution().height},
-         .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-         .sharingQueues = sharingQueues,
-         .imageArrayLayers = 1,
-         .clipped = true,
-         .oldSwapChain = std::nullopt,
-         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
+    vkSwapChain =
+        vkLogicalDevice->createSwapChain(vkSurface,
+                                         {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
+                                          .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+                                          .resolution = {window.getResolution().width, window.getResolution().height},
+                                          .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+                                          .sharingQueues = sharingQueues,
+                                          .imageArrayLayers = 1,
+                                          .clipped = true,
+                                          .oldSwapChain = std::nullopt,
+                                          .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
 
     // clang-format off
     vkRenderPass = RenderPassBuilder(vkLogicalDevice)
@@ -164,34 +163,29 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
     // clang-format on
 
     vkCommandPool = vkLogicalDevice->createCommandPool(
-        {.queueFamily = vk::QueueFlagBits::eGraphics,
-         .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
+        {.queueFamily = vk::QueueFlagBits::eGraphics, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
-    vkCommandBuffers = vkCommandPool->createCommandBuffers(
-        {.level = vk::CommandBufferLevel::ePrimary,
-         .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
+    vkCommandBuffers =
+        vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary,
+                                             .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
 
-    std::ranges::generate_n(std::back_inserter(renderSemaphores),
-                            vkSwapChain->getFrameBuffers().size(),
+    std::ranges::generate_n(std::back_inserter(renderSemaphores), vkSwapChain->getFrameBuffers().size(),
                             [&] { return vkLogicalDevice->createSemaphore(); });
     std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(), [&] {
       return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
     });
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan done.");
 
-    auto imguiConfig = config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
-    imgui =
-        std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
-                                                  window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
+    auto imguiConfig =
+        config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
+    imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                                      window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
     initUI();
 
     camera.setScreenWidth(window.getResolution().width);
     camera.setScreenHeight(window.getResolution().height);
-    window.setInputIgnorePredicate([this] {
-      return imgui->isWindowHovered() || imgui->isKeyboardCaptured();
-    });
+    window.setInputIgnorePredicate([this] { return imgui->isWindowHovered() || imgui->isKeyboardCaptured(); });
     camera.registerControls(window);
-
 
     window.setMainLoopCallback([&] { render(); });
   }
@@ -214,8 +208,6 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
   void render();
 
  private:
-
-
   vk::Format getDepthFormat();
 
   std::shared_ptr<vulkan::Instance> vkInstance;

@@ -158,7 +158,7 @@ CPMAddPackage(
         GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
         GIT_TAG master
 )
-find_package(imgui REQUIRED)
+#find_package(imgui REQUIRED)
 
 
 if (chaiscript_ADDED)
@@ -188,6 +188,7 @@ set(SOURCES
         src/voxel/ModelLoading.cpp
         src/voxel/Scene.cpp
         src/voxel/SparseVoxelOctree.cpp
+        src/voxel/SparseVoxelOctreeCreation.cpp
         )
 
 set(INCLUDES
@@ -214,11 +215,24 @@ set(INCLUDES
         src/utils/Camera.h
         src/utils/FPSCounter.h
         src/utils/FlameGraphSampler.h
+        src/utils/interface/Serializable.h
+        src/utils/bits.h
         src/voxel/Model.h
         src/voxel/ModelLoading.h
         src/voxel/Scene.h
         src/voxel/SparseVoxelOctree.h
+        src/voxel/SparseVoxelOctreeCreation.h
         )
+
+set(SVO_SOURCES
+        src/main_svo.cpp
+        src/voxel/Model.cpp
+        src/voxel/ModelLoading.cpp
+        src/voxel/Scene.cpp
+        src/voxel/SparseVoxelOctree.cpp
+        src/voxel/SparseVoxelOctreeCreation.cpp
+        )
+
 
 add_executable(realistic_voxel_rendering ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
@@ -230,6 +244,16 @@ target_link_libraries(realistic_voxel_rendering
 add_backward(realistic_voxel_rendering)
 
 target_compile_options(realistic_voxel_rendering PRIVATE ${flags})
+
+add_executable(svo ${SVO_SOURCES})
+target_link_libraries(svo
+        -lbfd -ldl
+        magic_enum
+        pf_common::pf_common
+        ${GLM_LIBRARIES})
+add_backward(svo)
+
+target_compile_options(svo PRIVATE ${flags})
 
 if (MEASURE_BUILD_TIME)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")

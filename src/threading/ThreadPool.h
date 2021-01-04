@@ -22,17 +22,14 @@ template<std::invocable F>
 class ConcreteTask : public Task {
  public:
   explicit ConcreteTask(F &&callable) : fnc(std::forward<F>(callable)) {}
-  void operator()() override {
-    fnc();
-  }
+  void operator()() override { fnc(); }
+
  private:
   F fnc;
 };
 }// namespace details
 
-enum class ThreadPoolState {
-  Run, Stop, FinishAndStop
-};
+enum class ThreadPoolState { Run, Stop, FinishAndStop };
 
 class ThreadPool {
  public:
@@ -45,7 +42,7 @@ class ThreadPool {
   ThreadPool &operator=(ThreadPool &&) = delete;
 
   template<typename... Args>
-  auto enqueue(std::invocable<Args...> auto &&callable, Args &&... args) {
+  auto enqueue(std::invocable<Args...> auto &&callable, Args &&...args) {
     using ResultValueType = std::invoke_result_t<decltype(callable), Args...>;
     using TaskType = std::packaged_task<ResultValueType()>;
     auto task = TaskType{std::bind(callable, std::forward<Args>(args)...)};

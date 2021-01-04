@@ -15,11 +15,8 @@ class FilteredSink : public Sink {
     if (filter(msg.level, msg.payload)) { Sink::log(msg); }
   }
 
-  void
-  setFilter(std::invocable<spdlog::level::level_enum, spdlog::string_view_t> auto &&f) requires(
-      std::convertible_to<
-          bool,
-          std::invoke_result_t<decltype(f), spdlog::level::level_enum, spdlog::string_view_t>>) {
+  void setFilter(std::invocable<spdlog::level::level_enum, spdlog::string_view_t> auto &&f) requires(
+      std::convertible_to<bool, std::invoke_result_t<decltype(f), spdlog::level::level_enum, spdlog::string_view_t>>) {
     filter = f;
   }
 

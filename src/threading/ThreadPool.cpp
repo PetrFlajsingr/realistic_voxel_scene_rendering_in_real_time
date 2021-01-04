@@ -6,10 +6,8 @@
 #include <iostream>
 #include <range/v3/view.hpp>
 
-pf::ThreadPool::ThreadPool(std::size_t poolSize){
-  for (std::size_t i = 0; i < poolSize; ++i) {
-    threads.emplace_back(getThreadFunction());
-  }
+pf::ThreadPool::ThreadPool(std::size_t poolSize) {
+  for (std::size_t i = 0; i < poolSize; ++i) { threads.emplace_back(getThreadFunction()); }
 }
 
 pf::ThreadPool::~ThreadPool() {
@@ -26,9 +24,7 @@ std::function<void()> pf::ThreadPool::getThreadFunction() {
     auto lock = std::unique_lock(queueMtx, std::defer_lock);
     while (true) {
       lock.lock();
-      poolCv.wait(lock, [&] {
-        return !taskQueue.empty() || state != ThreadPoolState::Run;
-      });
+      poolCv.wait(lock, [&] { return !taskQueue.empty() || state != ThreadPoolState::Run; });
       switch (state) {
         case ThreadPoolState::Stop: return;
         case ThreadPoolState::FinishAndStop:

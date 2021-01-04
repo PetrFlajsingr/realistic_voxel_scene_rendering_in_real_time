@@ -14,8 +14,8 @@ class Camera {
  public:
   explicit Camera(ui::Resolution resolution, float movementSpeed = 2.5, float mouseSpeed = 2.5,
                   const glm::vec3 &position = {0, 0, 0}, const glm::vec3 &front = {0, 0, -1},
-                  const glm::vec3 &up = {0, 1, 0}, float fieldOfView = 45, float yaw = -90,
-                  float pitch = 0, float roll = 0);
+                  const glm::vec3 &up = {0, 1, 0}, float fieldOfView = 45, float yaw = -90, float pitch = 0,
+                  float roll = 0);
 
   void registerControls(ui::Window auto &window) {
     const auto interactionPredicate = [&window] {
@@ -37,7 +37,7 @@ class Camera {
                               }
                               return false;
                             });
-    const auto keyMove =  [this, interactionPredicate](const events::KeyEvent &event) {
+    const auto keyMove = [this, interactionPredicate](const events::KeyEvent &event) {
       auto interacted = true;
       switch (std::tolower(event.key)) {
         case 'w': move(Direction::Forward, 0.167); break;

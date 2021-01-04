@@ -6,14 +6,10 @@
 
 namespace pf {
 
-BlockFlameGraphSampler::BlockFlameGraphSampler(FlameGraphSamplerBase &owner,
-                                               std::string sampleCaption,
-                                               std::chrono::steady_clock::time_point startPoint,
-                                               uint8_t sampleLevel)
-    : parent(owner), caption(std::move(sampleCaption)), firstTimePoint(startPoint),
-      level(sampleLevel) {
-  time.start = std::chrono::duration_cast<std::chrono::microseconds>(
-      std::chrono::steady_clock::now() - firstTimePoint);
+BlockFlameGraphSampler::BlockFlameGraphSampler(FlameGraphSamplerBase &owner, std::string sampleCaption,
+                                               std::chrono::steady_clock::time_point startPoint, uint8_t sampleLevel)
+    : parent(owner), caption(std::move(sampleCaption)), firstTimePoint(startPoint), level(sampleLevel) {
+  time.start = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - firstTimePoint);
 }
 
 BlockFlameGraphSampler BlockFlameGraphSampler::blockSampler(std::string subCaption) {
@@ -25,9 +21,8 @@ BlockFlameGraphSampler::~BlockFlameGraphSampler() {
 }
 void BlockFlameGraphSampler::saveToParent() {
   auto sample = ui::ig::FlameGraphSample(time, std::move(caption), level);
-  std::ranges::for_each(childSamples, [&](const ui::ig::FlameGraphSample &subSample) {
-    sample.addSubSample(subSample);
-  });
+  std::ranges::for_each(childSamples,
+                        [&](const ui::ig::FlameGraphSample &subSample) { sample.addSubSample(subSample); });
   parent.saveSample(std::move(sample));
   isSaved = true;
 }
@@ -53,7 +48,5 @@ void FlameGraphSampler::saveSample(ui::ig::FlameGraphSample &&sample) {
 
 uint8_t FlameGraphSampler::getLevel() const { return 0; }
 
-const std::vector<ui::ig::FlameGraphSample> &FlameGraphSampler::getSamples() const {
-  return samples;
-}
+const std::vector<ui::ig::FlameGraphSample> &FlameGraphSampler::getSamples() const { return samples; }
 }// namespace pf

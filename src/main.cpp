@@ -2,9 +2,9 @@
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
+#include "rendering/NaiveVoxelRenderer.h"
 #include "rendering/RTSimpleRenderer.h"
 #include "rendering/TriangleRenderer.h"
-#include "rendering/NaiveVoxelRenderer.h"
 #include <filesystem>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
@@ -13,18 +13,9 @@
 
 argparse::ArgumentParser createArgumentParser() {
   auto argumentParser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
-  argumentParser.add_argument("-v", "--verbose")
-      .help("Verbose logging")
-      .default_value(false)
-      .implicit_value(true);
-  argumentParser.add_argument("-l", "--log")
-      .help("Enable console logging.")
-      .default_value(false)
-      .implicit_value(true);
-  argumentParser.add_argument("-d", "--debug")
-      .help("Enable debug logging.")
-      .default_value(false)
-      .implicit_value(true);
+  argumentParser.add_argument("-v", "--verbose").help("Verbose logging").default_value(false).implicit_value(true);
+  argumentParser.add_argument("-l", "--log").help("Enable console logging.").default_value(false).implicit_value(true);
+  argumentParser.add_argument("-d", "--debug").help("Enable debug logging.").default_value(false).implicit_value(true);
   argumentParser.add_argument("--log_dir")
       .help("Custom directory for log files.")
       .default_value(std::filesystem::current_path())
@@ -37,11 +28,10 @@ argparse::ArgumentParser createArgumentParser() {
 }
 
 void createLogger(argparse::ArgumentParser &argument_parser) {
-  const auto loggerSettings =
-      GlobalLoggerSettings{.verbose = argument_parser.get<bool>("-v"),
-                           .console = argument_parser.get<bool>("-l"),
-                           .debug = argument_parser.get<bool>("-d"),
-                           .logDir = argument_parser.get<std::filesystem::path>("--log_dir")};
+  const auto loggerSettings = GlobalLoggerSettings{.verbose = argument_parser.get<bool>("-v"),
+                                                   .console = argument_parser.get<bool>("-l"),
+                                                   .debug = argument_parser.get<bool>("-d"),
+                                                   .logDir = argument_parser.get<std::filesystem::path>("--log_dir")};
   pf::initGlobalLogger(loggerSettings);
 }
 
@@ -69,17 +59,16 @@ int main(int argc, char *argv[]) {
   createLogger(argumentParser);
 
   auto resolutionConfig = config["ui"]["window"];
-  const auto windowSettings = ui::WindowSettings{
-      .resolution = {static_cast<size_t>(resolutionConfig["width"].value_or(800)),
-                     static_cast<size_t>(resolutionConfig["height"].value_or(600))},
-      .title = "test",
-      .mode = ui::Mode::Windowed};
+  const auto windowSettings =
+      ui::WindowSettings{.resolution = {static_cast<size_t>(resolutionConfig["width"].value_or(800)),
+                                        static_cast<size_t>(resolutionConfig["height"].value_or(600))},
+                         .title = "test",
+                         .mode = ui::Mode::Windowed};
 
   {
     auto app = Application<ui::GlfwWindow, NaiveVoxelRenderer>(
         NaiveVoxelRenderer(*config.as_table()),
-       application_settings{.debug = argumentParser.get<bool>("-d"),
-                            .window_settings = windowSettings});
+        application_settings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
     //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
     //    TriangleRenderer(*config.as_table()),
     //    application_settings{.debug = argumentParser.get<bool>("-d"),

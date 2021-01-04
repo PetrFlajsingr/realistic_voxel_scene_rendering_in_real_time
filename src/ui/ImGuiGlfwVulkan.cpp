@@ -19,12 +19,11 @@ void checkVkResult(VkResult err) {
 }// namespace details
 
 ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
-                                 std::shared_ptr<vulkan::RenderPass> pass,
-                                 std::shared_ptr<vulkan::Surface> surf,
-                                 std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle,
-                                 ImGuiConfigFlags flags, toml::table config)
-    : Element("imgui"), ImGuiInterface(flags, config), logicalDevice(std::move(device)),
-      renderPass(std::move(pass)), surface(std::move(surf)), swapChain(std::move(swapCh)) {
+                                 std::shared_ptr<vulkan::RenderPass> pass, std::shared_ptr<vulkan::Surface> surf,
+                                 std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle, ImGuiConfigFlags flags,
+                                 toml::table config)
+    : Element("imgui"), ImGuiInterface(flags, config), logicalDevice(std::move(device)), renderPass(std::move(pass)),
+      surface(std::move(surf)), swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
   const auto imageCount = swapChain->getImageViews().size();
@@ -47,8 +46,7 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
 
   uploadFonts();
 
-  swapChain->addRebuildListener(
-      [&] { ImGui_ImplVulkan_SetMinImageCount(swapChain->getImageViews().size()); });
+  swapChain->addRebuildListener([&] { ImGui_ImplVulkan_SetMinImageCount(swapChain->getImageViews().size()); });
 }
 
 void ImGuiGlfwVulkan::setupDescriptorPool() {

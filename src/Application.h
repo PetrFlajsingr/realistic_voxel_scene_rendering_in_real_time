@@ -5,13 +5,13 @@
 #ifndef VOXEL_RENDER_APPLICATION_H
 #define VOXEL_RENDER_APPLICATION_H
 
-#include "logging/loggers.h"
 #include "concepts/Renderer.h"
-#include <pf_glfw_vulkan/concepts/Window.h>
-#include <pf_glfw_vulkan/vulkan/types.h>
-#include <pf_common/exceptions/StackTraceException.h>
+#include "logging/loggers.h"
 #include <iostream>
 #include <memory>
+#include <pf_common/exceptions/StackTraceException.h>
+#include <pf_glfw_vulkan/concepts/Window.h>
+#include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view.hpp>
 
 namespace pf {
@@ -45,7 +45,6 @@ class Application {
     renderer.init(*window);
     window->setMainLoopCallback([this] { renderer.render(); });
   }
-
 
   std::shared_ptr<Window> window;
   Renderer renderer;

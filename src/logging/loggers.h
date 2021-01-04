@@ -5,12 +5,12 @@
 #ifndef VOXEL_RENDER_LOGGERS_H
 #define VOXEL_RENDER_LOGGERS_H
 
+#include <experimental/source_location>
+#include <filesystem>
+#include <pf_common/ILogger.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
-#include <pf_common/ILogger.h>
-#include <experimental/source_location>
-#include <filesystem>
 #include <vector>
 
 struct GlobalLoggerSettings {
@@ -26,8 +26,8 @@ class GlobalLoggerInterface : public pf::ILogger {
   void log(pf::LogLevel level, std::string_view tag, std::string_view msg) override;
 };
 
-std::vector<std::shared_ptr<spdlog::sinks::sink>>
-createConsoleLogSinks(const GlobalLoggerSettings &settings, std::string_view tag);
+std::vector<std::shared_ptr<spdlog::sinks::sink>> createConsoleLogSinks(const GlobalLoggerSettings &settings,
+                                                                        std::string_view tag);
 
 void createLoggerForTag(const GlobalLoggerSettings &settings, std::string_view tag);
 
@@ -57,9 +57,7 @@ void logc(std::string_view tag, std::string_view msg);
 void loge(std::string_view tag, std::string_view msg);
 
 void addLogListener(std::invocable<std::string_view> auto listener, bool err = false) {
-  if (!details::settings.has_value()) {
-    throw std::exception();
-  }
+  if (!details::settings.has_value()) { throw std::exception(); }
   if (!err) {
     details::logListeners.emplace_back(listener);
   } else {
@@ -68,8 +66,7 @@ void addLogListener(std::invocable<std::string_view> auto listener, bool err = f
   initGlobalLogger(*details::settings);
 }
 
-void logFmt(spdlog::level::level_enum level, std::string_view tag, std::string_view msg,
-            const auto &... args) {
+void logFmt(spdlog::level::level_enum level, std::string_view tag, std::string_view msg, const auto &...args) {
   globalLogger->log(level, fmt::format(TAG_FORMAT, tag, msg), args...);
 }
 
@@ -92,10 +89,8 @@ void logeFmt(std::string_view tag, std::string_view msg, const auto &...args) {
   logFmt(spdlog::level::err, tag, msg, args...);
 }
 
-
-void logSrc(
-    spdlog::level::level_enum level, std::string_view tag, std::string_view msg,
-    std::experimental::source_location src_loc = std::experimental::source_location::current());
+void logSrc(spdlog::level::level_enum level, std::string_view tag, std::string_view msg,
+            std::experimental::source_location src_loc = std::experimental::source_location::current());
 
 }// namespace pf
 

@@ -14,8 +14,7 @@ namespace pf::vox {
 class LoadException : public StackTraceException {
  public:
   explicit LoadException(std::string_view message);
-  explicit LoadException(std::string_view fmt, auto &&...args)
-      : LoadException(fmt::format(fmt, args...)) {}
+  explicit LoadException(std::string_view fmt, auto &&...args) : LoadException(fmt::format(fmt, args...)) {}
 };
 
 enum class FileType { Vox, Unknown };
@@ -28,5 +27,5 @@ std::optional<FileType> detectFileType(const std::filesystem::path &srcFile);
 Scene loadVoxScene(std::ifstream &&istream);
 }// namespace details
 
-}// namespace pf::vox::load
+}// namespace pf::vox
 #endif//REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MODELLOADER_H
