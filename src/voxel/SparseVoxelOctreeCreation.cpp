@@ -7,6 +7,7 @@
 #include <magic_enum.hpp>
 #include <range/v3/action/sort.hpp>
 #include <range/v3/view/filter.hpp>
+#include <range/v3/view/for_each.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
@@ -30,26 +31,29 @@ SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType f
                           magic_enum::enum_name(fileType));
   }
 }
-
-namespace details {
-SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream) {
-
-  const auto scene = loadVoxScene(std::move(istream));
-
-  const auto bb = findBB(scene);
-  const auto octreeLevels = calcOctreeLevelCount(bb);
+SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
+  const auto bb = details::findBB(scene);
+  const auto octreeLevels = details::calcOctreeLevelCount(bb);
 
   auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
       | views::join | to_vector | actions::sort([](const auto &a, const auto &b) {
                   return a.position.x < b.position.x || a.position.y < b.position.y || a.position.z < b.position.z;
                 });
 
-  auto tree = Tree<TemporaryTreeNode, 8>::BuildTree(octreeLevels, TemporaryTreeNode{});
+  auto tree = Tree<details::TemporaryTreeNode, 8>::BuildTree(octreeLevels, details::TemporaryTreeNode{});
 
   std::ranges::for_each(
       voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
 
   return rawTreeToSVO(tree);
+}
+
+namespace details {
+SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream) {
+
+  const auto scene = loadVoxScene(std::move(istream));
+
+  return convertSceneToSVO(scene);
 }
 
 math::BoundingBox<3> findBB(const Scene &scene) {
@@ -58,17 +62,18 @@ math::BoundingBox<3> findBB(const Scene &scene) {
 
   auto result = math::BoundingBox<3>(glm::vec3{MAX}, glm::vec3{MIN});
 
-  for (const auto &model : scene.getModels()) {
-    for (const auto &voxel : model->getVoxels()) {
-      result.p1.x = std::min(voxel.position.x, result.p1.x);
-      result.p1.y = std::min(voxel.position.y, result.p1.y);
-      result.p1.z = std::min(voxel.position.z, result.p1.z);
+  auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
+      | views::join;
+  std::ranges::for_each(voxels, ([&result](const auto &voxel) {
+                          result.p1.x = std::min(voxel.position.x, result.p1.x);
+                          result.p1.y = std::min(voxel.position.y, result.p1.y);
+                          result.p1.z = std::min(voxel.position.z, result.p1.z);
 
-      result.p2.x = std::max(voxel.position.x + 1, result.p2.x);
-      result.p2.y = std::max(voxel.position.y + 1, result.p2.y);
-      result.p2.z = std::max(voxel.position.z + 1, result.p2.z);
-    }
-  }
+                          result.p2.x = std::max(voxel.position.x + 1, result.p2.x);
+                          result.p2.y = std::max(voxel.position.y + 1, result.p2.y);
+                          result.p2.z = std::max(voxel.position.z + 1, result.p2.z);
+                        }));
+
   return result;
 }
 
@@ -152,12 +157,7 @@ auto getValidChildren(const std::vector<Node<TemporaryTreeNode, 8> *> &nodes) {
 
 std::vector<ChildDescriptor> buildDescriptors(const std::vector<Node<TemporaryTreeNode, 8> *> &nodes,
                                               uint32_t &childPointer) {
-  auto result = std::vector<ChildDescriptor>();
-
-  for (const auto node : nodes) {
-    const auto descriptor = childDescriptorForNode(*node);
-    result.emplace_back(descriptor);
-  }
+  auto result = nodes | views::transform([](const auto &node) { return childDescriptorForNode(*node); }) | to_vector;
 
   auto nodesWithDescriptors = views::zip(nodes, result);
 
