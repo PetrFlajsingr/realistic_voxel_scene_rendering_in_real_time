@@ -5,6 +5,7 @@
 #include "rendering/NaiveVoxelRenderer.h"
 #include "rendering/RTSimpleRenderer.h"
 #include "rendering/TriangleRenderer.h"
+#include "rendering/SimpleSVORenderer.h"
 #include <filesystem>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
@@ -66,8 +67,8 @@ int main(int argc, char *argv[]) {
                          .mode = ui::Mode::Windowed};
 
   {
-    auto app = Application<ui::GlfwWindow, NaiveVoxelRenderer>(
-        NaiveVoxelRenderer(*config.as_table()),
+    auto app = Application<ui::GlfwWindow, SimpleSVORenderer>(
+        SimpleSVORenderer(*config.as_table()),
         application_settings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
     //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
     //    TriangleRenderer(*config.as_table()),

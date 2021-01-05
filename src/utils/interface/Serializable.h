@@ -22,6 +22,15 @@ concept Deserializable = requires(std::span<const std::byte> data) {
   ->std::same_as<T>;
 };
 
+std::vector<std::byte> serialize(const Serializable auto &obj) {
+  return obj.serialize();
+}
+
+template <Deserializable T>
+T deserialize(std::span<const std::byte> data) {
+  return T::Deserialize(data);
+}
+
 void saveToFile(const std::filesystem::path &path, const Serializable auto &obj) {
   const auto data = obj.serialize();
   auto ostream = std::ofstream(path, std::ios::binary);

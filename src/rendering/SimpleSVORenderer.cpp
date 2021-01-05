@@ -1,50 +1,44 @@
 //
-// Created by petr on 12/5/20.
+// Created by petr on 1/5/21.
 //
 
-#include "RTSimpleRenderer.h"
+#include "SimpleSVORenderer.h"
 #include "logging/loggers.h"
 #include <fmt/chrono.h>
+#include <pf_common/ByteLiterals.h>
 #include <pf_imgui/elements.h>
-#include <voxel/ModelLoading.h>
 #include <pf_imgui/styles/dark.h>
-
-struct TimeMeasure {
-  TimeMeasure(std::string n) : name(n) { start = std::chrono::steady_clock::now(); }
-  virtual ~TimeMeasure() {
-    const auto us = std::chrono::steady_clock::now() - start;
-    //pf::logdFmt("measure", "{}: {}", name,
-    //            std::chrono::duration_cast<std::chrono::microseconds>(us));
-  }
-
-  std::chrono::steady_clock::time_point start;
-  std::string name;
-};
+#include <voxel/SparseVoxelOctreeCreation.h>
 
 namespace pf {
 using namespace vulkan;
+using namespace pf::byte_literals;
 
-RTSimpleRenderer::RTSimpleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}) {}
+SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
+    : config(tomlConfig), camera({0, 0}),
+      svo(vox::loadFileAsSVO(std::filesystem::path(*config.get()["resources"]["model"].value<std::string>()))) {}
 
-void RTSimpleRenderer::render() {
-  {
-    TimeMeasure t("swap");
-    vkSwapChain->swap();
-  }
+SimpleSVORenderer::~SimpleSVORenderer() {
+  if (vkLogicalDevice == nullptr) { return; }
+  log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
+  vkLogicalDevice->wait();
+  log(spdlog::level::info, APP_TAG, "Saving UI to config");
+  imgui->updateConfig();
+  config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
+}
+
+void SimpleSVORenderer::render() {
+  vkSwapChain->swap();
+
   auto &semaphore = vkSwapChain->getCurrentSemaphore();
   auto &fence = vkSwapChain->getCurrentFence();
 
   fence.reset();
   vkComputeFence->reset();
 
-  {
-    TimeMeasure t("imgui render");
-    imgui->render();
-  }
-  {
-    TimeMeasure t("command record");
-    recordCommands();
-  }
+  imgui->render();
+
+  recordCommands();
 
   {
     auto cameraMapping = cameraUniformBuffer->mapping();
@@ -54,37 +48,28 @@ void RTSimpleRenderer::render() {
   const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
-  {
-    TimeMeasure t("submit 1");
-    vkCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {semaphore},
-                                                  .signalSemaphores = {*computeSemaphore},
-                                                  .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                                  .fence = fence,
-                                                  .wait = true});
+  vkCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {semaphore},
+                                                   .signalSemaphores = {*computeSemaphore},
+                                                   .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                   .fence = fence,
+                                                   .wait = true});
 
-    fence.reset();
-  }
+  fence.reset();
 
-  {
-    TimeMeasure t("submit 2");
-    vkGraphicsCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {*computeSemaphore},
-                                                          .signalSemaphores = {*renderSemaphores[frameIndex]},
-                                                          .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                                          .fence = fence,
-                                                          .wait = true});
-  }
+  vkGraphicsCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {*computeSemaphore},
+                                                           .signalSemaphores = {*renderSemaphores[frameIndex]},
+                                                           .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                           .fence = fence,
+                                                           .wait = true});
 
-  {
-    TimeMeasure t("present");
-    vkSwapChain->present(
-        {.waitSemaphores = {*renderSemaphores[frameIndex]}, .presentQueue = vkLogicalDevice->getPresentQueue()});
-  }
-  //logd("measure", "_____________________________________");
+  vkSwapChain->present(
+      {.waitSemaphores = {*renderSemaphores[frameIndex]}, .presentQueue = vkLogicalDevice->getPresentQueue()});
+
   vkSwapChain->frameDone();
   fpsCounter.onFrame();
 }
 
-void RTSimpleRenderer::createDevices() {
+void SimpleSVORenderer::createDevices() {
   vkDevice = vkInstance->selectDevice(DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
   vkLogicalDevice =
       vkDevice->createLogicalDevice({.id = "dev1",
@@ -97,7 +82,7 @@ void RTSimpleRenderer::createDevices() {
                                      .surface = *vkSurface});
 }
 
-void RTSimpleRenderer::createRenderTexture() {
+void SimpleSVORenderer::createRenderTextures() {
   vkRenderImage = vkLogicalDevice->createImage(
       {.imageType = vk::ImageType::e2D,
        .format = vkSwapChain->getFormat(),
@@ -114,27 +99,58 @@ void RTSimpleRenderer::createRenderTexture() {
   vkRenderImageView =
       vkRenderImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
                                      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+  /*vkDepthImage = vkLogicalDevice->createImage(
+      {.imageType = vk::ImageType::e2D,
+       .format = vk::Format::eD32Sfloat,
+       .extent =
+           vk::Extent3D{.width = vkSwapChain->getExtent().width, .height = vkSwapChain->getExtent().height, .depth = 1},
+       .mipLevels = 1,
+       .arrayLayers = 1,
+       .sampleCount = vk::SampleCountFlagBits::e1,
+       .tiling = vk::ImageTiling::eOptimal,
+       .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+           | vk::ImageUsageFlagBits::eTransferDst
+       .sharingQueues = {},
+       .layout = vk::ImageLayout::eUndefined});
+  vkDepthImageView =
+      vkDepthImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
+                                    vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});*/
 }
 
-void RTSimpleRenderer::createDescriptorPool() {
-  vkDescPool = vkLogicalDevice->createDescriptorPool(
-      {.flags = {},
-       .maxSets = 1,
-       .poolSizes = {{vk::DescriptorType::eStorageImage, 1}, {vk::DescriptorType::eUniformBuffer, 1}}});
+void SimpleSVORenderer::createDescriptorPool() {
+  vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = {},
+                                                      .maxSets = 1,
+                                                      .poolSizes = {{vk::DescriptorType::eStorageImage, 1}, // color
+                                                                    /*{vk::DescriptorType::eStorageImage, 1}, // depth*/
+                                                                    {vk::DescriptorType::eUniformBuffer, 1},// camera
+                                                                    {vk::DescriptorType::eUniformBuffer, 1},// light pos
+                                                                    {vk::DescriptorType::eStorageBuffer, 1}}});// svo
 }
 
-void RTSimpleRenderer::createPipeline() {
+void SimpleSVORenderer::createPipeline() {
   // TODO: compute pipeline builder
   // TODO: descriptor sets
-  vkComputeDescSetLayout =
-      vkLogicalDevice->createDescriptorSetLayout({.bindings = {{.binding = 0,
-                                                                .type = vk::DescriptorType::eStorageImage,
-                                                                .count = 1,
-                                                                .stageFlags = vk::ShaderStageFlagBits::eCompute},
-                                                               {.binding = 1,
-                                                                .type = vk::DescriptorType::eUniformBuffer,
-                                                                .count = 1,
-                                                                .stageFlags = vk::ShaderStageFlagBits::eCompute}}});
+  vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
+      {.bindings = {{.binding = 0,
+                     .type = vk::DescriptorType::eStorageImage,
+                     .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
+                  /*  {.binding = 1,
+                     .type = vk::DescriptorType::eStorageImage,
+                     .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute},//depth*/
+                    {.binding = 1,
+                     .type = vk::DescriptorType::eUniformBuffer,
+                     .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute},//camera
+                    {.binding = 2,
+                     .type = vk::DescriptorType::eUniformBuffer,
+                     .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
+                    {.binding = 3,
+                     .type = vk::DescriptorType::eStorageBuffer,
+                     .count = 1,
+                     .stageFlags = vk::ShaderStageFlagBits::eCompute}}});// svo
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
   const auto pipelineLayoutInfo =
@@ -151,16 +167,38 @@ void RTSimpleRenderer::createPipeline() {
                                                        .sharingMode = vk::SharingMode::eExclusive,
                                                        .queueFamilyIndices = {}});
 
-  const auto computeInfo = vk::DescriptorImageInfo{.sampler = {},
-                                                   .imageView = **vkRenderImageView,
-                                                   .imageLayout = vk::ImageLayout::eGeneral};
-  ;
-  const auto computeWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                   .dstBinding = 0,
-                                                   .dstArrayElement = {},
-                                                   .descriptorCount = 1,
-                                                   .descriptorType = vk::DescriptorType::eStorageImage,
-                                                   .pImageInfo = &computeInfo};
+  lightPosUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4),
+                                                         .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                         .sharingMode = vk::SharingMode::eExclusive,
+                                                         .queueFamilyIndices = {}});
+
+  // TODO: size
+  svoBuffer = vkLogicalDevice->createBuffer({.size = 100_MB,
+                                             .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
+                                             .sharingMode = vk::SharingMode::eExclusive,
+                                             .queueFamilyIndices = {}});
+
+  // TODO: svo storage buffer
+
+  const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                        .imageView = **vkRenderImageView,
+                                                        .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeColorWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                        .dstBinding = 0,
+                                                        .dstArrayElement = {},
+                                                        .descriptorCount = 1,
+                                                        .descriptorType = vk::DescriptorType::eStorageImage,
+                                                        .pImageInfo = &computeColorInfo};
+  /*const auto computeDepthInfo =
+      vk::DescriptorImageInfo{.sampler = {}, .imageView = **vkDepthImageView, .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeDepthWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                        .dstBinding = 1,
+                                                        .dstArrayElement = {},
+                                                        .descriptorCount = 1,
+                                                        .descriptorType = vk::DescriptorType::eStorageImage,
+                                                        .pImageInfo = &computeDepthInfo};*/
 
   const auto uniformCameraInfo =
       vk::DescriptorBufferInfo{.buffer = **cameraUniformBuffer, .offset = 0, .range = cameraUniformBuffer->getSize()};
@@ -171,16 +209,35 @@ void RTSimpleRenderer::createPipeline() {
                                                          .descriptorType = vk::DescriptorType::eUniformBuffer,
                                                          .pBufferInfo = &uniformCameraInfo};
 
-  const auto writeSets = std::vector{computeWrite, uniformCameraWrite};
+  const auto lightPosInfo = vk::DescriptorBufferInfo{.buffer = **lightPosUniformBuffer,
+                                                     .offset = 0,
+                                                     .range = lightPosUniformBuffer->getSize()};
+  const auto lightPosWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                    .dstBinding = 2,
+                                                    .dstArrayElement = {},
+                                                    .descriptorCount = 1,
+                                                    .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                    .pBufferInfo = &lightPosInfo};
+
+  const auto svoInfo = vk::DescriptorBufferInfo{.buffer = **svoBuffer, .offset = 0, .range = svoBuffer->getSize()};
+  const auto svoWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                               .dstBinding = 3,
+                                               .dstArrayElement = {},
+                                               .descriptorCount = 1,
+                                               .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                               .pBufferInfo = &svoInfo};
+
+  const auto writeSets = std::vector{computeColorWrite/*, computeDepthWrite*/, uniformCameraWrite, lightPosWrite, svoWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
-  auto computeShader = vkLogicalDevice->createShader(
-      ShaderConfigGlslFile{.name = "Triangle compute",
-                           .type = ShaderType::Compute,
-                           .path = "/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders/"
-                                   "naive_vox.comp",
-                           .macros = {},
-                           .replaceMacros = {}});
+  // TODO: change string paths to filesystem::path
+  auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
+      .name = "Triangle compute",
+      .type = ShaderType::Compute,
+      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo.comp")
+                  .string(),
+      .macros = {},
+      .replaceMacros = {}});
 
   const auto computeStageInfo = vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
                                                                   .module = **computeShader,
@@ -190,7 +247,7 @@ void RTSimpleRenderer::createPipeline() {
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
 
-void RTSimpleRenderer::createCommands() {
+void SimpleSVORenderer::createCommands() {
   vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
@@ -207,7 +264,7 @@ void RTSimpleRenderer::createCommands() {
        .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
 }
 
-void RTSimpleRenderer::recordCommands() {
+void SimpleSVORenderer::recordCommands() {
   // TODO: add these calls to recording
   static bool isComputeRecorded = false;
 
@@ -222,7 +279,7 @@ void RTSimpleRenderer::recordCommands() {
           | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
       recording.getCommandBuffer()->bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                                        vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
-      recording.dispatch(vkSwapChain->getExtent().width, vkSwapChain->getExtent().height, 1);
+      recording.dispatch(vkSwapChain->getExtent().width / 8, vkSwapChain->getExtent().height / 8, 1);
       auto &currentSwapchainImage = *vkSwapChain->getImages()[i];
       {
         auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
@@ -284,19 +341,18 @@ void RTSimpleRenderer::recordCommands() {
   graphRecording.endRenderPass();
 }
 
-void RTSimpleRenderer::createFences() {
+void SimpleSVORenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled}); });
 }
 
-void RTSimpleRenderer::createSemaphores() {
+void SimpleSVORenderer::createSemaphores() {
   computeSemaphore = vkLogicalDevice->createSemaphore();
   std::ranges::generate_n(std::back_inserter(renderSemaphores), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createSemaphore(); });
 }
-
-void RTSimpleRenderer::initUI() {
+void SimpleSVORenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
 
@@ -333,6 +389,7 @@ void RTSimpleRenderer::initUI() {
   chai->add(chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }), "log");
 
   auto &infoWindow = imgui->createChild<Window>("infoWindow", "Stats");
+
   auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram, std::vector<float>{},
                                                      std::nullopt, 200, 0, 60, ImVec2{0, 50});
   const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
@@ -341,6 +398,13 @@ void RTSimpleRenderer::initUI() {
 
   infoWindow.createChild<Checkbox>("vsync_chckbx", "Enable vsync", Persistent::Yes, true)
       .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); });
+
+  infoWindow
+      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -10, 10, glm::vec3{0, -2, 0},
+                                      Persistent::Yes)
+      .addValueListener([&](const auto &pos) {
+        lightPosUniformBuffer->mapping().set(std::span{&pos, 1});
+      });
 
   auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
@@ -371,14 +435,6 @@ void RTSimpleRenderer::initUI() {
   });
 
   imgui->setStateFromConfig();
-}
-RTSimpleRenderer::~RTSimpleRenderer() {
-  if (vkLogicalDevice == nullptr) { return; }
-  log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
-  vkLogicalDevice->wait();
-  log(spdlog::level::info, APP_TAG, "Saving UI to config");
-  imgui->updateConfig();
-  config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }
 
 }// namespace pf

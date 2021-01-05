@@ -158,7 +158,6 @@ CPMAddPackage(
         GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
         GIT_TAG master
 )
-#find_package(imgui REQUIRED)
 
 
 if (chaiscript_ADDED)
@@ -176,6 +175,7 @@ set(SOURCES
         src/rendering/TriangleRenderer.cpp
         src/rendering/RTSimpleRenderer.cpp
         src/rendering/NaiveVoxelRenderer.cpp
+        src/rendering/SimpleSVORenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
         src/ui/ImGuiGlfwVulkan.cpp
@@ -203,6 +203,7 @@ set(INCLUDES
         src/rendering/RTSimpleRenderer.h
         src/rendering/NaiveVoxelRenderer.h
         src/rendering/VulkanDebugCallbackImpl.h
+        src/rendering/SimpleSVORenderer.h
         src/concepts/Renderer.h
         src/threading/ThreadPool.h
         src/ui/ImGuiGlfwVulkan.h
@@ -217,6 +218,7 @@ set(INCLUDES
         src/utils/FlameGraphSampler.h
         src/utils/interface/Serializable.h
         src/utils/bits.h
+        src/utils/bin.h
         src/voxel/Model.h
         src/voxel/ModelLoading.h
         src/voxel/Scene.h
