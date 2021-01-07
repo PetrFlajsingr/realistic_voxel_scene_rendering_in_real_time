@@ -16,6 +16,7 @@
 
 namespace pf::vox {
 using namespace ranges;
+using namespace static_tree;
 
 SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType) {
   if (fileType == FileType::Unknown) {
@@ -41,7 +42,7 @@ SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
                   return a.position.x < b.position.x || a.position.y < b.position.y || a.position.z < b.position.z;
                 });
 
-  auto tree = Tree<details::TemporaryTreeNode, 8>::BuildTree(octreeLevels, details::TemporaryTreeNode{});
+  auto tree = StaticTree<details::TemporaryTreeNode, 8>::BuildTree(octreeLevels, details::TemporaryTreeNode{});
 
   std::ranges::for_each(
       voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
@@ -113,7 +114,7 @@ uint32_t idxForLevel(glm::vec3 pos, uint32_t level, uint32_t depth) {
   return vecIndices.x + 2 * vecIndices.y + 4 * vecIndices.z;
 }
 
-void addVoxelToTree(Tree<TemporaryTreeNode, 8> &tree, const Voxel &voxel, uint32_t octreeLevels) {
+void addVoxelToTree(StaticTree<TemporaryTreeNode, 8> &tree, const Voxel &voxel, uint32_t octreeLevels) {
   auto node = &tree.getRoot();
   (*node)->isValid = true;
   for (uint32_t i = 0; i < octreeLevels; ++i) {
@@ -188,7 +189,7 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<Node<TemporaryTr
   return result;
 }
 
-SparseVoxelOctree rawTreeToSVO(const Tree<TemporaryTreeNode, 8> &tree) {
+SparseVoxelOctree rawTreeToSVO(const StaticTree<TemporaryTreeNode, 8> &tree) {
   // TODO:
   auto childDescriptors = std::vector<ChildDescriptor>();
 

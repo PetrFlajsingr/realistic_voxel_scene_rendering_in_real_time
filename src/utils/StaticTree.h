@@ -11,6 +11,7 @@
 #include <queue>
 #include <utility>
 
+namespace pf::static_tree {
 enum class NodeType { Leaf, Node };
 
 template<typename T, unsigned int ChildCount>
@@ -18,7 +19,7 @@ class Leaf;
 template<typename T, unsigned int ChildCount>
 class Node;
 template<typename T, unsigned int ChildCount>
-class Tree;
+class StaticTree;
 namespace detail {
 template<unsigned int Count>
 static constexpr bool is_binary_tree = Count == 2;
@@ -214,7 +215,7 @@ class Node : public Leaf<T, ChildCount> {
   Children children;
 };
 template<typename T, unsigned int ChildCount>
-class Tree {
+class StaticTree {
  public:
   using Root = Node<T, ChildCount>;
   using value_type = typename Root::value_type;
@@ -222,16 +223,16 @@ class Tree {
   using const_pointer = typename Root::const_pointer;
   using reference = typename Root::reference;
   using const_reference = typename Root::const_reference;
-  Tree() = default;
-  explicit Tree(value_type rootValue);
-  Tree(const Tree &other);
-  Tree &operator=(const Tree &other);
+  StaticTree() = default;
+  explicit StaticTree(value_type rootValue);
+  StaticTree(const StaticTree &other);
+  StaticTree &operator=(const StaticTree &other);
   /**
    * Create a tree with given depth. Each node/leaf is initialised with the give value.
    * @param depth depth of tree (root only is 1)
    * @param initValue value to copy to each node/leaf
    */
-  static Tree BuildTree(std::size_t depth, const_reference initValue);
+  static StaticTree BuildTree(std::size_t depth, const_reference initValue);
 
   Root &getRoot() { return *root; }
   const Root &getRoot() const { return *root; }
@@ -273,9 +274,10 @@ class Tree {
   void setParent(Node<T, ChildCount> *parent, Leaf<T, ChildCount> *node);
 };
 
-#include "detail/Tree.tpp"
-#include "detail/Tree_detail.tpp"
-#include "detail/Tree_node.tpp"
+#include "detail/StaticTree.tpp"
+#include "detail/StaticTree_detail.tpp"
+#include "detail/StaticTree_node.tpp"
+}
 #endif// UTILITIES_TREE_H
 
 #pragma clang diagnostic pop
