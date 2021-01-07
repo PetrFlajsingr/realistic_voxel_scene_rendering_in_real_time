@@ -7,8 +7,8 @@
 
 #include "ModelLoading.h"
 #include "SparseVoxelOctree.h"
-#include "utils/StaticTree.h"
 #include <glm/vec3.hpp>
+#include <pf_common/StaticTree.h>
 #include <pf_common/math/BoundingBox.h>
 #include <utility>
 

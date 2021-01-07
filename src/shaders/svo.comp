@@ -328,8 +328,6 @@ TraceResult trace(Ray ray) {
                 child_shift = 7 - child_shift;
 
 
-
-
                 validMask = validMask << (8 - child_shift) & 0xFFu;
                 leafMask = leafMask << (8 - child_shift) & 0xFFu;
 

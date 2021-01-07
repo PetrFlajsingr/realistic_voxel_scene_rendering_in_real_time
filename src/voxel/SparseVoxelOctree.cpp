@@ -8,7 +8,7 @@
 #include <range/v3/view/concat.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/transform.hpp>
-#include <utils/bin.h>
+#include "../../../pf_common/include/pf_common/bin.h"
 
 namespace pf::vox {
 

@@ -1,8 +1,10 @@
 //
 // Created by petr on 1/2/21.
 //
-#include <utils/interface/Serializable.h>
+#include <pf_common/concepts/Serializable.h>
+#include <range/v3/view/transform.hpp>
 #include <voxel/SparseVoxelOctreeCreation.h>
+
 
 int main(int argc, char **argv) {
   assert(argc > 1);
