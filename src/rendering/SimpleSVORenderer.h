@@ -175,6 +175,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
   std::shared_ptr<vulkan::Buffer> lightPosUniformBuffer;
+  std::shared_ptr<vulkan::Buffer> parentUniformBuffer;
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
@@ -190,7 +191,9 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
 
-  vox::SparseVoxelOctree svo;
+  std::unique_ptr<vox::SparseVoxelOctree> svo = nullptr;
+
+  bool isSceneLoaded = true;
 };
 
 }// namespace pf

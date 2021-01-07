@@ -1,4 +1,7 @@
-#!/bin/bash
+
+bool while [ boo ]; do
+
+done#!/bin/bash
 
 output_dir='./cmake-build-debug/shaders/'
 shader_dir='./shaders/'

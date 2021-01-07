@@ -11,6 +11,7 @@
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
+#include <range/v3/view/reverse.hpp>
 #include <utils/bits.h>
 
 namespace pf::vox {
@@ -83,7 +84,7 @@ uint32_t calcOctreeLevelCount(const math::BoundingBox<3> &bb) {
   const auto zSize = bb.p2.z - bb.p1.z;
 
   const auto length = std::max({xSize, ySize, zSize});
-  for (uint32_t i = 0; i < OCTREE_DEPTH_LIMIT; ++i) {
+  for (uint32_t i = 1; i < OCTREE_DEPTH_LIMIT; ++i) {
     const auto levelLength = std::pow(2, i);
     if (length <= levelLength) { return i; }
   }
@@ -131,10 +132,10 @@ ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode, 8> &node) {
   for (uint32_t i = 0; i < 8; ++i) {
     if (node.childAtIndex(i)->isValid) {
       result.childData.validMask |= 1 << i;
+      if (node.childAtIndex(i).getType() == NodeType::Leaf) { result.childData.leafMask |= 1 << i; }
     } else {
       result.childData.validMask &= ~(1 << i);
     }
-    if (node.childAtIndex(i).getType() == NodeType::Leaf) { result.childData.leafMask |= 1 << i; }
   }
   return result;
 }
@@ -161,18 +162,19 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<Node<TemporaryTr
 
   auto nodesWithDescriptors = views::zip(nodes, result);
 
-  auto begin = nodesWithDescriptors.begin();
+  auto iter = nodesWithDescriptors.begin();
   const auto end = nodesWithDescriptors.end();
-  if (begin != end) {
+  if (iter != end) {
     {
-      childPointer += std::distance(begin, end);
-      const auto &[child, descriptor] = *begin;
+      childPointer += std::distance(iter, end);
+      const auto &[child, descriptor] = *iter;
       descriptor.childData.childPointer = childPointer;
-      ++begin;
+      ++iter;
     }
-    for (; begin != end; ++begin) {
-      const auto &[child, descriptor] = *begin;
-      childPointer += countNonLeafChildrenForNode(*child);
+    for (; iter != end; ++iter) {
+      const auto &[previousChild, _] = *(iter - 1);
+      const auto &[child, descriptor] = *iter;
+      childPointer += countNonLeafChildrenForNode(*previousChild);
       descriptor.childData.childPointer = childPointer;
     }
   }

@@ -9,6 +9,21 @@
 #define MAX_BOUNCES 40
 #define SHADOW 0.35
 
+struct Ray
+{
+    vec3 origin;
+    float originSize;
+    vec3 direction;
+    float directionSize;
+};
+
+
+struct ChildDescriptor {
+    uint childData;
+    uint contourData;
+};
+
+
 layout (local_size_x = 8, local_size_y = 8) in;
 
 layout (binding = 0, rgba8) uniform image2D computeImage;
@@ -22,15 +37,407 @@ layout (binding = 2) uniform UniformLigtPos {
     vec4 pos;
 } lightPos;
 layout(std430, binding = 3) buffer VoxelSVO_SSBO {
- int ixesMan[];
+    uint header;
+    ChildDescriptor childDescriptors[];
+};
+layout(binding = 4) uniform UniformParent {
+    int UParent;
 };
 
 
-struct Ray
+/*********************** STACK ******************************/
+#define STACK_SIZE 23
+#define CAST_STACK_DEPTH STACK_SIZE
+struct StackData {
+    int node;
+    float tMax;
+};
+
+StackData stack[STACK_SIZE + 1];
+
+#define READ_STACK(stack, idx) stack[idx]
+#define WRITE_STACK(stack, idx, n, tmax) stack[idx].node = n; stack[idx].tMax = tmax
+
+
+struct LameStackData {
+    uint sideLen;
+    vec3 pos;
+};
+
+LameStackData lameStack[STACK_SIZE + 1];
+
+#define READ_LAME_STACK(stack, idx) stack[idx]
+#define WRITE_LAME_STACK(stack, idx, sl, p) stack[idx].sideLen = s; stack[idx].pos = p
+/************************************************************/
+#define RED vec3(1, 0, 0)
+
+vec3 getCameraRayDir(vec2 coord, vec3 camPos, vec3 camForward) {
+    const vec3 camRight = normalize(cross(vec3(0.0, 1.0, 0.0), camForward));
+    const vec3 camUp = normalize(cross(camForward, camRight));
+    const float fPersp = 1;
+    return normalize(coord.x * camRight + coord.y * camUp + camForward * fPersp) * 500;
+}
+
+vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
+    vec2 result = 2.0 * (screenCoord/resolution.xy - 0.5);
+    result.x *= resolution.x/float(resolution.y);
+    return result;
+}
+
+struct Box {
+    vec3 pos;
+    float sideLen;
+};
+
+float boxIntersection(in Ray ray, in Box box) {
+    vec3 b1 = box.pos;
+    vec3 b2 = b1 + box.sideLen;
+    bool intersect = true;
+    float t1, t2, temp, tnear = -1000.0f, tfar = 1000.0f, tCube;
+    for (int i = 0; i < 3; ++i) {
+        if (ray.direction[i] == 0) {
+            if (ray.origin[i] < b1[i] || ray.origin[i] > b2[i]) {
+                intersect = false;
+                break;
+            }
+        } else {
+            t1 = (b1[i] - ray.origin[i]) / ray.direction[i];
+            t2 = (b2[i] - ray.origin[i]) / ray.direction[i];
+            if (t1 > t2) {
+                temp = t1;
+                t1 = t2;
+                t2 = temp;
+            }
+            if (t1 > tnear) {
+                tnear = t1;
+            }
+            if (t2 < tfar) {
+                tfar = t2;
+            }
+            if (tnear > tfar || tfar < 0) {
+                intersect = false;
+                break;
+            }
+        }
+    }
+    if (!intersect) {
+        tCube = -1;
+    } else {
+        tCube = tnear;
+    }
+    return tCube;
+}
+
+
+
+struct TraceResult {
+    float distance;
+    vec3 pos;
+    uint node;
+    uint childIdx;
+    bool hit;
+    float t;
+    int iter;
+    int stackPtr;
+    vec3 color;
+};
+
+#define CHILD_PTR_MASK 0xFFFE0000u
+
+
+const vec3 lut[8] = vec3[8] (
+vec3(0, 0, 0), // 0
+vec3(1, 0, 0), // 1
+vec3(0, 1, 0), // 2
+vec3(1, 1, 0), // 3
+vec3(0, 0, 1), // 4
+vec3(1, 0, 1), // 5
+vec3(0, 1, 1), // 6
+vec3(1, 1, 1)  // 7
+);
+
+TraceResult lameTrace(Ray ray) {
+    ChildDescriptor childDescriptor = childDescriptors[0];
+    TraceResult result;
+    result.hit = false;
+
+    int sideLen = 4;
+    uint stackIdx = 0;
+
+    Box box;
+    box.pos = vec3(0);
+    box.sideLen = sideLen;
+    if (boxIntersection(ray, box) != -1) {
+        const uint childPtr1 = bitfieldExtract(childDescriptor.childData, 17, 15);
+        const uint validMask1 = bitfieldExtract(childDescriptor.childData, 8, 8);
+        if (validMask1 != 0) {
+            Box box1;
+            box1.sideLen = box.sideLen / 2;
+            for (uint i1 = 0; i1 < 8; ++i1) {
+                if ((validMask1 & (1u << i1)) != 0) {
+                    box1.pos = box.pos + lut[i1] * box1.sideLen;
+                    if (boxIntersection(ray, box1) != -1) {
+                        result.hit = true;
+                        result.pos = box1.pos;
+                        break;
+                    }
+                }
+            }
+        } else {
+            result.hit = false;
+        }
+    }
+
+
+
+    return result;
+}
+
+
+uint c_popc8LUT[] =
 {
-    vec3 origin;
-    vec3 direction;
+0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
 };
+
+uint popc8(uint mask)
+{
+    return c_popc8LUT[mask & 0xFFu];
+}
+
+    #define MAX_RAYCAST_ITERATIONS 10000
+
+TraceResult trace(Ray ray) {
+    const float epsilon = exp2(-CAST_STACK_DEPTH);
+    float ray_orig_sz = ray.originSize;
+    int iter = 0;
+
+    ray.direction.x = abs(ray.direction.x) > epsilon ? ray.direction.x : (ray.direction.x >= 0 ? epsilon : -epsilon);
+    ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
+    ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
+
+    float tx_coef = 1.0f / -abs(ray.direction.x);
+    float ty_coef = 1.0f / -abs(ray.direction.y);
+    float tz_coef = 1.0f / -abs(ray.direction.z);
+
+    float tx_bias = tx_coef * ray.origin.x;
+    float ty_bias = ty_coef * ray.origin.y;
+    float tz_bias = tz_coef * ray.origin.z;
+
+    int octant_mask = 7;
+    if (ray.direction.x > 0.0f) { octant_mask ^= 1; tx_bias = 3.0f * tx_coef - tx_bias; }
+    if (ray.direction.y > 0.0f) { octant_mask ^= 2; ty_bias = 3.0f * ty_coef - ty_bias; }
+    if (ray.direction.z > 0.0f) { octant_mask ^= 4; tz_bias = 3.0f * tz_coef - tz_bias; }
+
+    float t_min = max(max(2.0f * tx_coef - tx_bias, 2.0f * ty_coef - ty_bias), 2.0f * tz_coef - tz_bias);
+    float t_max = min(min(tx_coef - tx_bias, ty_coef - ty_bias), tz_coef - tz_bias);
+    float h = t_max;
+    t_min = max(t_min, 0.0f);
+    t_max = min(t_max, 1.0f);
+
+    int   parent            = UParent;
+    ChildDescriptor child_descriptor = ChildDescriptor(0, 0);// invalid until fetched
+    int    idx              = 0;
+    vec3 pos                = vec3(1.0f, 1.0f, 1.0f);
+    int    scale            = CAST_STACK_DEPTH - 1;
+    float  scale_exp2       = 0.5f;// exp2f(scale - s_max)
+
+    if (1.5f * tx_coef - tx_bias > t_min) { idx ^= 1; pos.x = 1.5f; }
+    if (1.5f * ty_coef - ty_bias > t_min) { idx ^= 2; pos.y = 1.5f; }
+    if (1.5f * tz_coef - tz_bias > t_min) { idx ^= 4; pos.z = 1.5f; }
+
+    TraceResult res;
+    vec3 color = vec3(0);
+    bool fetch = true;
+
+    while (scale < CAST_STACK_DEPTH)
+    {
+        iter++;
+        if (iter > MAX_RAYCAST_ITERATIONS)
+        break;
+
+        // Fetch child descriptor unless it is already valid.
+
+        //if (child_descriptor.childData == 0)
+        if (fetch)
+        {
+            child_descriptor = childDescriptors[parent];
+            fetch = false;
+        }
+
+        float tx_corner = pos.x * tx_coef - tx_bias;
+        float ty_corner = pos.y * ty_coef - ty_bias;
+        float tz_corner = pos.z * tz_coef - tz_bias;
+        float tc_max = min(min(tx_corner, ty_corner), tz_corner);
+
+        int child_shift = idx ^ octant_mask;// permute child slots based on the mirroring
+        uint child_masks = child_descriptor.childData << child_shift;
+        if ((child_masks & 0x8000u) != 0 && t_min <= t_max)
+        {
+            // Terminate if the voxel is small enough.
+            //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2)
+            //    break;// at t_min
+            //color = vec3(1, 0, 0);
+
+            // INTERSECT
+            // Intersect active t-span with the cube and evaluate
+            // tx(), ty(), and tz() at the center of the voxel.
+
+            float tv_max = min(t_max, tc_max);
+            float halfScale = scale_exp2 * 0.5f;
+            float tx_center = halfScale * tx_coef + tx_corner;
+            float ty_center = halfScale * ty_coef + ty_corner;
+            float tz_center = halfScale * tz_coef + tz_corner;
+
+            if (t_min <= tv_max) {
+                // Terminate if the corresponding bit in the non-leaf mask is not set.
+
+                if ((child_masks & 0x0080u) != 0) {
+                    break;// at t_min (overridden with tv_min).
+                }
+
+
+                // PUSH
+                // Write current parent to the stack.
+
+                if (tc_max < h) {
+                    WRITE_STACK(stack, scale, parent, t_max);
+                }
+                h = tc_max;
+
+                // Find child descriptor corresponding to the current voxel.
+
+                uint ptr = child_descriptor.childData >> 17u;// child pointer
+                uint validMask = (child_descriptor.childData >> 8u) & 0xFFu;
+                uint leafMask = child_descriptor.childData & 0xFFu;
+
+                child_shift = 7 - child_shift;
+
+
+
+
+                validMask = validMask << (8 - child_shift) & 0xFFu;
+                leafMask = leafMask << (8 - child_shift) & 0xFFu;
+
+                uint ofs = bitCount(validMask) - bitCount(leafMask);
+                color = lut[child_shift] * 0.5;
+
+                //uint ofs = popc8(child_masks & 0x7Fu);
+                //ofs = child_masks & 0x7FFFu;
+
+
+                //color = lut[ofs] * 0.5 + 0.3;
+
+                parent = int(ptr + ofs);
+
+
+                // Select child voxel that the ray enters first.
+
+                idx = 0;
+                scale--;
+                scale_exp2 = halfScale;
+
+                if (tx_center > t_min) { idx ^= 1; pos.x += scale_exp2; }
+                if (ty_center > t_min) { idx ^= 2; pos.y += scale_exp2; }
+                if (tz_center > t_min) { idx ^= 4; pos.z += scale_exp2; }
+
+                // Update active t-span and invalidate cached child descriptor.
+
+                t_max = tv_max;
+                //child_descriptor.childData = 0;
+                fetch = true;
+                continue;
+            }
+        }
+
+        // ADVANCE
+        // Step along the ray.
+        int step_mask = 0;
+        if (tx_corner <= tc_max) { step_mask ^= 1; pos.x -= scale_exp2; }
+        if (ty_corner <= tc_max) { step_mask ^= 2; pos.y -= scale_exp2; }
+        if (tz_corner <= tc_max) { step_mask ^= 4; pos.z -= scale_exp2; }
+
+        // Update active t-span and flip bits of the child slot index.
+
+        t_min = tc_max;
+        idx ^= step_mask;
+
+        // Proceed with pop if the bit flips disagree with the ray direction.
+
+        if ((idx & step_mask) != 0)
+        {
+            // POP
+            // Find the highest differing bit between the two positions.
+
+            uint differing_bits = 0;
+            if ((step_mask & 1) != 0) differing_bits |= floatBitsToInt(pos.x) ^ floatBitsToInt(pos.x + scale_exp2);
+            if ((step_mask & 2) != 0) differing_bits |= floatBitsToInt(pos.y) ^ floatBitsToInt(pos.y + scale_exp2);
+            if ((step_mask & 4) != 0) differing_bits |= floatBitsToInt(pos.z) ^ floatBitsToInt(pos.z + scale_exp2);
+            scale = findMSB(differing_bits);// position of the highest bit
+            scale_exp2 = intBitsToFloat((scale - CAST_STACK_DEPTH + 127) << 23);// exp2f(scale - s_max)
+
+            // Restore parent voxel from the stack.
+
+            parent = READ_STACK(stack, scale).node;
+            t_max = READ_STACK(stack, scale).tMax;
+
+            // Round cube position and extract child slot index.
+
+            int shx = floatBitsToInt(pos.x) >> scale;
+            int shy = floatBitsToInt(pos.y) >> scale;
+            int shz = floatBitsToInt(pos.z) >> scale;
+            pos.x = intBitsToFloat(shx << scale);
+            pos.y = intBitsToFloat(shy << scale);
+            pos.z = intBitsToFloat(shz << scale);
+            idx  = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
+
+            // Prevent same parent from being stored again and invalidate cached child descriptor.
+
+            h = 0.0f;
+            //child_descriptor.childData = 0;
+            fetch = true;
+        }
+    }
+
+    if (scale >= CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS)
+    {
+        t_min = 2.0f;
+    }
+
+    // Undo mirroring of the coordinate system.
+
+    if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_exp2 - pos.x;
+    if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_exp2 - pos.y;
+    if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_exp2 - pos.z;
+
+    // Output results.
+
+    res.t = t_min;
+    res.iter = iter;
+    res.pos.x = min(max(ray.origin.x + t_min * ray.direction.x, pos.x + epsilon), pos.x + scale_exp2 - epsilon);
+    res.pos.y = min(max(ray.origin.y + t_min * ray.direction.y, pos.y + epsilon), pos.y + scale_exp2 - epsilon);
+    res.pos.z = min(max(ray.origin.z + t_min * ray.direction.z, pos.z + epsilon), pos.z + scale_exp2 - epsilon);
+    res.node = parent;
+    res.childIdx = idx ^ octant_mask ^ 7;
+    res.stackPtr = scale;
+    res.color = color;
+    res.hit = !(scale >= CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
+    return res;
+}
 
 
 void main() {
@@ -41,8 +448,23 @@ void main() {
     if (idx > dimensions.x || idy > dimensions.y) {
         return;
     }
-    const vec3 finalColor = vec3(idx / float(dimensions.x), idy / float(dimensions.y), camera.pos.x / camera.dir.x);
+
+
+    Ray ray;
+    ray.origin = camera.pos.xyz;
+    ray.direction = getCameraRayDir(normalizeScreenCoords(vec2(idx, idy), vec2(dimensions)), ray.origin, camera.dir.xyz);
+    ray.originSize = length(ray.origin);
+    ray.directionSize = length(ray.direction);
+
+    vec3 finalColor = vec3(1.0);
+    TraceResult traceResult = trace(ray);
+
+    if (traceResult.hit) {
+        finalColor = traceResult.color;
+    }
+
+    finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));
+
     imageStore(computeImage, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 0.0));
-    //const float depth = lightPos.pos.x / float(ixesMan[idx + idy * dimensions.x]);
-    //imageStore(depthImage, ivec2(gl_GlobalInvocationID.xy), vec4(depth));
+
 }

@@ -14,6 +14,33 @@ namespace pf::vox {
 
 using namespace ranges;
 
+std::string ChildDescriptor::toString() const {
+  const auto uintChildData = *reinterpret_cast<const uint32_t *>(&childData);
+  return fmt::format("Child data: (raw){:32b}, valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", uintChildData,
+                     uintChildData >> 8 & 0xFF, uintChildData & 0xFF, childData.childPointer);
+}
+
+std::string ChildDescriptor::stringDraw() const {
+  const auto uintChildData = *reinterpret_cast<const uint32_t *>(&childData);
+  const auto validMask = uintChildData >> 8 & 0xFF;
+  auto result = std::string();
+  for (uint32_t i = 0; i < 8; ++i) {
+    result += (validMask & (1 << i)) ? '#' : 'E';
+    if (i % 2 == 1) {
+      result += '\n';
+    }
+  }
+  return result;
+}
+
+std::string Page::toString() const {
+  const auto descriptorsAsString = childDescriptors | views::enumerate
+      | views::transform([](const auto &desc) { return fmt::format("#{:3}: {}", desc.first, desc.second.toString()); })
+      | to_vector;
+
+  return descriptorsAsString | views::join('\n') | to<std::string>;
+}
+
 /**
  * Total page size 4B
  * Header 4B
@@ -41,7 +68,6 @@ std::vector<std::byte> Page::serialize() const {
                        rawFarPointers)
       | to_vector;
 }
-
 Page Page::Deserialize(std::span<const std::byte> data) {
   [[maybe_unused]] const auto pageSize = fromBytes<uint32_t>(data.first(4));
   auto result = Page();
@@ -115,7 +141,6 @@ std::vector<std::byte> SparseVoxelOctree::serialize() const {
 
   return views::concat(rawSize, rawBlocks | views::join) | to_vector;
 }
-
 SparseVoxelOctree SparseVoxelOctree::Deserialize(std::span<const std::byte> data) {
   const auto totalSize = fromBytes<uint32_t>(data.first(4));
   auto result = SparseVoxelOctree();
@@ -130,4 +155,6 @@ SparseVoxelOctree SparseVoxelOctree::Deserialize(std::span<const std::byte> data
   }
   return result;
 }
+
+const std::vector<Block> &SparseVoxelOctree::getBlocks() const { return blocks; }
 }// namespace pf::vox

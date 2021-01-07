@@ -184,6 +184,7 @@ set(SOURCES
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
+        src/utils/files.cpp
         src/voxel/Model.cpp
         src/voxel/ModelLoading.cpp
         src/voxel/Scene.cpp

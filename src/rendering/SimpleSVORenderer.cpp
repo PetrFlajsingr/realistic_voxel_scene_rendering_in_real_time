@@ -4,10 +4,12 @@
 
 #include "SimpleSVORenderer.h"
 #include "logging/loggers.h"
+#include "utils/files.h"
 #include <fmt/chrono.h>
 #include <pf_common/ByteLiterals.h>
 #include <pf_imgui/elements.h>
 #include <pf_imgui/styles/dark.h>
+#include <voxel/SVO_utils.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
 namespace pf {
@@ -15,8 +17,7 @@ using namespace vulkan;
 using namespace pf::byte_literals;
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}),
-      svo(vox::loadFileAsSVO(std::filesystem::path(*config.get()["resources"]["model"].value<std::string>()))) {}
+    : config(tomlConfig), camera({0, 0}, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
 
 SimpleSVORenderer::~SimpleSVORenderer() {
   if (vkLogicalDevice == nullptr) { return; }
@@ -28,6 +29,12 @@ SimpleSVORenderer::~SimpleSVORenderer() {
 }
 
 void SimpleSVORenderer::render() {
+  if (!isSceneLoaded) {
+    isSceneLoaded = true;
+    vox::copySvoToBuffer(*svo, svoBuffer->mapping());
+    logd(APP_TAG, "Copied svo to buffer");
+  }
+
   vkSwapChain->swap();
 
   auto &semaphore = vkSwapChain->getCurrentSemaphore();
@@ -49,18 +56,18 @@ void SimpleSVORenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   vkCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {semaphore},
-                                                   .signalSemaphores = {*computeSemaphore},
-                                                   .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                                   .fence = fence,
-                                                   .wait = true});
+                                                .signalSemaphores = {*computeSemaphore},
+                                                .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                .fence = fence,
+                                                .wait = true});
 
   fence.reset();
 
   vkGraphicsCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {*computeSemaphore},
-                                                           .signalSemaphores = {*renderSemaphores[frameIndex]},
-                                                           .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                                                           .fence = fence,
-                                                           .wait = true});
+                                                        .signalSemaphores = {*renderSemaphores[frameIndex]},
+                                                        .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                                                        .fence = fence,
+                                                        .wait = true});
 
   vkSwapChain->present(
       {.waitSemaphores = {*renderSemaphores[frameIndex]}, .presentQueue = vkLogicalDevice->getPresentQueue()});
@@ -120,37 +127,46 @@ void SimpleSVORenderer::createRenderTextures() {
 void SimpleSVORenderer::createDescriptorPool() {
   vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = {},
                                                       .maxSets = 1,
-                                                      .poolSizes = {{vk::DescriptorType::eStorageImage, 1}, // color
-                                                                    /*{vk::DescriptorType::eStorageImage, 1}, // depth*/
-                                                                    {vk::DescriptorType::eUniformBuffer, 1},// camera
-                                                                    {vk::DescriptorType::eUniformBuffer, 1},// light pos
-                                                                    {vk::DescriptorType::eStorageBuffer, 1}}});// svo
+                                                      .poolSizes = {
+                                                          {vk::DescriptorType::eStorageImage, 1},// color
+                                                          /*{vk::DescriptorType::eStorageImage, 1}, // depth*/
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// camera
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// light pos
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// svo
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// parent
+                                                      }});
 }
 
 void SimpleSVORenderer::createPipeline() {
   // TODO: compute pipeline builder
   // TODO: descriptor sets
-  vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
-      {.bindings = {{.binding = 0,
-                     .type = vk::DescriptorType::eStorageImage,
-                     .count = 1,
-                     .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
-                  /*  {.binding = 1,
+  vkComputeDescSetLayout =
+      vkLogicalDevice->createDescriptorSetLayout({.bindings = {
+                                                      {.binding = 0,
+                                                       .type = vk::DescriptorType::eStorageImage,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
+                                                      /*  {.binding = 1,
                      .type = vk::DescriptorType::eStorageImage,
                      .count = 1,
                      .stageFlags = vk::ShaderStageFlagBits::eCompute},//depth*/
-                    {.binding = 1,
-                     .type = vk::DescriptorType::eUniformBuffer,
-                     .count = 1,
-                     .stageFlags = vk::ShaderStageFlagBits::eCompute},//camera
-                    {.binding = 2,
-                     .type = vk::DescriptorType::eUniformBuffer,
-                     .count = 1,
-                     .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
-                    {.binding = 3,
-                     .type = vk::DescriptorType::eStorageBuffer,
-                     .count = 1,
-                     .stageFlags = vk::ShaderStageFlagBits::eCompute}}});// svo
+                                                      {.binding = 1,
+                                                       .type = vk::DescriptorType::eUniformBuffer,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},//camera
+                                                      {.binding = 2,
+                                                       .type = vk::DescriptorType::eUniformBuffer,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
+                                                      {.binding = 3,
+                                                       .type = vk::DescriptorType::eStorageBuffer,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// svo
+                                                      {.binding = 4,
+                                                       .type = vk::DescriptorType::eUniformBuffer,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
+                                                  }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
   const auto pipelineLayoutInfo =
@@ -178,7 +194,10 @@ void SimpleSVORenderer::createPipeline() {
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
 
-  // TODO: svo storage buffer
+  parentUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t),
+                                                       .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                       .sharingMode = vk::SharingMode::eExclusive,
+                                                       .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -227,7 +246,17 @@ void SimpleSVORenderer::createPipeline() {
                                                .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                .pBufferInfo = &svoInfo};
 
-  const auto writeSets = std::vector{computeColorWrite/*, computeDepthWrite*/, uniformCameraWrite, lightPosWrite, svoWrite};
+  const auto uniformParentInfo =
+      vk::DescriptorBufferInfo{.buffer = **parentUniformBuffer, .offset = 0, .range = parentUniformBuffer->getSize()};
+  const auto uniformParentWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                         .dstBinding = 4,
+                                                         .dstArrayElement = {},
+                                                         .descriptorCount = 1,
+                                                         .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                         .pBufferInfo = &uniformParentInfo};
+
+  const auto writeSets = std::vector{computeColorWrite /*, computeDepthWrite*/, uniformCameraWrite, lightPosWrite,
+                                     svoWrite, uniformParentWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   // TODO: change string paths to filesystem::path
@@ -359,6 +388,22 @@ void SimpleSVORenderer::initUI() {
   setDarkStyle(*imgui);
 
   auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
+
+  debugWindow.createChild<Input<int>>("Parent input", "Starting node idx", 0, 1)
+      .addValueListener([this](const auto value) { parentUniformBuffer->mapping().data<int>()[0] = value; });
+  const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
+  const auto potentialModelFiles = filesInFolder(modelsPath);
+  const auto modelFileNames = potentialModelFiles
+      | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
+      | ranges::views::transform([](const auto &path) { return path.filename().string(); }) | ranges::to_vector
+      | ranges::actions::sort;
+
+  debugWindow.createChild<ComboBox>("models_choice", "Model", "Select model", modelFileNames, Persistent::Yes)
+      .addValueListener([modelsPath, this](const auto &modelName) {
+        const auto selectedModelPath = modelsPath / modelName;
+        svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
+        isSceneLoaded = false;
+      });
 
   auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
   auto &chaiTab = debugWindowTabs.addTab("chai_tab", "ChaiScript");
