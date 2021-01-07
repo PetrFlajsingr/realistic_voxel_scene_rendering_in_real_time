@@ -8,7 +8,7 @@
 #include "ModelLoading.h"
 #include "SparseVoxelOctree.h"
 #include <glm/vec3.hpp>
-#include <pf_common/StaticTree.h>
+#include <pf_common/Tree.h>
 #include <pf_common/math/BoundingBox.h>
 #include <utility>
 
@@ -22,7 +22,8 @@ SparseVoxelOctree convertSceneToSVO(const Scene &scene);
 
 namespace details {
 struct TemporaryTreeNode {
-  bool isValid = false;
+  bool isLeaf;
+  uint32_t idx;
   struct {
     std::string position;
   } debug;
@@ -36,9 +37,9 @@ math::BoundingBox<3> bbToOctreeBB(math::BoundingBox<3> bb, uint32_t levels);
 
 uint32_t calcOctreeLevelCount(const math::BoundingBox<3> &bb);
 
-void addVoxelToTree(static_tree::StaticTree<TemporaryTreeNode, 8> &tree, const Voxel &voxel, uint32_t octreeLevels);
+void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t octreeLevels);
 
-SparseVoxelOctree rawTreeToSVO(const static_tree::StaticTree<TemporaryTreeNode, 8> &tree);
+SparseVoxelOctree rawTreeToSVO(const Tree<TemporaryTreeNode> &tree);
 }// namespace details
 
 }// namespace pf::vox

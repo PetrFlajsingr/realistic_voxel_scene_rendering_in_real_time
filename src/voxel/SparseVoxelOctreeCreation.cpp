@@ -3,6 +3,7 @@
 //
 
 #include "SparseVoxelOctreeCreation.h"
+#include "../../../pf_common/include/pf_common/bits.h"
 #include "SparseVoxelOctree.h"
 #include <magic_enum.hpp>
 #include <range/v3/action/sort.hpp>
@@ -12,11 +13,9 @@
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
-#include "../../../pf_common/include/pf_common/bits.h"
 
 namespace pf::vox {
 using namespace ranges;
-using namespace static_tree;
 
 SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType) {
   if (fileType == FileType::Unknown) {
@@ -42,7 +41,7 @@ SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
                   return a.position.x < b.position.x || a.position.y < b.position.y || a.position.z < b.position.z;
                 });
 
-  auto tree = StaticTree<details::TemporaryTreeNode, 8>::BuildTree(octreeLevels, details::TemporaryTreeNode{});
+  auto tree = Tree<details::TemporaryTreeNode>();
 
   std::ranges::for_each(
       voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
@@ -114,50 +113,54 @@ uint32_t idxForLevel(glm::vec3 pos, uint32_t level, uint32_t depth) {
   return vecIndices.x + 2 * vecIndices.y + 4 * vecIndices.z;
 }
 
-void addVoxelToTree(StaticTree<TemporaryTreeNode, 8> &tree, const Voxel &voxel, uint32_t octreeLevels) {
+void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t octreeLevels) {
+  if (!tree.hasRoot()) { tree.initRoot(TemporaryTreeNode{}); }
   auto node = &tree.getRoot();
-  (*node)->isValid = true;
+  (*node)->idx = 0;
+  (*node)->isLeaf = false;
   for (uint32_t i = 0; i < octreeLevels; ++i) {
     const auto idx = idxForLevel(voxel.position.xyz(), i, octreeLevels);
-    auto tmpNode = &node->childAtIndex(idx);
-    (*tmpNode)->isValid = true;
-    (*tmpNode)->debug.position = fmt::format("{}x{}x{}", voxel.position.x, voxel.position.y, voxel.position.z);
-    if (tmpNode->getType() == NodeType::Node) { node = &node->childAtIndex(idx).asNode(); }
+    auto children = node->children();
+    auto childNodeIter = std::ranges::find_if(children, [idx](const auto &child) { return child->idx == idx; });
+    Node<TemporaryTreeNode> *childNode;
+    if (childNodeIter == children.end()) {
+      childNode = &node->appendChild();
+      (*childNode)->idx = idx;
+    } else {
+      childNode = &*childNodeIter;
+    }
+    (*childNode)->debug.position = fmt::format("{}x{}x{}", voxel.position.x, voxel.position.y, voxel.position.z);
+    node = childNode;
   }
+  (*node)->isLeaf = true;
 }
 
-ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode, 8> &node) {
+ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode> &node) {
   auto result = ChildDescriptor();
   result.childData.far = 0;
   result.childData.leafMask = 0;
-  for (uint32_t i = 0; i < 8; ++i) {
-    if (node.childAtIndex(i)->isValid) {
-      result.childData.validMask |= 1 << i;
-      if (node.childAtIndex(i).getType() == NodeType::Leaf) { result.childData.leafMask |= 1 << i; }
-    } else {
-      result.childData.validMask &= ~(1 << i);
-    }
+  result.childData.validMask = 0;
+  for (const auto &child : node.children()) {
+    result.childData.validMask |= 1u << child->idx;
+    if (child->isLeaf) { result.childData.leafMask |= 1u << child->idx; }
   }
   return result;
 }
 
-std::size_t countNonLeafChildrenForNode(const Leaf<TemporaryTreeNode, 8> &leaf) {
-  return std::ranges::count_if(leaf.asNode().getChildren(), [](const auto &child) {
-    return child->getType() == NodeType::Node && (*child)->isValid;
-  });
+std::size_t countNonLeafChildrenForNode(const Node<TemporaryTreeNode> &node) {
+  return std::ranges::count_if(node.children(), [](const auto &child) { return !child->isLeaf; });
 }
 
-auto getValidChildren(const Node<TemporaryTreeNode, 8> &node) {
-  return node.getChildren()
-      | views::filter([](const auto &child) { return child->getType() == NodeType::Node && (*child)->isValid; })
-      | views::transform([](const auto &child) { return &child->asNode(); });
+auto getValidChildren(const Node<TemporaryTreeNode> &node) {
+  return node.children() | views::filter([](const auto &child) { return !child->isLeaf; })
+      | views::transform([](const auto &child) { return &child; });
 }
 
-auto getValidChildren(const std::vector<Node<TemporaryTreeNode, 8> *> &nodes) {
+auto getValidChildren(const std::vector<const Node<TemporaryTreeNode> *> &nodes) {
   return nodes | views::transform([](const auto &node) { return getValidChildren(*node); }) | views::join;
 }
 
-std::vector<ChildDescriptor> buildDescriptors(const std::vector<Node<TemporaryTreeNode, 8> *> &nodes,
+std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<TemporaryTreeNode> *> &nodes,
                                               uint32_t &childPointer) {
   auto result = nodes | views::transform([](const auto &node) { return childDescriptorForNode(*node); }) | to_vector;
 
@@ -179,6 +182,7 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<Node<TemporaryTr
       descriptor.childData.childPointer = childPointer;
     }
   }
+
   auto validChildren = getValidChildren(nodes) | to_vector;
   if (!validChildren.empty()) {
     const auto descriptors = buildDescriptors(validChildren, childPointer);
@@ -189,7 +193,7 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<Node<TemporaryTr
   return result;
 }
 
-SparseVoxelOctree rawTreeToSVO(const StaticTree<TemporaryTreeNode, 8> &tree) {
+SparseVoxelOctree rawTreeToSVO(const Tree<TemporaryTreeNode> &tree) {
   // TODO:
   auto childDescriptors = std::vector<ChildDescriptor>();
 
@@ -201,7 +205,7 @@ SparseVoxelOctree rawTreeToSVO(const StaticTree<TemporaryTreeNode, 8> &tree) {
 
   childDescriptors.emplace_back(rootDescriptor);
 
-  if (root.getType() == NodeType::Node) {
+  if (!root->isLeaf) {
     const auto validChildren = getValidChildren(root) | to_vector;
     const auto descriptors = buildDescriptors(validChildren, childPointer);
     childDescriptors.resize(childDescriptors.size() + descriptors.size());
