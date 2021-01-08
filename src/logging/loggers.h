@@ -8,6 +8,8 @@
 #include <experimental/source_location>
 #include <filesystem>
 #include <pf_common/ILogger.h>
+#include <pf_common/Subscription.h>
+#include <pf_common/coroutines/Sequence.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -34,9 +36,11 @@ void createLoggerForTag(const GlobalLoggerSettings &settings, std::string_view t
 namespace pf {
 
 namespace details {
-inline std::vector<std::function<void(std::string_view)>> logListeners;
-inline std::vector<std::function<void(std::string_view)>> logErrListeners;
+inline std::unordered_map<int, std::function<void(std::string_view)>> logListeners;
+inline std::unordered_map<int, std::function<void(std::string_view)>> logErrListeners;
 inline std::optional<GlobalLoggerSettings> settings = std::nullopt;
+
+inline cppcoro::generator<int> idGenerator = iota<int>();
 }// namespace details
 
 const auto GLOBAL_LOGGER_NAME = "pf";
@@ -56,14 +60,19 @@ void logw(std::string_view tag, std::string_view msg);
 void logc(std::string_view tag, std::string_view msg);
 void loge(std::string_view tag, std::string_view msg);
 
-void addLogListener(std::invocable<std::string_view> auto listener, bool err = false) {
+Subscription addLogListener(std::invocable<std::string_view> auto listener, bool err = false) {
   if (!details::settings.has_value()) { throw std::exception(); }
+  const auto id = getNext(details::idGenerator);
   if (!err) {
-    details::logListeners.emplace_back(listener);
+    details::logListeners[id] = listener;
   } else {
-    details::logErrListeners.emplace_back(listener);
+    details::logErrListeners[id] = listener;
   }
   initGlobalLogger(*details::settings);
+  return Subscription([id] {
+    details::logListeners.erase(id);
+    details::logErrListeners.erase(id);
+  });
 }
 
 void logFmt(spdlog::level::level_enum level, std::string_view tag, std::string_view msg, const auto &...args) {

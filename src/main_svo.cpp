@@ -5,11 +5,9 @@
 #include <range/v3/view/transform.hpp>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
-
-int main(int argc, char **argv) {
+int main([[maybe_unused]] int argc, char **argv) {
   assert(argc > 1);
-  auto tree = pf::vox::loadFileAsSVO(
-      fmt::format("/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/models/{}.vox", argv[1]));
+  auto tree = pf::vox::loadFileAsSVO(fmt::format("/home/petr/Desktop/magica_voxel/vox/{}.vox", argv[1]));
 
   //  fmt::print(tree.getBlocks()[0].pages[0].toString());
 
@@ -26,6 +24,8 @@ int main(int argc, char **argv) {
   pf::saveToFile("/home/petr/Desktop/test.pf_vox", tree);
   auto tree2 = pf::loadFromFile<pf::vox::SparseVoxelOctree>("/home/petr/Desktop/test.pf_vox");
   const auto data2 = tree2.serialize();
-  for (auto [B1, B2] : ranges::views::zip(data, data2)) { assert(B1 == B2); }
+  for (auto [B1, B2] : ranges::views::zip(data, data2)) {
+    if (B1 != B2) { throw "hihihi"; };
+  }
   return 0;
 }

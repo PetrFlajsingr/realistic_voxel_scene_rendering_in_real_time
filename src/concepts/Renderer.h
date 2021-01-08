@@ -13,6 +13,7 @@ template<typename T, typename Window>
 concept Renderer = ui::Window<Window> &&requires(T t, Window window) {
   {t.init(window)};
   {t.render()};
+  {t.stop()};
 }
 &&std::move_constructible<T>;
 

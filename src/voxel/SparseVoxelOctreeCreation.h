@@ -27,6 +27,7 @@ struct TemporaryTreeNode {
   struct {
     std::string position;
   } debug;
+  std::strong_ordering operator<=>(const TemporaryTreeNode &rhs) const;
 };
 
 SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream);
@@ -39,7 +40,7 @@ uint32_t calcOctreeLevelCount(const math::BoundingBox<3> &bb);
 
 void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t octreeLevels);
 
-SparseVoxelOctree rawTreeToSVO(const Tree<TemporaryTreeNode> &tree);
+SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree);
 }// namespace details
 
 }// namespace pf::vox

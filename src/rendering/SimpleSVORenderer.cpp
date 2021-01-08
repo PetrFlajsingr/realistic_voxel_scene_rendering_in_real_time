@@ -3,8 +3,8 @@
 //
 
 #include "SimpleSVORenderer.h"
-#include "logging/loggers.h"
 #include "../../../pf_common/include/pf_common/files.h"
+#include "logging/loggers.h"
 #include <fmt/chrono.h>
 #include <pf_common/ByteLiterals.h>
 #include <pf_imgui/elements.h>
@@ -125,7 +125,7 @@ void SimpleSVORenderer::createRenderTextures() {
 }
 
 void SimpleSVORenderer::createDescriptorPool() {
-  vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = {},
+  vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                                       .maxSets = 1,
                                                       .poolSizes = {
                                                           {vk::DescriptorType::eStorageImage, 1},// color
@@ -133,7 +133,7 @@ void SimpleSVORenderer::createDescriptorPool() {
                                                           {vk::DescriptorType::eUniformBuffer, 1},// camera
                                                           {vk::DescriptorType::eUniformBuffer, 1},// light pos
                                                           {vk::DescriptorType::eStorageBuffer, 1},// svo
-                                                          {vk::DescriptorType::eUniformBuffer, 1},// parent
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// view type
                                                       }});
 }
 
@@ -194,10 +194,10 @@ void SimpleSVORenderer::createPipeline() {
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
 
-  parentUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t),
-                                                       .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                       .sharingMode = vk::SharingMode::eExclusive,
-                                                       .queueFamilyIndices = {}});
+  viewTypeUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t),
+                                                         .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                         .sharingMode = vk::SharingMode::eExclusive,
+                                                         .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -246,17 +246,18 @@ void SimpleSVORenderer::createPipeline() {
                                                .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                .pBufferInfo = &svoInfo};
 
-  const auto uniformParentInfo =
-      vk::DescriptorBufferInfo{.buffer = **parentUniformBuffer, .offset = 0, .range = parentUniformBuffer->getSize()};
-  const auto uniformParentWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+  const auto uniformViewTypeInfo = vk::DescriptorBufferInfo{.buffer = **viewTypeUniformBuffer,
+                                                          .offset = 0,
+                                                          .range = viewTypeUniformBuffer->getSize()};
+  const auto uniformViewTypeWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
                                                          .dstBinding = 4,
                                                          .dstArrayElement = {},
                                                          .descriptorCount = 1,
                                                          .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                         .pBufferInfo = &uniformParentInfo};
+                                                         .pBufferInfo = &uniformViewTypeInfo};
 
   const auto writeSets = std::vector{computeColorWrite /*, computeDepthWrite*/, uniformCameraWrite, lightPosWrite,
-                                     svoWrite, uniformParentWrite};
+                                     svoWrite, uniformViewTypeWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   // TODO: change string paths to filesystem::path
@@ -388,31 +389,62 @@ void SimpleSVORenderer::initUI() {
   setDarkStyle(*imgui);
 
   auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
-
-  debugWindow.createChild<Input<int>>("Parent input", "Starting node idx", 0, 1)
-      .addValueListener([this](const auto value) { parentUniformBuffer->mapping().data<int>()[0] = value; });
-  const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
-  const auto potentialModelFiles = filesInFolder(modelsPath);
-  const auto modelFileNames = potentialModelFiles
-      | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
-      | ranges::views::transform([](const auto &path) { return path.filename().string(); }) | ranges::to_vector
-      | ranges::actions::sort;
-
-  debugWindow.createChild<ComboBox>("models_choice", "Model", "Select model", modelFileNames, Persistent::Yes)
-      .addValueListener([modelsPath, this](const auto &modelName) {
-        const auto selectedModelPath = modelsPath / modelName;
-        svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
-        isSceneLoaded = false;
+  debugWindow
+      .createChild<ComboBox>("view_choice", "View type", "Select view type",
+                             std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"}, Persistent::Yes)
+      .addValueListener([this](const auto &viewType) {
+        auto viewTypeIdx = 0;
+        if (viewType == "Color") {
+          viewTypeIdx = 0;
+        } else if (viewType == "Normals") {
+          viewTypeIdx = 1;
+        } else if (viewType == "Iterations") {
+          viewTypeIdx = 2;
+        } else if (viewType == "Distance") {
+          viewTypeIdx = 3;
+        } else if (viewType == "Child index") {
+          viewTypeIdx = 4;
+        } else if (viewType == "Tree level") {
+          viewTypeIdx = 5;
+        }
+        viewTypeUniformBuffer->mapping().setValue(viewTypeIdx);
       });
 
+  auto &modelsGroup = debugWindow.createChild<Group>("models_group", "Models");
+
+  const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
+  const auto modelFileNames = loadModelFileNames(modelsPath);
+
+  auto &modelCB =
+      modelsGroup.createChild<ComboBox>("models_choice", "Model", "Select model", modelFileNames, Persistent::Yes);
+  modelCB.addValueListener([modelsPath, this](const auto &modelName) {
+    const auto selectedModelPath = modelsPath / modelName;
+    svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
+    isSceneLoaded = false;
+  });
+
+
+  modelsGroup.createChild<Button>("model_list_reload", "Reload models").addClickListener([&modelCB, modelsPath, this] {
+    const auto modelFileNames = loadModelFileNames(modelsPath);
+    modelCB.setItems(modelFileNames);
+  });
+  modelsGroup.createChild<Button>("model_reload", "Reload selected").addClickListener([&modelCB, modelsPath, this] {
+    if (const auto selected = modelCB.getSelectedItem(); selected.has_value()) {
+      const auto selectedModelPath = modelsPath / *modelCB.getSelectedItem();
+      svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
+      isSceneLoaded = false;
+    }
+  });
+
   auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
-  auto &chaiTab = debugWindowTabs.addTab("chai_tab", "ChaiScript");
   auto &logTab = debugWindowTabs.addTab("log_tab", "Log");
+  auto &chaiTab = debugWindowTabs.addTab("chai_tab", "ChaiScript");
 
   auto &logMemo = logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100);
-  addLogListener([&logMemo = logMemo](auto record) { logMemo.addRecord(record); });
+  subscriptions.emplace_back(addLogListener([&logMemo = logMemo](auto record) { logMemo.addRecord(record); }));
   auto &logErrMemo = logTab.createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
-  addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true);
+  subscriptions.emplace_back(
+      addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true));
 
   auto &chaiInputPanel =
       chaiTab.createChild<Panel>("chai_input_panel", "Input", PanelLayout::Horizontal, ImVec2{0, 50});
@@ -445,7 +477,7 @@ void SimpleSVORenderer::initUI() {
       .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); });
 
   infoWindow
-      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -10, 10, glm::vec3{0, -2, 0},
+      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -100, 100, glm::vec3{0, -2, 0},
                                       Persistent::Yes)
       .addValueListener([&](const auto &pos) {
         lightPosUniformBuffer->mapping().set(std::span{&pos, 1});
@@ -480,6 +512,15 @@ void SimpleSVORenderer::initUI() {
   });
 
   imgui->setStateFromConfig();
+}
+std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
+  const auto potentialModelFiles = filesInFolder(dir);
+  return potentialModelFiles | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
+      | ranges::views::transform([](const auto &path) { return path.filename().string(); }) | ranges::to_vector
+      | ranges::actions::sort;
+}
+void SimpleSVORenderer::stop() {
+  for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
 }
 
 }// namespace pf

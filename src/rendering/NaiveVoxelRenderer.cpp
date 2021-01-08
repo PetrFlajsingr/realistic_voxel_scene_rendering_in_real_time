@@ -433,4 +433,7 @@ NaiveVoxelRenderer::~NaiveVoxelRenderer() {
   imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }
+void NaiveVoxelRenderer::stop() {
+
+}
 }// namespace pf

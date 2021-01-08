@@ -206,6 +206,7 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
   ~TriangleRenderer();
 
   void render();
+  void stop();
 
  private:
   vk::Format getDepthFormat();

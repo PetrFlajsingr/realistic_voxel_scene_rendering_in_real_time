@@ -88,6 +88,7 @@ class NaiveVoxelRenderer : VulkanDebugCallbackImpl {
   }
 
   void render();
+  void stop();
 
  private:
   static std::unordered_set<std::string> getValidationLayers() {

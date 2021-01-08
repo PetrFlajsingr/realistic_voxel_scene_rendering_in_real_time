@@ -8,11 +8,12 @@
 #include <magic_enum.hpp>
 #include <range/v3/action/sort.hpp>
 #include <range/v3/view/filter.hpp>
-#include <range/v3/view/for_each.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
+
+#define MINIMISE_TREE 1
 
 namespace pf::vox {
 using namespace ranges;
@@ -34,11 +35,11 @@ SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType f
 }
 SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
   const auto bb = details::findBB(scene);
-  const auto octreeLevels = details::calcOctreeLevelCount(bb);
+  [[maybe_unused]] const auto octreeLevels = details::calcOctreeLevelCount(bb);
 
   auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
       | views::join | to_vector | actions::sort([](const auto &a, const auto &b) {
-                  return a.position.x < b.position.x || a.position.y < b.position.y || a.position.z < b.position.z;
+                  return a.position.x < b.position.x && a.position.y < b.position.y && a.position.z < b.position.z;
                 });
 
   auto tree = Tree<details::TemporaryTreeNode>();
@@ -58,10 +59,10 @@ SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream) {
 }
 
 math::BoundingBox<3> findBB(const Scene &scene) {
-  constexpr auto MAX = std::numeric_limits<float>::max();
+  //constexpr auto MAX = std::numeric_limits<float>::max();
   constexpr auto MIN = std::numeric_limits<float>::lowest();
 
-  auto result = math::BoundingBox<3>(glm::vec3{MAX}, glm::vec3{MIN});
+  auto result = math::BoundingBox<3>(glm::vec3{0}, glm::vec3{MIN});
 
   auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
       | views::join;
@@ -104,9 +105,10 @@ math::BoundingBox<3> bbToOctreeBB(math::BoundingBox<3> bb, uint32_t levels) {
 }
 
 uint32_t idxForLevel(glm::vec3 pos, uint32_t level, uint32_t depth) {
-  const auto partLength = std::floor(std::pow(2, depth) / (level + 1) / 2);
+  const auto totalLength = std::pow(2, depth);
+  const auto partLength = totalLength / std::pow(2, level) / 2;
   if (level > 0) {
-    const auto parentPartLength = std::floor(std::pow(2, depth) / level / 2);
+    const auto parentPartLength = partLength * 2;
     pos = glm::ivec3(pos) % static_cast<int>(parentPartLength);
   }
   const auto vecIndices = glm::floor(pos / static_cast<float>(partLength));
@@ -118,8 +120,10 @@ void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t 
   auto node = &tree.getRoot();
   (*node)->idx = 0;
   (*node)->isLeaf = false;
+  std::string a = fmt::format("{}x{}x{}:", voxel.position.x, voxel.position.y, voxel.position.z);
   for (uint32_t i = 0; i < octreeLevels; ++i) {
     const auto idx = idxForLevel(voxel.position.xyz(), i, octreeLevels);
+    a += std::to_string(idx) + " ";
     auto children = node->children();
     auto childNodeIter = std::ranges::find_if(children, [idx](const auto &child) { return child->idx == idx; });
     Node<TemporaryTreeNode> *childNode;
@@ -133,6 +137,7 @@ void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t 
     node = childNode;
   }
   (*node)->isLeaf = true;
+  std::cout << a << std::endl;
 }
 
 ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode> &node) {
@@ -168,13 +173,13 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
 
   auto iter = nodesWithDescriptors.begin();
   const auto end = nodesWithDescriptors.end();
+  auto tmpChildPointer = uint32_t();
   if (iter != end) {
-    {
-      childPointer += std::distance(iter, end);
-      const auto &[child, descriptor] = *iter;
-      descriptor.childData.childPointer = childPointer;
-      ++iter;
-    }
+    childPointer += std::distance(iter, end);
+    const auto &[child, descriptor] = *iter;
+    descriptor.childData.childPointer = childPointer;
+    ++iter;
+    tmpChildPointer = childPointer;
     for (; iter != end; ++iter) {
       const auto &[previousChild, _] = *(iter - 1);
       const auto &[child, descriptor] = *iter;
@@ -182,9 +187,9 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
       descriptor.childData.childPointer = childPointer;
     }
   }
-
   auto validChildren = getValidChildren(nodes) | to_vector;
   if (!validChildren.empty()) {
+    childPointer = tmpChildPointer;
     const auto descriptors = buildDescriptors(validChildren, childPointer);
     const auto originalResultSize = result.size();
     result.resize(originalResultSize + descriptors.size());
@@ -193,7 +198,31 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
   return result;
 }
 
-SparseVoxelOctree rawTreeToSVO(const Tree<TemporaryTreeNode> &tree) {
+bool isNodeFilled(const Node<TemporaryTreeNode> &node) {
+  if (node->isLeaf) {
+    return true;
+  }
+  return node.childrenSize() == 8 && std::ranges::all_of(node.children(), isNodeFilled);
+}
+
+void setFilledNodesToLeaf(Node<TemporaryTreeNode> &node) {
+  if (node->isLeaf) {
+    return;
+  }
+  if (isNodeFilled(node)) {
+    node.clearChildren();
+    node->isLeaf = true;
+  } else {
+    std::ranges::for_each(node.children(), setFilledNodesToLeaf);
+  }
+}
+
+SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
+  if (!tree.hasRoot()) { return SparseVoxelOctree(); }
+  tree_traversal::depthFirst(tree, [](Node<TemporaryTreeNode> &node) { node.sortChildren(std::less<>()); });
+#if MINIMISE_TREE == 1
+  std::ranges::for_each(tree.getRoot().children(), setFilledNodesToLeaf);
+#endif
   // TODO:
   auto childDescriptors = std::vector<ChildDescriptor>();
 
@@ -225,6 +254,11 @@ SparseVoxelOctree rawTreeToSVO(const Tree<TemporaryTreeNode> &tree) {
   return SparseVoxelOctree({std::move(block)});
 }
 
+std::strong_ordering TemporaryTreeNode::operator<=>(const TemporaryTreeNode &rhs) const {
+  if (idx < rhs.idx) { return std::strong_ordering::less; }
+  if (idx == rhs.idx) { return std::strong_ordering::equal; }
+  return std::strong_ordering::greater;
+}
 }// namespace details
 
 }// namespace pf::vox

@@ -40,14 +40,34 @@ layout(std430, binding = 3) buffer VoxelSVO_SSBO {
     uint header;
     ChildDescriptor childDescriptors[];
 };
-layout(binding = 4) uniform UniformParent {
-    int UParent;
+#define COLOR_VIEW 0
+#define NORMAL_VIEW 1
+#define ITER_VIEW 2
+#define DISTANCE_VIEW 3
+#define CHILD_INDEX_VIEW 4
+#define TREE_LEVEL_VIEW 5
+layout(binding = 4) uniform UniformViewType {
+    int viewType;
 };
 
+float max(vec3 v) {
+    return max(max(v.x, v.y), v.z);
+}
+float max(vec4 v) {
+    return max(max(max(v.x, v.y), v.z), v.a);
+}
 
-/*********************** STACK ******************************/
-#define STACK_SIZE 23
-#define CAST_STACK_DEPTH STACK_SIZE
+float min(vec3 v) {
+    return min(min(v.x, v.y), v.z);
+}
+float min(vec4 v) {
+    return min(min(min(v.x, v.y), v.z), v.a);
+}
+
+
+    /*********************** STACK ******************************/
+    #define STACK_SIZE 23
+    #define CAST_STACK_DEPTH STACK_SIZE
 struct StackData {
     int node;
     float tMax;
@@ -140,6 +160,8 @@ struct TraceResult {
     int iter;
     int stackPtr;
     vec3 color;
+    vec3 normal;
+    bool nearEdge;
 };
 
 #define CHILD_PTR_MASK 0xFFFE0000u
@@ -153,7 +175,7 @@ vec3(1, 1, 0), // 3
 vec3(0, 0, 1), // 4
 vec3(1, 0, 1), // 5
 vec3(0, 1, 1), // 6
-vec3(1, 1, 1)  // 7
+vec3(1, 1, 1)// 7
 );
 
 TraceResult lameTrace(Ray ray) {
@@ -230,37 +252,35 @@ TraceResult trace(Ray ray) {
     ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
     ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
 
-    float tx_coef = 1.0f / -abs(ray.direction.x);
-    float ty_coef = 1.0f / -abs(ray.direction.y);
-    float tz_coef = 1.0f / -abs(ray.direction.z);
+    vec3 t_coef = 1.f / -abs(ray.direction);
 
-    float tx_bias = tx_coef * ray.origin.x;
-    float ty_bias = ty_coef * ray.origin.y;
-    float tz_bias = tz_coef * ray.origin.z;
+    vec3 t_bias = t_coef * ray.origin;
+
 
     int octant_mask = 7;
-    if (ray.direction.x > 0.0f) { octant_mask ^= 1; tx_bias = 3.0f * tx_coef - tx_bias; }
-    if (ray.direction.y > 0.0f) { octant_mask ^= 2; ty_bias = 3.0f * ty_coef - ty_bias; }
-    if (ray.direction.z > 0.0f) { octant_mask ^= 4; tz_bias = 3.0f * tz_coef - tz_bias; }
+    if (ray.direction.x > 0.0f) { octant_mask ^= 1; t_bias.x = 3.0f * t_coef.x - t_bias.x; }
+    if (ray.direction.y > 0.0f) { octant_mask ^= 2; t_bias.y = 3.0f * t_coef.y - t_bias.y; }
+    if (ray.direction.z > 0.0f) { octant_mask ^= 4; t_bias.z = 3.0f * t_coef.z - t_bias.z; }
 
-    float t_min = max(max(2.0f * tx_coef - tx_bias, 2.0f * ty_coef - ty_bias), 2.0f * tz_coef - tz_bias);
-    float t_max = min(min(tx_coef - tx_bias, ty_coef - ty_bias), tz_coef - tz_bias);
+    float t_min = max(2.f * t_coef - t_bias);
+    float t_max = min(t_coef - t_bias);
     float h = t_max;
     t_min = max(t_min, 0.0f);
     t_max = min(t_max, 1.0f);
 
-    int   parent            = UParent;
+    int   parent            = 0;
     ChildDescriptor child_descriptor = ChildDescriptor(0, 0);// invalid until fetched
     int    idx              = 0;
     vec3 pos                = vec3(1.0f, 1.0f, 1.0f);
     int    scale            = CAST_STACK_DEPTH - 1;
     float  scale_exp2       = 0.5f;// exp2f(scale - s_max)
 
-    if (1.5f * tx_coef - tx_bias > t_min) { idx ^= 1; pos.x = 1.5f; }
-    if (1.5f * ty_coef - ty_bias > t_min) { idx ^= 2; pos.y = 1.5f; }
-    if (1.5f * tz_coef - tz_bias > t_min) { idx ^= 4; pos.z = 1.5f; }
+    if (1.5f * t_coef.x - t_bias.x > t_min) { idx ^= 1; pos.x = 1.5f; }
+    if (1.5f * t_coef.y - t_bias.y > t_min) { idx ^= 2; pos.y = 1.5f; }
+    if (1.5f * t_coef.z - t_bias.z > t_min) { idx ^= 4; pos.z = 1.5f; }
 
     TraceResult res;
+    res.nearEdge = false;
     vec3 color = vec3(0);
     bool fetch = true;
 
@@ -279,18 +299,18 @@ TraceResult trace(Ray ray) {
             fetch = false;
         }
 
-        float tx_corner = pos.x * tx_coef - tx_bias;
-        float ty_corner = pos.y * ty_coef - ty_bias;
-        float tz_corner = pos.z * tz_coef - tz_bias;
-        float tc_max = min(min(tx_corner, ty_corner), tz_corner);
+        vec3 t_corner = pos * t_coef - t_bias;
+        float tc_max = min(t_corner);
 
         int child_shift = idx ^ octant_mask;// permute child slots based on the mirroring
         uint child_masks = child_descriptor.childData << child_shift;
         if ((child_masks & 0x8000u) != 0 && t_min <= t_max)
         {
             // Terminate if the voxel is small enough.
-            //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2)
+            //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2) {
+            //    color = lut[child_shift] * 0.5 + 0.1;
             //    break;// at t_min
+            //}
             //color = vec3(1, 0, 0);
 
             // INTERSECT
@@ -299,14 +319,28 @@ TraceResult trace(Ray ray) {
 
             float tv_max = min(t_max, tc_max);
             float halfScale = scale_exp2 * 0.5f;
-            float tx_center = halfScale * tx_coef + tx_corner;
-            float ty_center = halfScale * ty_coef + ty_corner;
-            float tz_center = halfScale * tz_coef + tz_corner;
+            vec3 t_center = halfScale * t_coef + t_corner;
 
             if (t_min <= tv_max) {
                 // Terminate if the corresponding bit in the non-leaf mask is not set.
-
                 if ((child_masks & 0x0080u) != 0) {
+                    color = lut[child_shift] * 0.5 + 0.1;
+                    vec3 norm, t_corner = t_coef * (pos + scale_exp2) - t_bias;
+                    if (t_corner.x > t_corner.y && t_corner.x > t_corner.z) {
+                        norm = vec3(-1, 0, 0);
+                    } else if (t_corner.y > t_corner.z) {
+                        norm = vec3(0, -1, 0);
+                    } else {
+                        norm = vec3(0, 0, -1);
+                    }
+
+                    res.nearEdge = t_center < t_edge;
+
+                    if ((octant_mask & 1) == 0u) { norm.x = -norm.x; }
+                    if ((octant_mask & 2) == 0u) { norm.y = -norm.y; }
+                    if ((octant_mask & 4) == 0u) { norm.z = -norm.z; }
+                    res.normal = norm;
+
                     break;// at t_min (overridden with tv_min).
                 }
 
@@ -332,7 +366,6 @@ TraceResult trace(Ray ray) {
                 leafMask = leafMask << (8 - child_shift) & 0xFFu;
 
                 uint ofs = bitCount(validMask) - bitCount(leafMask);
-                color = lut[child_shift] * 0.5;
 
                 //uint ofs = popc8(child_masks & 0x7Fu);
                 //ofs = child_masks & 0x7FFFu;
@@ -349,9 +382,9 @@ TraceResult trace(Ray ray) {
                 scale--;
                 scale_exp2 = halfScale;
 
-                if (tx_center > t_min) { idx ^= 1; pos.x += scale_exp2; }
-                if (ty_center > t_min) { idx ^= 2; pos.y += scale_exp2; }
-                if (tz_center > t_min) { idx ^= 4; pos.z += scale_exp2; }
+                if (t_center.x > t_min) { idx ^= 1; pos.x += scale_exp2; }
+                if (t_center.y > t_min) { idx ^= 2; pos.y += scale_exp2; }
+                if (t_center.z > t_min) { idx ^= 4; pos.z += scale_exp2; }
 
                 // Update active t-span and invalidate cached child descriptor.
 
@@ -365,9 +398,9 @@ TraceResult trace(Ray ray) {
         // ADVANCE
         // Step along the ray.
         int step_mask = 0;
-        if (tx_corner <= tc_max) { step_mask ^= 1; pos.x -= scale_exp2; }
-        if (ty_corner <= tc_max) { step_mask ^= 2; pos.y -= scale_exp2; }
-        if (tz_corner <= tc_max) { step_mask ^= 4; pos.z -= scale_exp2; }
+        if (t_corner.x <= tc_max) { step_mask ^= 1; pos.x -= scale_exp2; }
+        if (t_corner.y <= tc_max) { step_mask ^= 2; pos.y -= scale_exp2; }
+        if (t_corner.z <= tc_max) { step_mask ^= 4; pos.z -= scale_exp2; }
 
         // Update active t-span and flip bits of the child slot index.
 
@@ -422,6 +455,7 @@ TraceResult trace(Ray ray) {
     if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_exp2 - pos.y;
     if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_exp2 - pos.z;
 
+
     // Output results.
 
     res.t = t_min;
@@ -432,10 +466,12 @@ TraceResult trace(Ray ray) {
     res.node = parent;
     res.childIdx = idx ^ octant_mask ^ 7;
     res.stackPtr = scale;
-    res.color = color;
+    res.color = vec3(1);
     res.hit = !(scale >= CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
     return res;
 }
+
+
 
 
 void main() {
@@ -447,19 +483,47 @@ void main() {
         return;
     }
 
-
+    float count = 0;
+    vec3 finalColor = vec3(0);
+    const int AA_size = 4;
     Ray ray;
-    ray.origin = camera.pos.xyz;
-    ray.direction = getCameraRayDir(normalizeScreenCoords(vec2(idx, idy), vec2(dimensions)), ray.origin, camera.dir.xyz);
-    ray.originSize = length(ray.origin);
-    ray.directionSize = length(ray.direction);
+    for (float aaY = 0.0; aaY < AA_size; aaY++) {
+        for (float aaX = 0.0; aaX < AA_size; aaX++) {
+            vec2 uv = normalizeScreenCoords(vec2(idx, idy) + vec2(aaX, aaY) / AA_size, vec2(dimensions));
+            ray.origin = camera.pos.xyz;
+            ray.direction = getCameraRayDir(uv, ray.origin, camera.dir.xyz);
+            ray.originSize = 0.02;
+            ray.directionSize = 0;
+            TraceResult traceResult = trace(ray);
 
-    vec3 finalColor = vec3(1.0);
-    TraceResult traceResult = trace(ray);
+            if (viewType == ITER_VIEW) {
+                finalColor += vec3(traceResult.iter / 64.f);
+            } else if (traceResult.hit) {
+                if (viewType == COLOR_VIEW) {
+                    if (traceResult.nearEdge) {
+                        finalColor += RED;
+                    } else {
+                        vec3 lightDir = normalize(lightPos.pos.xyz - traceResult.pos);
+                        float lightAttenuation = clamp(dot(traceResult.normal, lightDir), 0.1, 1.0);
 
-    if (traceResult.hit) {
-        finalColor = traceResult.color;
+                        finalColor += lightAttenuation * traceResult.color;
+                    }
+                } else if (viewType == NORMAL_VIEW) {
+                    finalColor += traceResult.normal * 0.5f + 0.5f;
+                } else if (viewType == DISTANCE_VIEW) {
+                    finalColor += vec3(traceResult.t * 500);
+                } else if (viewType == CHILD_INDEX_VIEW) {
+                    finalColor += lut[traceResult.childIdx];
+                } else if (viewType == TREE_LEVEL_VIEW) {
+                    finalColor += lut[STACK_SIZE - traceResult.stackPtr];
+                }
+            }
+            count += 1.0;
+        }
     }
+    finalColor/= count;
+
+
 
     finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));
 

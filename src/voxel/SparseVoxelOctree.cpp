@@ -122,7 +122,7 @@ Block Block::Deserialize(std::span<const std::byte> data) {
     const auto pageSpan = data.subspan(offset);
     const auto pageSize = fromBytes<uint32_t>(pageSpan.first(4));
     result.pages.emplace_back(Page::Deserialize(pageSpan));
-    const auto oldOffset = offset;
+    [[maybe_unused]] const auto oldOffset = offset;
     offset += sizeof(pageSize) + pageSize;
     assert(offset != oldOffset);
   }
@@ -149,7 +149,7 @@ SparseVoxelOctree SparseVoxelOctree::Deserialize(std::span<const std::byte> data
     const auto blockSpan = data.subspan(offset);
     const auto blockSize = fromBytes<uint32_t>(blockSpan.first(4));
     result.blocks.emplace_back(Block::Deserialize(blockSpan));
-    const auto oldOffset = offset;
+    [[maybe_unused]] const auto oldOffset = offset;
     offset += sizeof(blockSize) + blockSize;
     assert(offset != oldOffset);
   }

@@ -21,7 +21,7 @@ std::vector<std::shared_ptr<spdlog::sinks::sink>> createConsoleLogSinks(const Gl
   console_out->set_level(spdlog::level::trace);
   console_out->set_pattern(fmt::format("[{}] %+", tag));
 
-  for (auto &listener : pf::details::logListeners) {
+  for (auto &[id, listener] : pf::details::logListeners) {
     auto sink = std::make_shared<CallbackSink>(listener);
     sink->set_level(spdlog::level::trace);
     sink->set_pattern(fmt::format("[{}] %+", tag));
@@ -32,7 +32,7 @@ std::vector<std::shared_ptr<spdlog::sinks::sink>> createConsoleLogSinks(const Gl
   console_err->set_level(spdlog::level::err);
   console_err->set_pattern(fmt::format("[{}_err] %+", tag));
 
-  for (auto &listener : pf::details::logErrListeners) {
+  for (auto &[id, listener] : pf::details::logErrListeners) {
     auto sink = std::make_shared<CallbackSink>(listener);
     sink->set_level(spdlog::level::err);
     sink->set_pattern(fmt::format("[{}_err] %+", tag));

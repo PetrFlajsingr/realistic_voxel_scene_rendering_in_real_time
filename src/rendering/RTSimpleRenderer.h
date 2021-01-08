@@ -90,6 +90,8 @@ class RTSimpleRenderer : VulkanDebugCallbackImpl {
 
   void render();
 
+  void stop();
+
  private:
   std::unordered_set<std::string> getValidationLayers() {
     return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};

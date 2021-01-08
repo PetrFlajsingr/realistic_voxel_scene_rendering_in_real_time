@@ -89,6 +89,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   }
 
   void render();
+  void stop();
 
  private:
   static std::unordered_set<std::string> getValidationLayers() {
@@ -151,11 +152,13 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   void initUI();
 
+  std::vector<std::string> loadModelFileNames(const std::filesystem::path &dir);
+
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
-  std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
   std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
+  std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
   std::shared_ptr<vulkan::Instance> vkInstance;
   std::shared_ptr<vulkan::Surface> vkSurface;
   std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
@@ -175,7 +178,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
   std::shared_ptr<vulkan::Buffer> lightPosUniformBuffer;
-  std::shared_ptr<vulkan::Buffer> parentUniformBuffer;
+  std::shared_ptr<vulkan::Buffer> viewTypeUniformBuffer;
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
@@ -194,6 +197,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::unique_ptr<vox::SparseVoxelOctree> svo = nullptr;
 
   bool isSceneLoaded = true;
+
+  std::vector<Subscription> subscriptions;
 };
 
 }// namespace pf

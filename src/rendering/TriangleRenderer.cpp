@@ -210,3 +210,6 @@ void pf::TriangleRenderer::render() {
   mainBlockSampler.end();
   statsFlameGraph->setSamples(sampler.getSamples());
 }
+void pf::TriangleRenderer::stop() {
+
+}

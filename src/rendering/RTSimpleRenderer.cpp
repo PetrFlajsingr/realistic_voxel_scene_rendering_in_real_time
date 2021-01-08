@@ -380,5 +380,8 @@ RTSimpleRenderer::~RTSimpleRenderer() {
   imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }
+void RTSimpleRenderer::stop() {
+
+}
 
 }// namespace pf

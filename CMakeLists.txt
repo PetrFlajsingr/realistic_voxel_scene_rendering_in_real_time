@@ -50,7 +50,7 @@ include_directories(include)
 set(CMAKE_CXX_STANDARD 20)
 list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
-        "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits")
+        "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits" "-Wno-strict-aliasing" "-g")
 
 if (USE_LLD_LINKER)
     list(APPEND flags "-fuse-ld=lld")
@@ -88,6 +88,11 @@ elseif (CMAKE_BUILD_TYPE MATCHES TSAN)
     message("CMAKE IN THREAD SANITISE MODE")
     message(" ")
     list(APPEND flags "-fsanitize=thread")
+elseif (CMAKE_BUILD_TYPE MATCHES MSAN)
+    message(" ")
+    message("CMAKE IN MEMORY SANITISE MODE")
+    message(" ")
+    list(APPEND flags "-fsanitize=memory")
 endif ()
 
 find_package(Vulkan REQUIRED)
@@ -236,13 +241,19 @@ set(SVO_SOURCES
         )
 
 
+if (CMAKE_BUILD_TYPE MATCHES ASAN)
+    set(LASAN -lasan)
+else ()
+    set(LASAN)
+endif ()
+
 add_executable(realistic_voxel_rendering ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
         -lbfd -ldl
         magic_enum nanobench subprocess argparse chaiscript
         pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
         shaderc glslang
-        ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
+        ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES} ${LASAN})
 add_backward(realistic_voxel_rendering)
 
 target_compile_options(realistic_voxel_rendering PRIVATE ${flags})
@@ -252,7 +263,7 @@ target_link_libraries(svo
         -lbfd -ldl
         magic_enum
         pf_common::pf_common
-        ${GLM_LIBRARIES})
+        ${GLM_LIBRARIES} ${LASAN})
 add_backward(svo)
 
 target_compile_options(svo PRIVATE ${flags})

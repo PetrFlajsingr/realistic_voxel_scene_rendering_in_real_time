@@ -32,6 +32,7 @@ class Application {
 
   void run() {
     window->mainLoop();
+    renderer.stop();
     log(spdlog::level::info, APP_TAG, "Main loop ended.");
   }
 
