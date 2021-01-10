@@ -3,12 +3,12 @@
 //
 
 #include "SparseVoxelOctree.h"
+#include "../../../pf_common/include/pf_common/bin.h"
 #include <pf_common/exceptions/StackTraceException.h>
 #include <range/v3/numeric/accumulate.hpp>
 #include <range/v3/view/concat.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/transform.hpp>
-#include "../../../pf_common/include/pf_common/bin.h"
 
 namespace pf::vox {
 
@@ -16,8 +16,9 @@ using namespace ranges;
 
 std::string ChildDescriptor::toString() const {
   const auto uintChildData = *reinterpret_cast<const uint32_t *>(&childData);
-  return fmt::format("Child data: (raw){:32b}, valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", uintChildData,
-                     uintChildData >> 8 & 0xFF, uintChildData & 0xFF, childData.childPointer);
+  return fmt::format(
+      "Child data: (raw){:32b}, valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}",
+      uintChildData, uintChildData >> 8 & 0xFF, uintChildData & 0xFF, childData.childPointer);
 }
 
 std::string ChildDescriptor::stringDraw() const {
@@ -26,9 +27,7 @@ std::string ChildDescriptor::stringDraw() const {
   auto result = std::string();
   for (uint32_t i = 0; i < 8; ++i) {
     result += (validMask & (1 << i)) ? '#' : 'E';
-    if (i % 2 == 1) {
-      result += '\n';
-    }
+    if (i % 2 == 1) { result += '\n'; }
   }
   return result;
 }
@@ -96,28 +95,39 @@ Page Page::Deserialize(std::span<const std::byte> data) {
 
 /**
  * Total size 4B
- * TODO: info section
+ * Info section size 4B
+ * Info section
  * Pages
  */
 
 std::vector<std::byte> Block::serialize() const {
-  // TODO: info section
-  //const auto rawInfoSection = toBytes(infoSection);
   const auto rawPages = pages | views::transform([](const auto &page) { return page.serialize(); }) | to_vector;
-  //const auto infoSectionSize = static_cast<uint32_t>(rawInfoSection.size());
+  const auto rawInfoSection = std::span(reinterpret_cast<const std::byte *>(infoSection.attachments.attachments.data()),
+                                        infoSection.attachments.attachments.size() * sizeof(PhongAttachment));
   const auto pagesSize = static_cast<uint32_t>(
       accumulate(rawPages | views::transform([](const auto &rawPage) { return rawPage.size(); }), 0));
+  const auto infoSectionSize = static_cast<uint32_t>(rawInfoSection.size());
+  const auto rawInfoSectionSize = toBytes(infoSectionSize);
 
-  const auto rawSize = toBytes(/*infoSectionSize +*/ pagesSize);
+  const auto rawSize = toBytes(pagesSize + infoSectionSize);
 
-  return views::concat(rawSize, rawPages | views::join) | to_vector;
+  return views::concat(rawSize, rawInfoSectionSize, rawInfoSection, rawPages | views::join) | to_vector;
 }
 
 Block Block::Deserialize(std::span<const std::byte> data) {
-  // TODO: info section
   const auto blockSize = fromBytes<uint32_t>(data.first(4));
   auto result = Block();
   auto offset = sizeof(blockSize);
+  const auto infoSectionSize = fromBytes<uint32_t>(data.subspan(offset, 4));
+  offset += 4;
+
+  const auto attachmentCount = infoSectionSize / sizeof(PhongAttachment);
+  result.infoSection.attachments.attachments.resize(attachmentCount);
+  auto infoSectionSpan = std::span(reinterpret_cast<const PhongAttachment *>(data.data()) + offset, attachmentCount);
+  std::ranges::copy(infoSectionSpan, result.infoSection.attachments.attachments.begin());
+
+  offset += infoSectionSize;
+
   while (offset < blockSize + sizeof(blockSize)) {
     const auto pageSpan = data.subspan(offset);
     const auto pageSize = fromBytes<uint32_t>(pageSpan.first(4));

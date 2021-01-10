@@ -24,6 +24,8 @@ namespace details {
 struct TemporaryTreeNode {
   bool isLeaf;
   uint32_t idx;
+  glm::vec4 color;
+  uint32_t paletteIdx;
   struct {
     std::string position;
   } debug;

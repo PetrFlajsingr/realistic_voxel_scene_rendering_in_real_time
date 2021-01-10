@@ -21,6 +21,9 @@
 
 namespace pf {
 
+constexpr auto LOCAL_SIZE_X = 8;
+constexpr auto LOCAL_SIZE_Y = 8;
+
 class SimpleSVORenderer : public VulkanDebugCallbackImpl {
  public:
   explicit SimpleSVORenderer(toml::table &tomlConfig);
@@ -171,14 +174,15 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::Image> vkRenderImage;
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
- /* std::shared_ptr<vulkan::Image> vkDepthImage;
-  std::shared_ptr<vulkan::ImageView> vkDepthImageView;*/
+   std::shared_ptr<vulkan::Image> vkIterImage;
+  std::shared_ptr<vulkan::ImageView> vkIterImageView;
+  std::shared_ptr<vulkan::TextureSampler> vkIterImageSampler;
 
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
 
   std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
-  std::shared_ptr<vulkan::Buffer> lightPosUniformBuffer;
-  std::shared_ptr<vulkan::Buffer> viewTypeUniformBuffer;
+  std::shared_ptr<vulkan::Buffer> lightUniformBuffer;
+  std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;

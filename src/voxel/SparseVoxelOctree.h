@@ -30,12 +30,9 @@ struct alignas(8) ChildDescriptor {
     // in the case of too much data, the child pointer may not be big enough to reference them, @see far
   } childData;
 
-  // UNUSED FOR NOW
   struct alignas(4) {
-    uint32_t contourMask : 8;//< if 1 then the child has a contour associated else it doesn't
-    uint32_t
-        contourPointer : 24;//< points to memory populated by contours - specifically to the first one, since they are consecutive
-  } contourData;
+    uint32_t UNUSED;
+  } shadingData;
 
   [[nodiscard]] std::string toString() const;
   [[nodiscard]] std::string stringDraw() const;
@@ -54,24 +51,18 @@ struct alignas(4) AttachmentLookupEntry {
   uint32_t valuePointer : 24;//< points to an attachment in consecutive buffer
 };
 
-struct alignas(8) PhongAttachment {
+struct alignas(4) PhongAttachment {
   struct alignas(4) {
     uint8_t alpha;
     uint8_t blue;
     uint8_t green;
     uint8_t red;
   } color;
-
-  struct alignas(4) {
-    uint32_t vCoord : 14;
-    uint32_t uCoord : 15;
-    uint32_t axis : 2;
-    uint32_t sign : 1;
-  } normal;
 };
 
-struct alignas(4) PageHeader {
+struct alignas(8) PageHeader {
   uint32_t infoSectionPointer;
+  uint32_t attachmentsPointer;
 };
 
 struct Page {
@@ -90,16 +81,18 @@ struct ContourData {
 };
 
 struct Attachments {
+  std::vector<AttachmentLookupEntry> lookupEntries;
   std::vector<PhongAttachment> attachments;
 };
 
 // TODO
-struct InfoSection {};
+struct InfoSection {
+  Attachments attachments;
+};
 
 struct Block {
   std::vector<Page> pages;
   InfoSection infoSection;
-  ContourData contourData;
 
   [[nodiscard]] std::vector<std::byte> serialize() const;
   [[nodiscard]] static Block Deserialize(std::span<const std::byte> data);

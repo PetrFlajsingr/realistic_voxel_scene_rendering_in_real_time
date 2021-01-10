@@ -137,11 +137,8 @@ void pf::TriangleRenderer::initUI() {
   infoWindow
       .createChild<Image>(
           "img1",
-          [&] {
-            return (ImTextureID) ImGui_ImplVulkan_AddTexture(
-                **testTextureSampler, **testTextureView,
-                static_cast<VkImageLayout>(testTexture->getImage().getLayout()));
-          },
+          (ImTextureID) ImGui_ImplVulkan_AddTexture(**testTextureSampler, **testTextureView,
+                                                    static_cast<VkImageLayout>(testTexture->getImage().getLayout())),
           ImVec2{300, 300}, IsButton::Yes,
           [] {
             return std::pair(ImVec2{0, 0}, ImVec2{1, 1});
@@ -210,6 +207,4 @@ void pf::TriangleRenderer::render() {
   mainBlockSampler.end();
   statsFlameGraph->setSamples(sampler.getSamples());
 }
-void pf::TriangleRenderer::stop() {
-
-}
+void pf::TriangleRenderer::stop() {}

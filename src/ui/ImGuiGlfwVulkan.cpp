@@ -6,6 +6,7 @@
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
+#include <pf_glfw_vulkan/vulkan/utils.h>
 #include <pf_imgui/elements/FileDialog.h>
 
 namespace pf::ui::ig {
@@ -14,7 +15,7 @@ namespace details {
 void checkVkResult(VkResult err) {
   if (err == 0) { return; }
   fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
-  if (err < 0) { throw vulkan::VulkanException::fmt("Error: VkResult = {}", err); }
+  if (err < 0) { throw vulkan::VulkanException::fmt("Error: VkResult = {}: {}", err, vulkan::errorString(err)); }
 }
 }// namespace details
 

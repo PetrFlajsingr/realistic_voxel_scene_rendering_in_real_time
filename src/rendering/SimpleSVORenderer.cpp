@@ -106,9 +106,9 @@ void SimpleSVORenderer::createRenderTextures() {
   vkRenderImageView =
       vkRenderImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
                                      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-  /*vkDepthImage = vkLogicalDevice->createImage(
+  vkIterImage = vkLogicalDevice->createImage(
       {.imageType = vk::ImageType::e2D,
-       .format = vk::Format::eD32Sfloat,
+       .format = vkSwapChain->getFormat(),
        .extent =
            vk::Extent3D{.width = vkSwapChain->getExtent().width, .height = vkSwapChain->getExtent().height, .depth = 1},
        .mipLevels = 1,
@@ -116,24 +116,37 @@ void SimpleSVORenderer::createRenderTextures() {
        .sampleCount = vk::SampleCountFlagBits::e1,
        .tiling = vk::ImageTiling::eOptimal,
        .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
-           | vk::ImageUsageFlagBits::eTransferDst
+           | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
        .sharingQueues = {},
        .layout = vk::ImageLayout::eUndefined});
-  vkDepthImageView =
-      vkDepthImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
-                                    vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});*/
+  vkIterImageView =
+      vkIterImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
+                                   vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+
+  vkIterImageSampler = TextureSampler::CreateShared(
+      vkLogicalDevice,
+      TextureSamplerConfig{.magFilter = vk::Filter::eLinear,
+                           .minFilter = vk::Filter::eLinear,
+                           .addressMode = {.u = vk::SamplerAddressMode::eClampToBorder,
+                                           .v = vk::SamplerAddressMode::eClampToBorder,
+                                           .w = vk::SamplerAddressMode::eClampToBorder},
+                           .maxAnisotropy = std::nullopt,
+                           .borderColor = vk::BorderColor::eFloatOpaqueBlack,
+                           .unnormalizedCoordinates = false,
+                           .compareOp = std::nullopt,
+                           .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
 }
 
 void SimpleSVORenderer::createDescriptorPool() {
   vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                                       .maxSets = 1,
                                                       .poolSizes = {
-                                                          {vk::DescriptorType::eStorageImage, 1},// color
-                                                          /*{vk::DescriptorType::eStorageImage, 1}, // depth*/
+                                                          {vk::DescriptorType::eStorageImage, 1}, // color
                                                           {vk::DescriptorType::eUniformBuffer, 1},// camera
                                                           {vk::DescriptorType::eUniformBuffer, 1},// light pos
                                                           {vk::DescriptorType::eStorageBuffer, 1},// svo
                                                           {vk::DescriptorType::eUniformBuffer, 1},// view type
+                                                          {vk::DescriptorType::eStorageImage, 1}, // iterations
                                                       }});
 }
 
@@ -165,7 +178,11 @@ void SimpleSVORenderer::createPipeline() {
                                                       {.binding = 4,
                                                        .type = vk::DescriptorType::eUniformBuffer,
                                                        .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug
+                                                      {.binding = 5,
+                                                       .type = vk::DescriptorType::eStorageImage,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
                                                   }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -183,10 +200,10 @@ void SimpleSVORenderer::createPipeline() {
                                                        .sharingMode = vk::SharingMode::eExclusive,
                                                        .queueFamilyIndices = {}});
 
-  lightPosUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4),
-                                                         .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                         .sharingMode = vk::SharingMode::eExclusive,
-                                                         .queueFamilyIndices = {}});
+  lightUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 4,
+                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      .sharingMode = vk::SharingMode::eExclusive,
+                                                      .queueFamilyIndices = {}});
 
   // TODO: size
   svoBuffer = vkLogicalDevice->createBuffer({.size = 100_MB,
@@ -194,10 +211,10 @@ void SimpleSVORenderer::createPipeline() {
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
 
-  viewTypeUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t),
-                                                         .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                         .sharingMode = vk::SharingMode::eExclusive,
-                                                         .queueFamilyIndices = {}});
+  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3,
+                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      .sharingMode = vk::SharingMode::eExclusive,
+                                                      .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -209,15 +226,6 @@ void SimpleSVORenderer::createPipeline() {
                                                         .descriptorCount = 1,
                                                         .descriptorType = vk::DescriptorType::eStorageImage,
                                                         .pImageInfo = &computeColorInfo};
-  /*const auto computeDepthInfo =
-      vk::DescriptorImageInfo{.sampler = {}, .imageView = **vkDepthImageView, .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeDepthWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                        .dstBinding = 1,
-                                                        .dstArrayElement = {},
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = vk::DescriptorType::eStorageImage,
-                                                        .pImageInfo = &computeDepthInfo};*/
 
   const auto uniformCameraInfo =
       vk::DescriptorBufferInfo{.buffer = **cameraUniformBuffer, .offset = 0, .range = cameraUniformBuffer->getSize()};
@@ -228,9 +236,8 @@ void SimpleSVORenderer::createPipeline() {
                                                          .descriptorType = vk::DescriptorType::eUniformBuffer,
                                                          .pBufferInfo = &uniformCameraInfo};
 
-  const auto lightPosInfo = vk::DescriptorBufferInfo{.buffer = **lightPosUniformBuffer,
-                                                     .offset = 0,
-                                                     .range = lightPosUniformBuffer->getSize()};
+  const auto lightPosInfo =
+      vk::DescriptorBufferInfo{.buffer = **lightUniformBuffer, .offset = 0, .range = lightUniformBuffer->getSize()};
   const auto lightPosWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
                                                     .dstBinding = 2,
                                                     .dstArrayElement = {},
@@ -246,18 +253,27 @@ void SimpleSVORenderer::createPipeline() {
                                                .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                .pBufferInfo = &svoInfo};
 
-  const auto uniformViewTypeInfo = vk::DescriptorBufferInfo{.buffer = **viewTypeUniformBuffer,
-                                                          .offset = 0,
-                                                          .range = viewTypeUniformBuffer->getSize()};
-  const auto uniformViewTypeWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                         .dstBinding = 4,
-                                                         .dstArrayElement = {},
-                                                         .descriptorCount = 1,
-                                                         .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                         .pBufferInfo = &uniformViewTypeInfo};
+  const auto uniformDebugInfo =
+      vk::DescriptorBufferInfo{.buffer = **debugUniformBuffer, .offset = 0, .range = debugUniformBuffer->getSize()};
+  const auto uniformDebugWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                        .dstBinding = 4,
+                                                        .dstArrayElement = {},
+                                                        .descriptorCount = 1,
+                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                        .pBufferInfo = &uniformDebugInfo};
 
-  const auto writeSets = std::vector{computeColorWrite /*, computeDepthWrite*/, uniformCameraWrite, lightPosWrite,
-                                     svoWrite, uniformViewTypeWrite};
+  const auto computeIterInfo =
+      vk::DescriptorImageInfo{.sampler = {}, .imageView = **vkIterImageView, .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeIterWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                       .dstBinding = 5,
+                                                       .dstArrayElement = {},
+                                                       .descriptorCount = 1,
+                                                       .descriptorType = vk::DescriptorType::eStorageImage,
+                                                       .pImageInfo = &computeIterInfo};
+
+  const auto writeSets =
+      std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite, uniformDebugWrite, computeIterWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   // TODO: change string paths to filesystem::path
@@ -267,7 +283,8 @@ void SimpleSVORenderer::createPipeline() {
       .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo.comp")
                   .string(),
       .macros = {},
-      .replaceMacros = {}});
+      .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(LOCAL_SIZE_X)},
+                        {"LOCAL_SIZE_Y", std::to_string(LOCAL_SIZE_Y)}}});
 
   const auto computeStageInfo = vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
                                                                   .module = **computeShader,
@@ -283,6 +300,8 @@ void SimpleSVORenderer::createCommands() {
 
   vkRenderImage->transitionLayout(*vkCommandPool, vk::ImageLayout::eGeneral,
                                   vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+  vkIterImage->transitionLayout(*vkCommandPool, vk::ImageLayout::eGeneral,
+                                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 
   vkCommandBuffers = vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 3});
 
@@ -309,7 +328,8 @@ void SimpleSVORenderer::recordCommands() {
           | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
       recording.getCommandBuffer()->bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                                        vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
-      recording.dispatch(vkSwapChain->getExtent().width / 8, vkSwapChain->getExtent().height / 8, 1);
+      recording.dispatch(vkSwapChain->getExtent().width / LOCAL_SIZE_X, vkSwapChain->getExtent().height / LOCAL_SIZE_Y,
+                         1);
       auto &currentSwapchainImage = *vkSwapChain->getImages()[i];
       {
         auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
@@ -388,10 +408,12 @@ void SimpleSVORenderer::initUI() {
 
   setDarkStyle(*imgui);
 
-  auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
-  debugWindow
-      .createChild<ComboBox>("view_choice", "View type", "Select view type",
-                             std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"}, Persistent::Yes)
+  auto &renderSettingsWindow = imgui->createChild<Window>("render_sett_window", "Render settings");
+  renderSettingsWindow
+      .createChild<ComboBox>(
+          "view_choice", "View type", "Select view type",
+          std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"},
+          Persistent::Yes)
       .addValueListener([this](const auto &viewType) {
         auto viewTypeIdx = 0;
         if (viewType == "Color") {
@@ -407,13 +429,46 @@ void SimpleSVORenderer::initUI() {
         } else if (viewType == "Tree level") {
           viewTypeIdx = 5;
         }
-        viewTypeUniformBuffer->mapping().setValue(viewTypeIdx);
+        debugUniformBuffer->mapping().set(viewTypeIdx);
+      });
+  auto &lightGroup = renderSettingsWindow.createChild<Group>("light_group", "Lighting");
+  lightGroup
+      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -100, 100, glm::vec3{0, -2, 0},
+                                      Persistent::Yes)
+      .addValueListener([&](const auto &pos) { lightUniformBuffer->mapping().set(pos); });
+  lightGroup.createChild<Checkbox>("check_shadows", "Enable shadows", Persistent::Yes, false)
+      .addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); });
+
+  auto &phongParams = lightGroup.createChild<Group>("phong_params_group", "Phong parameters");
+  auto &ambientSlider = phongParams.createChild<Slider<glm::vec3>>("slider_light_ambient", "Ambient", 0, 1,
+                                                                   glm::vec3{0.1f}, Persistent::Yes);
+  ambientSlider.addValueListener([&](const auto &ambientColor) {
+    lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
+  });
+  phongParams.createChild<Slider<glm::vec3>>("slider_light_diffuse", "Diffuse", 0, 1, glm::vec3{0.6f}, Persistent::Yes)
+      .addValueListener([&](const auto &diffuseColor) {
+        lightUniformBuffer->mapping().set(glm::vec4{diffuseColor, 1}, 2);
+      });
+  phongParams
+      .createChild<Slider<glm::vec3>>("slider_light_specular", "Specular", 0, 1, glm::vec3{0.9f}, Persistent::Yes)
+      .addValueListener([&](const auto &specularColor) {
+        lightUniformBuffer->mapping().set(glm::vec4{specularColor, 1}, 3);
       });
 
-  auto &modelsGroup = debugWindow.createChild<Group>("models_group", "Models");
+  auto &modelsGroup = renderSettingsWindow.createChild<Group>("models_group", "Models");
 
   const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
   const auto modelFileNames = loadModelFileNames(modelsPath);
+
+  modelsGroup.createChild<Button>("open_model_btn", "Open model").addClickListener([this] {
+    imgui->openFileDialog(
+        "Select model", {FileExtensionSettings{{"vox"}, "Vox model"}},
+        [this](const auto &selected) {
+          svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selected[0]));
+          isSceneLoaded = false;
+        },
+        [] {});
+  });
 
   auto &modelCB =
       modelsGroup.createChild<ComboBox>("models_choice", "Model", "Select model", modelFileNames, Persistent::Yes);
@@ -422,7 +477,9 @@ void SimpleSVORenderer::initUI() {
     svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
     isSceneLoaded = false;
   });
-
+  modelsGroup.createChild<InputText>("model_filter", "Filter").addValueListener([&modelCB](auto filterVal) {
+    modelCB.setFilter([filterVal](auto item) { return item.find(filterVal) != std::string::npos; });
+  });
 
   modelsGroup.createChild<Button>("model_list_reload", "Reload models").addClickListener([&modelCB, modelsPath, this] {
     const auto modelFileNames = loadModelFileNames(modelsPath);
@@ -435,6 +492,10 @@ void SimpleSVORenderer::initUI() {
       isSceneLoaded = false;
     }
   });
+
+  auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
+  debugWindow.createChild<Input<int>>("debug_val_inpug", "Shader debug value", -100000, 100000, Persistent::Yes, 0)
+      .addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); });
 
   auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
   auto &logTab = debugWindowTabs.addTab("log_tab", "Log");
@@ -476,13 +537,6 @@ void SimpleSVORenderer::initUI() {
   infoWindow.createChild<Checkbox>("vsync_chckbx", "Enable vsync", Persistent::Yes, true)
       .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); });
 
-  infoWindow
-      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -100, 100, glm::vec3{0, -2, 0},
-                                      Persistent::Yes)
-      .addValueListener([&](const auto &pos) {
-        lightPosUniformBuffer->mapping().set(std::span{&pos, 1});
-      });
-
   auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
   const auto cameraDirTemplate = "Direction: {0:0.2f}x{1:0.2f}x{2:0.2f}";
@@ -500,6 +554,16 @@ void SimpleSVORenderer::initUI() {
       .createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f, camera.getFieldOfView(),
                                   Persistent::Yes)
       .addValueListener([this](auto value) { camera.setFieldOfView(value); });
+
+  auto &debugImagesWindow = imgui->createChild<Window>("debug_images_window", "Debug images");
+  const auto extent = vkSwapChain->getExtent();
+  const auto imageWidth = 400.f;
+  const auto imageHeight = static_cast<float>(extent.height) / extent.width * imageWidth;
+  debugImagesWindow.createChild<pf::ui::ig::Image>(
+      "iter_image",
+      (ImTextureID) ImGui_ImplVulkan_AddTexture(**vkIterImageSampler, **vkIterImageView,
+                                                static_cast<VkImageLayout>(vkIterImage->getLayout())),
+      ImVec2{imageWidth, imageHeight});
 
   fpsCounter.setOnNewFrame([this, cameraPosText, cameraDirText, cameraDirTemplate, cameraPosTemplate, fpsPlot,
                             fpsMsgTemplate, fpsLabel](const FPSCounter &counter) {

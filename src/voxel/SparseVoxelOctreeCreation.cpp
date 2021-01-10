@@ -5,8 +5,10 @@
 #include "SparseVoxelOctreeCreation.h"
 #include "../../../pf_common/include/pf_common/bits.h"
 #include "SparseVoxelOctree.h"
+#include <logging/loggers.h>
 #include <magic_enum.hpp>
 #include <range/v3/action/sort.hpp>
+#include <range/v3/action/unique.hpp>
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/reverse.hpp>
@@ -19,6 +21,7 @@ namespace pf::vox {
 using namespace ranges;
 
 SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType) {
+  logdFmt("VOX", "Loading file: {}", srcFile.string());
   if (fileType == FileType::Unknown) {
     const auto detectedFileType = details::detectFileType(srcFile);
     if (!detectedFileType.has_value()) { throw LoadException("Could not detect file type for '{}'", srcFile.string()); }
@@ -35,26 +38,27 @@ SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType f
 }
 SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
   const auto bb = details::findBB(scene);
+  logdFmt("VOX", "Found BB");
   [[maybe_unused]] const auto octreeLevels = details::calcOctreeLevelCount(bb);
-
+  logdFmt("VOX", "Octree level count: {}", octreeLevels);
   auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
       | views::join | to_vector | actions::sort([](const auto &a, const auto &b) {
                   return a.position.x < b.position.x && a.position.y < b.position.y && a.position.z < b.position.z;
                 });
+  logdFmt("VOX", "Voxel count: {}", voxels.size());
 
   auto tree = Tree<details::TemporaryTreeNode>();
 
   std::ranges::for_each(
       voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
-
+  logdFmt("VOX", "Built intermediate tree");
   return rawTreeToSVO(tree);
 }
 
 namespace details {
 SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream) {
-
   const auto scene = loadVoxScene(std::move(istream));
-
+  logdFmt("VOX", "Loaded scene");
   return convertSceneToSVO(scene);
 }
 
@@ -120,10 +124,8 @@ void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t 
   auto node = &tree.getRoot();
   (*node)->idx = 0;
   (*node)->isLeaf = false;
-  std::string a = fmt::format("{}x{}x{}:", voxel.position.x, voxel.position.y, voxel.position.z);
   for (uint32_t i = 0; i < octreeLevels; ++i) {
     const auto idx = idxForLevel(voxel.position.xyz(), i, octreeLevels);
-    a += std::to_string(idx) + " ";
     auto children = node->children();
     auto childNodeIter = std::ranges::find_if(children, [idx](const auto &child) { return child->idx == idx; });
     Node<TemporaryTreeNode> *childNode;
@@ -133,11 +135,29 @@ void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t 
     } else {
       childNode = &*childNodeIter;
     }
+    (*childNode)->color = voxel.color;
     (*childNode)->debug.position = fmt::format("{}x{}x{}", voxel.position.x, voxel.position.y, voxel.position.z);
     node = childNode;
   }
   (*node)->isLeaf = true;
-  std::cout << a << std::endl;
+}
+
+std::size_t countNonLeafChildrenForNode(const Node<TemporaryTreeNode> &node) {
+  return std::ranges::count_if(node.children(), [](const auto &child) { return !child->isLeaf; });
+}
+
+auto getValidChildren(const Node<TemporaryTreeNode> &node) {
+  return node.children() | views::filter([](const auto &child) { return !child->isLeaf; })
+      | views::transform([](const auto &child) { return &child; });
+}
+
+auto getLeafChildren(const Node<TemporaryTreeNode> &node) {
+  return node.children() | views::filter([](const auto &child) { return child->isLeaf; })
+      | views::transform([](const auto &child) { return &child; });
+}
+
+auto getValidChildren(const std::vector<const Node<TemporaryTreeNode> *> &nodes) {
+  return nodes | views::transform([](const auto &node) { return getValidChildren(*node); }) | views::join;
 }
 
 ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode> &node) {
@@ -150,19 +170,6 @@ ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode> &node) {
     if (child->isLeaf) { result.childData.leafMask |= 1u << child->idx; }
   }
   return result;
-}
-
-std::size_t countNonLeafChildrenForNode(const Node<TemporaryTreeNode> &node) {
-  return std::ranges::count_if(node.children(), [](const auto &child) { return !child->isLeaf; });
-}
-
-auto getValidChildren(const Node<TemporaryTreeNode> &node) {
-  return node.children() | views::filter([](const auto &child) { return !child->isLeaf; })
-      | views::transform([](const auto &child) { return &child; });
-}
-
-auto getValidChildren(const std::vector<const Node<TemporaryTreeNode> *> &nodes) {
-  return nodes | views::transform([](const auto &node) { return getValidChildren(*node); }) | views::join;
 }
 
 std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<TemporaryTreeNode> *> &nodes,
@@ -198,20 +205,69 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
   return result;
 }
 
-bool isNodeFilled(const Node<TemporaryTreeNode> &node) {
-  if (node->isLeaf) {
-    return true;
+AttachmentLookupEntry attLookupEntryForNode(const Node<TemporaryTreeNode> &node) {
+  auto result = AttachmentLookupEntry();
+  result.mask = 0;
+  result.valuePointer = 0;
+  for (const auto &child : node.children()) {
+    if (child->isLeaf) { result.mask |= 1u << child->idx; }
   }
+  return result;
+}
+
+PhongAttachment attachmentForNode(const Node<TemporaryTreeNode> &node) {
+  constexpr auto COLOR_MULTIPLIER = 255.f;
+  return PhongAttachment{.color = {.alpha = static_cast<uint8_t>(node->color.a * COLOR_MULTIPLIER),
+                                   .blue = static_cast<uint8_t>(node->color.b * COLOR_MULTIPLIER),
+                                   .green = static_cast<uint8_t>(node->color.g * COLOR_MULTIPLIER),
+                                   .red = static_cast<uint8_t>(node->color.r * COLOR_MULTIPLIER)}};
+}
+std::pair<AttachmentLookupEntry, std::vector<PhongAttachment>> attDataForNode(const Node<TemporaryTreeNode> &node) {
+  auto lookupEntry = attLookupEntryForNode(node);
+  auto attachments =
+      getLeafChildren(node) | views::transform([](const auto &child) { return attachmentForNode(*child); }) | to_vector;
+  return {lookupEntry, attachments};
+}
+
+std::pair<std::vector<AttachmentLookupEntry>, std::vector<PhongAttachment>>
+buildAttLookupEntriesWithAttachments(const std::vector<const Node<TemporaryTreeNode> *> &nodes, uint32_t &attOffset) {
+  auto resultLookups = std::vector<AttachmentLookupEntry>();
+  auto resultAttachments = std::vector<PhongAttachment>();
+  for (const auto &node : nodes) {
+    auto [lookupEntry, attachments] = attDataForNode(*node);
+    if (!attachments.empty()) {
+      lookupEntry.valuePointer = attOffset;
+      attOffset += attachments.size();
+      std::ranges::copy(attachments, std::back_inserter(resultAttachments));
+    }
+    resultLookups.emplace_back(lookupEntry);
+  }
+
+  auto validChildren = getValidChildren(nodes) | to_vector;
+  if (!validChildren.empty()) {
+    const auto [lookupEntries, attachments] = buildAttLookupEntriesWithAttachments(validChildren, attOffset);
+    std::ranges::copy(lookupEntries, std::back_inserter(resultLookups));
+    std::ranges::copy(attachments, std::back_inserter(resultAttachments));
+  }
+  return {resultLookups, resultAttachments};
+}
+
+bool isNodeFilled(const Node<TemporaryTreeNode> &node) {
+  if (node->isLeaf) { return true; }
   return node.childrenSize() == 8 && std::ranges::all_of(node.children(), isNodeFilled);
 }
 
 void setFilledNodesToLeaf(Node<TemporaryTreeNode> &node) {
-  if (node->isLeaf) {
-    return;
-  }
+  if (node->isLeaf) { return; }
   if (isNodeFilled(node)) {
-    node.clearChildren();
-    node->isLeaf = true;
+    auto children = node.children();
+    const auto colorOfFirstChild = children[0]->color;
+    if (std::ranges::all_of(children,
+                            [colorOfFirstChild](const auto &child) { return child->color == colorOfFirstChild; })) {
+      node.clearChildren();
+      node->isLeaf = true;
+      node->color = colorOfFirstChild;
+    }
   } else {
     std::ranges::for_each(node.children(), setFilledNodesToLeaf);
   }
@@ -219,12 +275,18 @@ void setFilledNodesToLeaf(Node<TemporaryTreeNode> &node) {
 
 SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
   if (!tree.hasRoot()) { return SparseVoxelOctree(); }
-  tree_traversal::depthFirst(tree, [](Node<TemporaryTreeNode> &node) { node.sortChildren(std::less<>()); });
+  std::ranges::for_each(tree.iterNodesBreadthFirst(), [](auto &node) { node.sortChildren(std::less<>()); });
+  logdFmt("VOX", "Sorted child nodes");
 #if MINIMISE_TREE == 1
   std::ranges::for_each(tree.getRoot().children(), setFilledNodesToLeaf);
+  logdFmt("VOX", "Minimised tree, remaining leaf voxels: {}",
+          std::ranges::count_if(tree.iterBreadthFirst(), [](const auto &record) { return record.isLeaf; }));
 #endif
   // TODO:
   auto childDescriptors = std::vector<ChildDescriptor>();
+
+  auto attLookups = std::vector<AttachmentLookupEntry>();
+  auto attachments = std::vector<PhongAttachment>();
 
   const auto &root = tree.getRoot();
 
@@ -234,26 +296,41 @@ SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
 
   childDescriptors.emplace_back(rootDescriptor);
 
+  const auto [rootLookup, rootAttachments] = attDataForNode(root);
+  uint32_t attOffset = rootAttachments.size();
+  attLookups.emplace_back(rootLookup);
+  std::ranges::copy(rootAttachments, std::back_inserter(attachments));
+
   if (!root->isLeaf) {
     const auto validChildren = getValidChildren(root) | to_vector;
     const auto descriptors = buildDescriptors(validChildren, childPointer);
     childDescriptors.resize(childDescriptors.size() + descriptors.size());
     std::ranges::copy(descriptors, childDescriptors.begin() + 1);
+
+    const auto [childLookups, childAttachments] = buildAttLookupEntriesWithAttachments(validChildren, attOffset);
+    std::ranges::copy(childLookups, std::back_inserter(attLookups));
+    std::ranges::copy(childAttachments, std::back_inserter(attachments));
   }
+
+  logdFmt("VOX", "Assembling SVO");
+
+  auto blockAttachments = Attachments();
+  blockAttachments.lookupEntries = attLookups;
+  blockAttachments.attachments = attachments;
 
   auto page = Page();
   page.childDescriptors = std::move(childDescriptors);
-  page.header.infoSectionPointer = 0;
+  page.header.infoSectionPointer = page.childDescriptors.size() * 2;
+  page.header.attachmentsPointer = page.childDescriptors.size() * 2 + blockAttachments.lookupEntries.size();
   page.farPointers = {};
 
   auto block = Block();
   block.pages = {std::move(page)};
-  block.contourData = {};
-  block.infoSection = {};
+  block.infoSection.attachments = blockAttachments;
 
+  logdFmt("VOX", "SVO build done");
   return SparseVoxelOctree({std::move(block)});
 }
-
 std::strong_ordering TemporaryTreeNode::operator<=>(const TemporaryTreeNode &rhs) const {
   if (idx < rhs.idx) { return std::strong_ordering::less; }
   if (idx == rhs.idx) { return std::strong_ordering::equal; }
