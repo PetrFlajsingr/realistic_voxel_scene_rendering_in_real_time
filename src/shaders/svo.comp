@@ -506,13 +506,13 @@ TraceResult trace(Ray ray) {
 
 
 vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
+    const vec3 LAmbient = light.ambientColor.xyz;
     if (isInShadow) {
-        return traceResult.color * 0.01;
+        return traceResult.color * LAmbient;
     }
     const vec3 pos = traceResult.pos;
     const vec3 normal = traceResult.normal;
     const float NoL = max(dot(normal, -lightDir), 0.0);
-    const vec3 LAmbient = light.ambientColor.xyz;
     const vec3 LDirectional = light.diffuseColor.xyz * NoL;
     const vec3 diffuse = (LDirectional + LAmbient);
     const float specular = dot(normalize(light.pos.xyz - pos), reflect(normalize(pos - camera.pos.xyz), normal));
@@ -535,10 +535,11 @@ void main() {
     float count = 0;
     vec3 finalColor = vec3(0);
     vec3 iterColor = vec3(0);
-    const int AA_size = 1;
+    const int AA_size = 5;
     Ray ray;
-    for (float aaY = 0.0; aaY < AA_size; aaY++) {
-        for (float aaX = 0.0; aaX < AA_size; aaX++) {
+    const int aaKernelSize = AA_size / 2;
+    for (float aaY = -aaKernelSize; aaY <= aaKernelSize; aaY++) {
+        for (float aaX = -aaKernelSize; aaX <= aaKernelSize; aaX++) {
             vec2 uv = normalizeScreenCoords(vec2(idx, idy) + vec2(aaX, aaY) / AA_size, vec2(dimensions));
             ray.origin = camera.pos.xyz;
             ray.direction = getCameraRayDir(uv, ray.origin, camera.dir.xyz);
