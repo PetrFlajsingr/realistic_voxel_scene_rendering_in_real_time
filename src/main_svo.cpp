@@ -1,12 +1,16 @@
 //
 // Created by petr on 1/2/21.
 //
+#include "logging/loggers.h"
 #include <pf_common/concepts/Serializable.h>
 #include <range/v3/view/transform.hpp>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
 int main([[maybe_unused]] int argc, char **argv) {
   assert(argc > 1);
+  const auto loggerSettings =
+      GlobalLoggerSettings{.verbose = true, .console = true, .debug = true, .logDir = std::filesystem::current_path()};
+  pf::initGlobalLogger(loggerSettings);
   auto tree = pf::vox::loadFileAsSVO(fmt::format("/home/petr/Desktop/magica_voxel/vox/{}.vox", argv[1]));
 
   //  fmt::print(tree.getBlocks()[0].pages[0].toString());

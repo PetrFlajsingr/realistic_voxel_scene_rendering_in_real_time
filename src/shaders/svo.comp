@@ -403,8 +403,9 @@ TraceResult trace(Ray ray) {
 
 
                 //color = lut[ofs] * 0.5 + 0.3;
-                nodeOffset = ptr + ofs;
-                parent = int(nodeOffset * 2);
+                uint offsetFromParent = ptr + ofs;
+                nodeOffset = parent / 2 + offsetFromParent;
+                parent = parent + int(offsetFromParent * 2);
 
 
                 // Select child voxel that the ray enters first.

@@ -172,32 +172,30 @@ ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode> &node) {
   return result;
 }
 
-std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<TemporaryTreeNode> *> &nodes,
-                                              uint32_t &childPointer) {
+std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<TemporaryTreeNode> *> &nodes) {
   auto result = nodes | views::transform([](const auto &node) { return childDescriptorForNode(*node); }) | to_vector;
 
   auto nodesWithDescriptors = views::zip(nodes, result);
 
   auto iter = nodesWithDescriptors.begin();
   const auto end = nodesWithDescriptors.end();
-  auto tmpChildPointer = uint32_t();
   if (iter != end) {
-    childPointer += std::distance(iter, end);
+    auto offset = std::distance(iter, end);
     const auto &[child, descriptor] = *iter;
-    descriptor.childData.childPointer = childPointer;
+    descriptor.childData.childPointer = offset;
     ++iter;
-    tmpChildPointer = childPointer;
     for (; iter != end; ++iter) {
+      --offset;
       const auto &[previousChild, _] = *(iter - 1);
       const auto &[child, descriptor] = *iter;
-      childPointer += countNonLeafChildrenForNode(*previousChild);
-      descriptor.childData.childPointer = childPointer;
+      offset += countNonLeafChildrenForNode(*previousChild);
+      assert(offset < 32768);
+      descriptor.childData.childPointer = offset;
     }
   }
   auto validChildren = getValidChildren(nodes) | to_vector;
   if (!validChildren.empty()) {
-    childPointer = tmpChildPointer;
-    const auto descriptors = buildDescriptors(validChildren, childPointer);
+    const auto descriptors = buildDescriptors(validChildren);
     const auto originalResultSize = result.size();
     result.resize(originalResultSize + descriptors.size());
     std::ranges::copy(descriptors, result.begin() + originalResultSize);
@@ -289,10 +287,8 @@ SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
   auto attachments = std::vector<PhongAttachment>();
 
   const auto &root = tree.getRoot();
-
   auto rootDescriptor = childDescriptorForNode(root);
-  auto childPointer = 1u;
-  rootDescriptor.childData.childPointer = childPointer;
+  rootDescriptor.childData.childPointer = 1u;
 
   childDescriptors.emplace_back(rootDescriptor);
 
@@ -303,7 +299,7 @@ SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
 
   if (!root->isLeaf) {
     const auto validChildren = getValidChildren(root) | to_vector;
-    const auto descriptors = buildDescriptors(validChildren, childPointer);
+    const auto descriptors = buildDescriptors(validChildren);
     childDescriptors.resize(childDescriptors.size() + descriptors.size());
     std::ranges::copy(descriptors, childDescriptors.begin() + 1);
 

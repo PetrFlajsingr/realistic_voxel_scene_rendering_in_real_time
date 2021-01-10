@@ -233,6 +233,8 @@ set(INCLUDES
 
 set(SVO_SOURCES
         src/main_svo.cpp
+        src/logging/loggers.cpp
+        src/logging/CallbackSink.cpp
         src/voxel/Model.cpp
         src/voxel/ModelLoading.cpp
         src/voxel/Scene.cpp
