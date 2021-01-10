@@ -414,46 +414,54 @@ void SimpleSVORenderer::initUI() {
           "view_choice", "View type", "Select view type",
           std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"},
           Persistent::Yes)
-      .addValueListener([this](const auto &viewType) {
-        auto viewTypeIdx = 0;
-        if (viewType == "Color") {
-          viewTypeIdx = 0;
-        } else if (viewType == "Normals") {
-          viewTypeIdx = 1;
-        } else if (viewType == "Iterations") {
-          viewTypeIdx = 2;
-        } else if (viewType == "Distance") {
-          viewTypeIdx = 3;
-        } else if (viewType == "Child index") {
-          viewTypeIdx = 4;
-        } else if (viewType == "Tree level") {
-          viewTypeIdx = 5;
-        }
-        debugUniformBuffer->mapping().set(viewTypeIdx);
-      });
+      .addValueListener(
+          [this](const auto &viewType) {
+            auto viewTypeIdx = 0;
+            if (viewType == "Color") {
+              viewTypeIdx = 0;
+            } else if (viewType == "Normals") {
+              viewTypeIdx = 1;
+            } else if (viewType == "Iterations") {
+              viewTypeIdx = 2;
+            } else if (viewType == "Distance") {
+              viewTypeIdx = 3;
+            } else if (viewType == "Child index") {
+              viewTypeIdx = 4;
+            } else if (viewType == "Tree level") {
+              viewTypeIdx = 5;
+            }
+            debugUniformBuffer->mapping().set(viewTypeIdx);
+          },
+          true);
   auto &lightGroup = renderSettingsWindow.createChild<Group>("light_group", "Lighting");
   lightGroup
       .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -100, 100, glm::vec3{0, -2, 0},
                                       Persistent::Yes)
-      .addValueListener([&](const auto &pos) { lightUniformBuffer->mapping().set(pos); });
+      .addValueListener([&](const auto &pos) { lightUniformBuffer->mapping().set(pos); }, true);
   lightGroup.createChild<Checkbox>("check_shadows", "Enable shadows", Persistent::Yes, false)
-      .addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); });
+      .addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); }, true);
 
   auto &phongParams = lightGroup.createChild<Group>("phong_params_group", "Phong parameters");
   auto &ambientSlider = phongParams.createChild<Slider<glm::vec3>>("slider_light_ambient", "Ambient", 0, 1,
                                                                    glm::vec3{0.1f}, Persistent::Yes);
-  ambientSlider.addValueListener([&](const auto &ambientColor) {
-    lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
-  });
+  ambientSlider.addValueListener(
+      [&](const auto &ambientColor) {
+        lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
+      },
+      true);
   phongParams.createChild<Slider<glm::vec3>>("slider_light_diffuse", "Diffuse", 0, 1, glm::vec3{0.6f}, Persistent::Yes)
-      .addValueListener([&](const auto &diffuseColor) {
-        lightUniformBuffer->mapping().set(glm::vec4{diffuseColor, 1}, 2);
-      });
+      .addValueListener(
+          [&](const auto &diffuseColor) {
+            lightUniformBuffer->mapping().set(glm::vec4{diffuseColor, 1}, 2);
+          },
+          true);
   phongParams
       .createChild<Slider<glm::vec3>>("slider_light_specular", "Specular", 0, 1, glm::vec3{0.9f}, Persistent::Yes)
-      .addValueListener([&](const auto &specularColor) {
-        lightUniformBuffer->mapping().set(glm::vec4{specularColor, 1}, 3);
-      });
+      .addValueListener(
+          [&](const auto &specularColor) {
+            lightUniformBuffer->mapping().set(glm::vec4{specularColor, 1}, 3);
+          },
+          true);
 
   auto &modelsGroup = renderSettingsWindow.createChild<Group>("models_group", "Models");
 
@@ -495,7 +503,7 @@ void SimpleSVORenderer::initUI() {
 
   auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
   debugWindow.createChild<Input<int>>("debug_val_inpug", "Shader debug value", -100000, 100000, Persistent::Yes, 0)
-      .addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); });
+      .addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); }, true);
 
   auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
   auto &logTab = debugWindowTabs.addTab("log_tab", "Log");
@@ -535,7 +543,7 @@ void SimpleSVORenderer::initUI() {
   infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] { fpsCounter.reset(); });
 
   infoWindow.createChild<Checkbox>("vsync_chckbx", "Enable vsync", Persistent::Yes, true)
-      .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); });
+      .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); }, true);
 
   auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
@@ -545,15 +553,15 @@ void SimpleSVORenderer::initUI() {
   cameraGroup
       .createChild<Slider<float>>("cameraMoveSpeedSlider", "Movement speed", 0.1f, 50.f, camera.getMovementSpeed(),
                                   Persistent::Yes)
-      .addValueListener([this](auto value) { camera.setMovementSpeed(value); });
+      .addValueListener([this](auto value) { camera.setMovementSpeed(value); }, true);
   cameraGroup
       .createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f, camera.getMouseSpeed(),
                                   Persistent::Yes)
-      .addValueListener([this](auto value) { camera.setMouseSpeed(value); });
+      .addValueListener([this](auto value) { camera.setMouseSpeed(value); }, true);
   cameraGroup
       .createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f, camera.getFieldOfView(),
                                   Persistent::Yes)
-      .addValueListener([this](auto value) { camera.setFieldOfView(value); });
+      .addValueListener([this](auto value) { camera.setFieldOfView(value); }, true);
 
   auto &debugImagesWindow = imgui->createChild<Window>("debug_images_window", "Debug images");
   const auto extent = vkSwapChain->getExtent();
