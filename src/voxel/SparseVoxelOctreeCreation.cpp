@@ -189,7 +189,9 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
       const auto &[previousChild, _] = *(iter - 1);
       const auto &[child, descriptor] = *iter;
       offset += countNonLeafChildrenForNode(*previousChild);
-      assert(offset < 32768);
+      if (offset > 32767) {
+        throw StackTraceException("Far pointers not yet implemented");
+      }
       descriptor.childData.childPointer = offset;
     }
   }
