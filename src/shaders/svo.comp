@@ -510,6 +510,7 @@ vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
     if (isInShadow) {
         return traceResult.color * LAmbient;
     }
+
     const vec3 pos = traceResult.pos;
     const vec3 normal = traceResult.normal;
     const float NoL = max(dot(normal, -lightDir), 0.0);
@@ -535,7 +536,7 @@ void main() {
     float count = 0;
     vec3 finalColor = vec3(0);
     vec3 iterColor = vec3(0);
-    const int AA_size = 5;
+    const int AA_size = 3;
     Ray ray;
     const int aaKernelSize = AA_size / 2;
     for (float aaY = -aaKernelSize; aaY <= aaKernelSize; aaY++) {
