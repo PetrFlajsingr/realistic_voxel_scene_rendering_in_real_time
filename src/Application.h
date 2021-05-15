@@ -40,7 +40,7 @@ class Application {
   void init_window() {
     log(spdlog::level::info, APP_TAG, "Initialising window.");
     if (auto init_res = window->init(); init_res.has_value()) {
-      throw StackTraceException::fmt("Window creation failed: {}", init_res.value());
+      throw StackTraceException("Window creation failed: {}", init_res.value());
     }
     logFmt(spdlog::level::info, APP_TAG, "Window initialised\n{}", *window);
     renderer.init(*window);

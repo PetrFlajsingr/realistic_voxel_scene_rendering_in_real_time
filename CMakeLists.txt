@@ -3,8 +3,9 @@ include("cmake/HunterGate.cmake")
 include(FetchContent)
 
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_SOURCE_DIR}/cmake/CPM.cmake")
-set(CPM_DOWNLOAD_VERSION 0.27.4)
+set(CPM_DOWNLOAD_VERSION 0.28.1)
 
+message(https://github.com/TheLartians/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake)
 if (NOT (EXISTS ${CPM_DOWNLOAD_LOCATION} AND CPM_VERSION STREQUAL CPM_DOWNLOAD_VERSION))
     message(STATUS "Downloading CPM.cmake")
     file(DOWNLOAD https://github.com/TheLartians/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake ${CPM_DOWNLOAD_LOCATION})
@@ -41,14 +42,20 @@ add_compile_definitions(
         GLM_ENABLE_EXPERIMENTAL
         GLM_FORCE_SWIZZLE
         STB_IMAGE_IMPLEMENTATION
-        STACKTRACE_VULKAN_REPORT
         VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+        PF_ENUM_OUT
 )
 
 include_directories(include)
 
+option(ENABLE_STACKTRACE "enable stacktrace in exceptions" OFF)
+if (ENABLE_STACKTRACE)
+    add_compile_definitions(STACKTRACE_ENABLE
+            STACKTRACE_VULKAN_REPORT)
+endif ()
+
 set(CMAKE_CXX_STANDARD 20)
-list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-Werror=return-type" "-fcoroutines"
+list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-fcoroutines" "-Werror=return-type"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
         "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits" "-Wno-strict-aliasing" "-g")
 
@@ -118,7 +125,6 @@ CPMAddPackage(
         GITHUB_REPOSITORY Neargye/magic_enum
         GIT_TAG v0.6.6
 )
-
 CPMAddPackage(
         NAME nanobench
         GITHUB_REPOSITORY martinus/nanobench
@@ -135,28 +141,41 @@ CPMAddPackage(
         GIT_TAG v2.1
 )
 CPMAddPackage(
-        NAME toml++
-        GITHUB_REPOSITORY marzer/tomlplusplus
-        GIT_TAG v2.2.0
-)
-include_directories(${toml++_SOURCE_DIR}/include)
-CPMAddPackage(
         NAME chaiscript
         GITHUB_REPOSITORY ChaiScript/ChaiScript
         GIT_TAG v6.1.0
 )
 
 
-CPMAddPackage(
-        NAME pf_common
-        GITHUB_REPOSITORY PetrFlajsingr/pf_common
-        GIT_TAG master
-)
-CPMAddPackage(
-        NAME pf_imgui
-        GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
-        GIT_TAG master
-)
+if (ENABLE_STACKTRACE)
+    CPMAddPackage(
+            NAME pf_common
+            GITHUB_REPOSITORY PetrFlajsingr/pf_common
+            GIT_TAG v1.0.6
+            OPTIONS "ENABLE_STACKTRACE ON"
+    )
+else ()
+    CPMAddPackage(
+            NAME pf_common
+            GITHUB_REPOSITORY PetrFlajsingr/pf_common
+            GIT_TAG v1.0.6
+    )
+endif ()
+if (ENABLE_STACKTRACE)
+    CPMAddPackage(
+            NAME pf_imgui
+            GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
+            GIT_TAG master
+            OPTIONS "ENABLE_STACKTRACE ON"
+    )
+else ()
+    CPMAddPackage(
+            NAME pf_imgui
+            GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
+            GIT_TAG master
+    )
+endif ()
+
 
 CPMAddPackage(
         NAME pf_glfw_vulkan
@@ -177,9 +196,9 @@ set(SOURCES
         src/args/ValidPathCheckAction.cpp
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
-        src/rendering/TriangleRenderer.cpp
-        src/rendering/RTSimpleRenderer.cpp
-        src/rendering/NaiveVoxelRenderer.cpp
+        #src/rendering/TriangleRenderer.cpp
+        #src/rendering/RTSimpleRenderer.cpp
+        #src/rendering/NaiveVoxelRenderer.cpp
         src/rendering/SimpleSVORenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
@@ -205,8 +224,8 @@ set(INCLUDES
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
         src/rendering/TriangleRenderer.h
-        src/rendering/RTSimpleRenderer.h
-        src/rendering/NaiveVoxelRenderer.h
+        #src/rendering/RTSimpleRenderer.h
+        #src/rendering/NaiveVoxelRenderer.h
         src/rendering/VulkanDebugCallbackImpl.h
         src/rendering/SimpleSVORenderer.h
         src/concepts/Renderer.h
@@ -251,22 +270,30 @@ endif ()
 
 add_executable(realistic_voxel_rendering ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
+        ${LASAN}
         -lbfd -ldl
         magic_enum nanobench subprocess argparse chaiscript
         pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
         shaderc glslang
-        ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES} ${LASAN})
-add_backward(realistic_voxel_rendering)
+        ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
+if (ENABLE_STACKTRACE)
+    add_backward(realistic_voxel_rendering)
+endif ()
+
 
 target_compile_options(realistic_voxel_rendering PRIVATE ${flags})
 
 add_executable(svo ${SVO_SOURCES})
 target_link_libraries(svo
+        ${LASAN}
         -lbfd -ldl
-        magic_enum
+        magic_enum nanobench
         pf_common::pf_common
-        ${GLM_LIBRARIES} ${LASAN})
-add_backward(svo)
+        ${GLM_LIBRARIES})
+if (ENABLE_STACKTRACE)
+    add_backward(svo)
+endif ()
+
 
 target_compile_options(svo PRIVATE ${flags})
 

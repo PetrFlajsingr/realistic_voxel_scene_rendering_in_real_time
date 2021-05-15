@@ -347,7 +347,7 @@ void NaiveVoxelRenderer::initUI() {
 
   setDarkStyle(*imgui);
 
-  auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
+  auto &debugWindow = imgui->createWindow("debug_window", "Debug");
 
   auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
   auto &chaiTab = debugWindowTabs.addTab("chai_tab", "ChaiScript");
@@ -359,7 +359,7 @@ void NaiveVoxelRenderer::initUI() {
   addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true);
 
   auto &chaiInputPanel =
-      chaiTab.createChild<Panel>("chai_input_panel", "Input", PanelLayout::Horizontal, ImVec2{0, 50});
+      chaiTab.createChild<BoxLayout>("chai_input_panel", LayoutDirection::LeftToRight, ImVec2{0, 50});
 
   chaiInputPanel.createChild<Text>("chain_input_label", "Input:");
   auto &chaiInput = chaiInputPanel.createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
@@ -377,7 +377,7 @@ void NaiveVoxelRenderer::initUI() {
 
   chai->add(chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }), "log");
 
-  auto &infoWindow = imgui->createChild<Window>("infoWindow", "Stats");
+  auto &infoWindow = imgui->createWindow("infoWindow", "Stats");
 
   auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram, std::vector<float>{},
                                                      std::nullopt, 200, 0, 60, ImVec2{0, 50});
@@ -433,7 +433,5 @@ NaiveVoxelRenderer::~NaiveVoxelRenderer() {
   imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }
-void NaiveVoxelRenderer::stop() {
-
-}
+void NaiveVoxelRenderer::stop() {}
 }// namespace pf

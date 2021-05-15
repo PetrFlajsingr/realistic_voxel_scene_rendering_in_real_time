@@ -3,14 +3,42 @@
 //
 #include "logging/loggers.h"
 #include <pf_common/concepts/Serializable.h>
+#include <pf_common/files.h>
 #include <range/v3/view/transform.hpp>
+#include <range/v3/view/join.hpp>
 #include <voxel/SparseVoxelOctreeCreation.h>
+#define ANKERL_NANOBENCH_IMPLEMENT
+#include <nanobench.h>
+
+using namespace pf;
+using namespace ranges;
+using namespace std::string_literals;
+
 
 int main([[maybe_unused]] int argc, char **argv) {
   assert(argc > 1);
   const auto loggerSettings =
       GlobalLoggerSettings{.verbose = true, .console = true, .debug = true, .logDir = std::filesystem::current_path()};
   pf::initGlobalLogger(loggerSettings);
+
+  const auto files = filesInFolder("/home/petr/Desktop/test_voxels") | actions::sort;
+
+  auto bench = ankerl::nanobench::Bench();
+  bench.title("Voxel loading").warmup(0).relative(true);
+  bench.performanceCounters(true);
+
+
+  std::ranges::for_each(files, [&](const auto &file) {
+    const auto scene = vox::loadScene(file);
+    const auto voxelCnt =
+        (scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
+         | views::join | to_vector)
+            .size();
+    bench.run("Voxels: "s + std::to_string(voxelCnt) + " file: " + file.string(), [&] { ankerl::nanobench::doNotOptimizeAway(vox::convertSceneToSVO(scene)); });
+  });
+
+  return 0;
+
   auto tree = pf::vox::loadFileAsSVO(fmt::format("/home/petr/Desktop/magica_voxel/vox/{}.vox", argv[1]));
 
   //  fmt::print(tree.getBlocks()[0].pages[0].toString());

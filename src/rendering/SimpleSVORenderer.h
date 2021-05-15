@@ -12,6 +12,7 @@
 #include <chaiscript/chaiscript.hpp>
 #include <pf_glfw_vulkan/concepts/Window.h>
 #include <pf_glfw_vulkan/lib_config.h>
+#include <pf_glfw_vulkan/ui/events/common.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view/map.hpp>
 #include <toml++/toml.h>
@@ -82,6 +83,16 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
         config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
     imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
                                                       window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
+    window.addKeyListener(events::KeyEventType::Pressed, [&](const events::KeyEvent &event) {
+      if (event.key == 'H') {
+        switch (imgui->getVisibility()) {
+          case ui::ig::Visibility::Visible: imgui->setVisibility(ui::ig::Visibility::Invisible); break;
+          case ui::ig::Visibility::Invisible: imgui->setVisibility(ui::ig::Visibility::Visible); break;
+        }
+        return true;
+      }
+      return false;
+    });
 
     camera.setScreenWidth(window.getResolution().width);
     camera.setScreenHeight(window.getResolution().height);
@@ -174,7 +185,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::Image> vkRenderImage;
   std::shared_ptr<vulkan::ImageView> vkRenderImageView;
-   std::shared_ptr<vulkan::Image> vkIterImage;
+  std::shared_ptr<vulkan::Image> vkIterImage;
   std::shared_ptr<vulkan::ImageView> vkIterImageView;
   std::shared_ptr<vulkan::TextureSampler> vkIterImageSampler;
 
@@ -193,6 +204,9 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
 
   std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
+
+  ui::ig::Text *timeOutput;
+  std::chrono::microseconds average = std::chrono::microseconds(0);
 
   FPSCounter fpsCounter;
 

@@ -12,7 +12,7 @@
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <pf_glfw_vulkan/vulkan/types/fwd.h>
 #include <pf_imgui/ImGuiInterface.h>
-#include <pf_imgui/elements/FileDialog.h>
+#include <pf_imgui/dialogs/FileDialog.h>
 #include <vulkan/vulkan.hpp>
 
 namespace pf::ui::ig {

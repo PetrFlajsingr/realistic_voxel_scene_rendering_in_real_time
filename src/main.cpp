@@ -10,7 +10,6 @@
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
 #include <pf_common/RAII.h>
-
 // TODO: change include guards
 
 argparse::ArgumentParser createArgumentParser() {
@@ -55,7 +54,7 @@ int main(int argc, char *argv[]) {
   }
 
   auto configPath = argumentParser.get<std::filesystem::path>("--config");
-  try {
+  //try {
     auto config = toml::parse_file(configPath.string());
     auto saveConfigRAII = pf::RAII([&] {
       saveConfig(configPath, config);
@@ -81,15 +80,15 @@ int main(int argc, char *argv[]) {
       app.run();
     }
 
-  } catch (const std::exception &exception) {
-    pf::log(spdlog::level::critical, MAIN_TAG, "Application crash:");
-    pf::log(spdlog::level::critical, MAIN_TAG, exception.what());
-    throw;
-    //return -1;
-  } catch (...) {
-    pf::log(spdlog::level::critical, MAIN_TAG, "Unknown application crash.");
-    throw;
-    //return -1;
-  }
+  //} catch (const std::exception &exception) {
+  //  //pf::log(spdlog::level::critical, MAIN_TAG, "Application crash:");
+  //  //pf::log(spdlog::level::critical, MAIN_TAG, exception.what());
+  //  throw;
+  //  //return -1;
+  //} catch (...) {
+  //  //pf::log(spdlog::level::critical, MAIN_TAG, "Unknown application crash.");
+  //  throw;
+  //  //return -1;
+  //}
   return 0;
 }

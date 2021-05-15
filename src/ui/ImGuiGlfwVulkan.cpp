@@ -7,7 +7,9 @@
 #include <imgui/imgui_impl_vulkan.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <pf_glfw_vulkan/vulkan/utils.h>
-#include <pf_imgui/elements/FileDialog.h>
+#include <pf_imgui/dialogs/FileDialog.h>
+
+#include <utility>
 
 namespace pf::ui::ig {
 
@@ -23,7 +25,7 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                                  std::shared_ptr<vulkan::RenderPass> pass, std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle, ImGuiConfigFlags flags,
                                  toml::table config)
-    : Element("imgui"), ImGuiInterface(flags, config), logicalDevice(std::move(device)), renderPass(std::move(pass)),
+    : ImGuiInterface(flags, std::move(config)), logicalDevice(std::move(device)), renderPass(std::move(pass)),
       surface(std::move(surf)), swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
@@ -100,11 +102,10 @@ void ImGuiGlfwVulkan::renderImpl() {
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
   if (hasMenuBar()) { menuBar->render(); }
-  std::ranges::for_each(getChildren(), [](auto &child) { child.get().render(); });
-  renderFileDialogs();
+  ImGuiInterface::renderImpl();
+  renderDialogs();
   ImGui::Render();
 }
-
 ImGuiGlfwVulkan::~ImGuiGlfwVulkan() {
   logicalDevice->wait();
   ImGui_ImplVulkan_Shutdown();

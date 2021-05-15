@@ -13,9 +13,9 @@
 #pragma GCC diagnostic pop
 
 #include <glm/vec3.hpp>
+#include <fstream>
 
 namespace pf::vox {
-LoadException::LoadException(std::string_view message) : StackTraceException(message) {}
 
 Scene loadScene(const std::filesystem::path &srcFile, FileType fileType) {
   if (fileType == FileType::Unknown) {

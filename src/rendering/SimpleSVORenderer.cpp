@@ -5,16 +5,21 @@
 #include "SimpleSVORenderer.h"
 #include "../../../pf_common/include/pf_common/files.h"
 #include "logging/loggers.h"
+#include <experimental/array>
 #include <fmt/chrono.h>
 #include <pf_common/ByteLiterals.h>
 #include <pf_imgui/elements.h>
 #include <pf_imgui/styles/dark.h>
+#include <pf_imgui/unique_id.h>
+#include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
 namespace pf {
 using namespace vulkan;
 using namespace pf::byte_literals;
+
+enum class ViewType : int { Color = 0, Normals, Iterations, Distance, ChildIndex, TreeLevel };
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
@@ -34,6 +39,8 @@ void SimpleSVORenderer::render() {
     vox::copySvoToBuffer(*svo, svoBuffer->mapping());
     logd(APP_TAG, "Copied svo to buffer");
   }
+
+  auto begin = std::chrono::steady_clock::now();
 
   vkSwapChain->swap();
 
@@ -73,6 +80,12 @@ void SimpleSVORenderer::render() {
       {.waitSemaphores = {*renderSemaphores[frameIndex]}, .presentQueue = vkLogicalDevice->getPresentQueue()});
 
   vkSwapChain->frameDone();
+  auto end = std::chrono::steady_clock::now();
+  average += std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
+  average /= 2;
+
+  timeOutput->setText(std::to_string(average.count()));
+
   fpsCounter.onFrame();
 }
 
@@ -402,73 +415,105 @@ void SimpleSVORenderer::createSemaphores() {
   std::ranges::generate_n(std::back_inserter(renderSemaphores), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createSemaphore(); });
 }
+
 void SimpleSVORenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
-
+  using namespace pf::enum_operators;
   setDarkStyle(*imgui);
 
-  auto &renderSettingsWindow = imgui->createChild<Window>("render_sett_window", "Render settings");
-  renderSettingsWindow
-      .createChild<ComboBox>(
-          "view_choice", "View type", "Select view type",
-          std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"},
-          Persistent::Yes)
-      .addValueListener(
-          [this](const auto &viewType) {
-            auto viewTypeIdx = 0;
-            if (viewType == "Color") {
-              viewTypeIdx = 0;
-            } else if (viewType == "Normals") {
-              viewTypeIdx = 1;
-            } else if (viewType == "Iterations") {
-              viewTypeIdx = 2;
-            } else if (viewType == "Distance") {
-              viewTypeIdx = 3;
-            } else if (viewType == "Child index") {
-              viewTypeIdx = 4;
-            } else if (viewType == "Tree level") {
-              viewTypeIdx = 5;
-            }
-            debugUniformBuffer->mapping().set(viewTypeIdx);
-          },
-          true);
-  auto &lightGroup = renderSettingsWindow.createChild<Group>("light_group", "Lighting");
-  lightGroup
-      .createChild<Slider<glm::vec3>>("slider_lightpos", "Light position", -100, 100, glm::vec3{0, -2, 0},
-                                      Persistent::Yes)
-      .addValueListener([&](const auto &pos) { lightUniformBuffer->mapping().set(pos); }, true);
-  lightGroup.createChild<Checkbox>("check_shadows", "Enable shadows", Persistent::Yes, false)
-      .addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); }, true);
+  auto &renderSettingsWindow = imgui->createWindow("render_sett_window", "Render settings");
+  auto &tata = renderSettingsWindow.createChild<WidthDecorator<Slider<int>>>(uniqueId(), 10, "testerino", 0, 100);
+  auto &bbi = renderSettingsWindow.createChild<Button>(uniqueId(), "jaja", ButtonType::Normal, Repeatable::Yes);
+  bbi.addClickListener([&] {
+    tata.setWidth(tata.getWidth() + 1);
+  });
+  renderSettingsWindow.createChild<Slider<int>>(uniqueId(), "w", -100, 100).addValueListener([&] (auto val) {
+    auto newSize = bbi.getSize();
+    newSize.x = val;
+    bbi.setSize(newSize);
+  });
+  renderSettingsWindow.createChild<Slider<int>>(uniqueId(), "h", -100, 100).addValueListener([&] (auto val) {
+    auto newSize = bbi.getSize();
+    newSize.y = val;
+    bbi.setSize(newSize);
+  });
 
-  auto &phongParams = lightGroup.createChild<Group>("phong_params_group", "Phong parameters");
-  auto &ambientSlider = phongParams.createChild<Slider<glm::vec3>>("slider_light_ambient", "Ambient", 0, 1,
-                                                                   glm::vec3{0.1f}, Persistent::Yes);
-  ambientSlider.addValueListener(
+  auto &viewTypeCB = renderSettingsWindow.createChild<ComboBox<ViewType>>(
+      "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,
+      Persistent::Yes);
+  viewTypeCB.addValueListener(
+      [this](const auto &viewType) {
+        const auto viewTypeIdx = static_cast<int>(viewType);
+        debugUniformBuffer->mapping().set(viewTypeIdx);
+      },
+      true);
+  viewTypeCB.setTooltip("Render type for debug");
+
+  renderSettingsWindow.createChild<Text>("lighting_header", "Lighting:");
+  auto &lightLayout = renderSettingsWindow.createChild<BoxLayout>("lighting", LayoutDirection::TopToBottom,
+                                                                  ImVec2(0, 180), ShowBorder::Yes);
+  auto &lightPosSlider = renderSettingsWindow.createChild<Slider3D<float>>(
+      "slider_lightpos", "Light position", glm::vec2{-100, 100}, glm::vec2{-100, 100}, glm::vec2{-100, 100},
+      glm::vec3{}, 0.5f, Persistent::Yes);
+  lightPosSlider.addValueListener(
+      [&](auto pos) {
+        pos.y *= -1;
+        lightUniformBuffer->mapping().set(pos);
+      },
+      true);
+  lightPosSlider.setTooltip("Position of light point in the scene");
+  auto &shadowsChB =
+      lightLayout.createChild<Checkbox>("check_shadows", "Shadows", Checkbox::Type::Toggle, false, Persistent::Yes);
+  shadowsChB.addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); }, true);
+  shadowsChB.setTooltip("Enable/disable shadows");
+
+  lightLayout.createChild<Text>("phong_params_header", "Phong parameters:");
+  auto &phongParamsLayout = lightLayout.createChild<BoxLayout>("phong_params_layout", LayoutDirection::TopToBottom,
+                                                               ImVec2(0, 90), ShowBorder::Yes);
+  phongParamsLayout.setCollapsible(true);
+  auto &ambientPicker = phongParamsLayout.createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>(
+      "picker_light_ambient", "Ambient", glm::vec3{0.1f}, Persistent::Yes);
+  ambientPicker.setDragAllowed(true);
+  ambientPicker.setDropAllowed(true);
+  ambientPicker.addValueListener(
       [&](const auto &ambientColor) {
         lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
       },
       true);
-  phongParams.createChild<Slider<glm::vec3>>("slider_light_diffuse", "Diffuse", 0, 1, glm::vec3{0.6f}, Persistent::Yes)
-      .addValueListener(
-          [&](const auto &diffuseColor) {
-            lightUniformBuffer->mapping().set(glm::vec4{diffuseColor, 1}, 2);
-          },
-          true);
-  phongParams
-      .createChild<Slider<glm::vec3>>("slider_light_specular", "Specular", 0, 1, glm::vec3{0.9f}, Persistent::Yes)
-      .addValueListener(
-          [&](const auto &specularColor) {
-            lightUniformBuffer->mapping().set(glm::vec4{specularColor, 1}, 3);
-          },
-          true);
+  ambientPicker.setTooltip("Color of ambient light");
 
-  auto &modelsGroup = renderSettingsWindow.createChild<Group>("models_group", "Models");
+  auto &diffusePicker = phongParamsLayout.createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>(
+      "picker_light_diffuse", "Diffuse", glm::vec3{0.6f}, Persistent::Yes);
+  diffusePicker.setDragAllowed(true);
+  diffusePicker.setDropAllowed(true);
+  diffusePicker.addValueListener(
+      [&](const auto &diffuseColor) {
+        lightUniformBuffer->mapping().set(glm::vec4{diffuseColor, 1}, 2);
+      },
+      true);
+  diffusePicker.setTooltip("Color of diffuse light");
+
+  auto &specularPicker = phongParamsLayout.createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>(
+      "picker_light_specular", "Specular", glm::vec3{0.9f}, Persistent::Yes);
+  specularPicker.setDragAllowed(true);
+  specularPicker.setDropAllowed(true);
+  specularPicker.addValueListener(
+      [&](const auto &specularColor) {
+        lightUniformBuffer->mapping().set(glm::vec4{specularColor, 1}, 3);
+      },
+      true);
+  specularPicker.setTooltip("Color of specular light");
+
+  renderSettingsWindow.createChild<Text>("models_header", "Models:");
+  auto &modelsLayout = renderSettingsWindow.createChild<BoxLayout>("models_layout", LayoutDirection::TopToBottom,
+                                                                   ImVec2{0, 100}, ShowBorder::Yes);
 
   const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
   const auto modelFileNames = loadModelFileNames(modelsPath);
 
-  modelsGroup.createChild<Button>("open_model_btn", "Open model").addClickListener([this] {
+  auto &openModelBtn = modelsLayout.createChild<Button>("open_model_btn", "Open model");
+  openModelBtn.addClickListener([this] {
     imgui->openFileDialog(
         "Select model", {FileExtensionSettings{{"vox"}, "Vox model"}},
         [this](const auto &selected) {
@@ -477,32 +522,51 @@ void SimpleSVORenderer::initUI() {
         },
         [] {});
   });
+  openModelBtn.setTooltip("Select model file via file explorer");
 
-  auto &modelCB =
-      modelsGroup.createChild<ComboBox>("models_choice", "Model", "Select model", modelFileNames, Persistent::Yes);
+  auto &modelCB = modelsLayout.createChild<ComboBox<std::string>>(
+      "models_choice", "Model", "Select model", modelFileNames, ComboBoxCount::Items8, Persistent::Yes);
   modelCB.addValueListener([modelsPath, this](const auto &modelName) {
     const auto selectedModelPath = modelsPath / modelName;
     svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
     isSceneLoaded = false;
   });
-  modelsGroup.createChild<InputText>("model_filter", "Filter").addValueListener([&modelCB](auto filterVal) {
+  modelCB.setTooltip("Models found in model folder (config file)");
+
+  auto &filterModels = modelsLayout.createChild<InputText>("model_filter", "Filter");
+  filterModels.addValueListener([&modelCB](auto filterVal) {
     modelCB.setFilter([filterVal](auto item) { return item.find(filterVal) != std::string::npos; });
   });
+  filterModels.setTooltip("Filter list of models");
 
-  modelsGroup.createChild<Button>("model_list_reload", "Reload models").addClickListener([&modelCB, modelsPath, this] {
+  auto &modelReloadBtnLayout =
+      modelsLayout.createChild<BoxLayout>("models_buttons", LayoutDirection::LeftToRight, ImVec2(0, 20));
+
+  auto &reloadModelsBtn = modelReloadBtnLayout.createChild<Button>("model_list_reload", "Reload models");
+  reloadModelsBtn.addClickListener([&modelCB, modelsPath, this] {
     const auto modelFileNames = loadModelFileNames(modelsPath);
     modelCB.setItems(modelFileNames);
   });
-  modelsGroup.createChild<Button>("model_reload", "Reload selected").addClickListener([&modelCB, modelsPath, this] {
+  reloadModelsBtn.setTooltip("Reload models from model folder (config file)");
+
+  auto &reloadSelectedBtn = modelReloadBtnLayout.createChild<Button>("model_reload", "Reload selected");
+  reloadSelectedBtn.addClickListener([&modelCB, modelsPath, this] {
     if (const auto selected = modelCB.getSelectedItem(); selected.has_value()) {
       const auto selectedModelPath = modelsPath / *modelCB.getSelectedItem();
       svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
       isSceneLoaded = false;
     }
   });
+  reloadSelectedBtn.setTooltip("Reload currently selected model");
 
-  auto &debugWindow = imgui->createChild<Window>("debug_window", "Debug");
-  debugWindow.createChild<Input<int>>("debug_val_inpug", "Shader debug value", -100000, 100000, Persistent::Yes, 0)
+  auto &debugWindow = imgui->createWindow("debug_window", "Debug");
+
+  timeOutput = &debugWindow.createChild<Text>("dasdsadasdas", "");
+  debugWindow.createChild<Button>("dasdsa", "Reset timer").addClickListener([this] {
+    average = std::chrono::microseconds(0);
+  });
+
+  debugWindow.createChild<Input<int>>("debug_val_inpug", "Shader debug value", -100000, 100000, 0, Persistent::Yes)
       .addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); }, true);
 
   auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
@@ -511,12 +575,15 @@ void SimpleSVORenderer::initUI() {
 
   auto &logMemo = logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100);
   subscriptions.emplace_back(addLogListener([&logMemo = logMemo](auto record) { logMemo.addRecord(record); }));
+  logTab.createChild<Button>(uniqueId(), "add").addClickListener([&logMemo] {
+    logMemo.addRecord("record");
+  });
   auto &logErrMemo = logTab.createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
   subscriptions.emplace_back(
       addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true));
 
   auto &chaiInputPanel =
-      chaiTab.createChild<Panel>("chai_input_panel", "Input", PanelLayout::Horizontal, ImVec2{0, 50});
+      chaiTab.createChild<BoxLayout>("chai_input_panel", LayoutDirection::LeftToRight, ImVec2{0, 120});
 
   chaiInputPanel.createChild<Text>("chain_input_label", "Input:");
   auto &chaiInput = chaiInputPanel.createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
@@ -534,18 +601,24 @@ void SimpleSVORenderer::initUI() {
 
   chai->add(chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }), "log");
 
-  auto &infoWindow = imgui->createChild<Window>("infoWindow", "Stats");
+  auto &infoWindow = imgui->createWindow("infoWindow", "Stats");
 
   auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram, std::vector<float>{},
                                                      std::nullopt, 200, 0, 60, ImVec2{0, 50});
   const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
   auto fpsLabel = &infoWindow.createChild<Text>("fpsText", "FPS");
-  infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS").addClickListener([this] { fpsCounter.reset(); });
 
-  infoWindow.createChild<Checkbox>("vsync_chckbx", "Enable vsync", Persistent::Yes, true)
-      .addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); }, true);
+  auto &fpsResetBtn = infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS");
+  fpsResetBtn.addClickListener([this] { fpsCounter.reset(); });
+  fpsResetBtn.setTooltip("Reset FPS counters");
 
-  auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera");
+  auto &vsyncChB =
+      infoWindow.createChild<Checkbox>("vsync_chckbx", "Vsync", Checkbox::Type::Toggle, true, Persistent::Yes);
+  vsyncChB.addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); }, true);
+  vsyncChB.setTooltip("Enable/disable vsync, CURRENTLY NOT WORKING");
+
+
+  auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera", Persistent::Yes, AllowCollapse::Yes);
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
   const auto cameraDirTemplate = "Direction: {0:0.2f}x{1:0.2f}x{2:0.2f}";
   auto cameraPosText = &cameraGroup.createChild<Text>("cameraPositionText", "");
@@ -563,7 +636,17 @@ void SimpleSVORenderer::initUI() {
                                   Persistent::Yes)
       .addValueListener([this](auto value) { camera.setFieldOfView(value); }, true);
 
-  auto &debugImagesWindow = imgui->createChild<Window>("debug_images_window", "Debug images");
+  auto &debugImagesWindow = imgui->createWindow("debug_images_window", "Debug images");
+  //renderSettingsWindow
+  //    .createChild<ComboBox>(
+  //        "view_choice_texture", "View type", "Select view type",
+  //        std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"},
+  //        Persistent::Yes)
+  //    .addValueListener(
+  //        [](const auto &) {
+  //          logd(MAIN_TAG, "TODO: view_choice_texture");
+  //        },
+  //        true);
   const auto extent = vkSwapChain->getExtent();
   const auto imageWidth = 400.f;
   const auto imageHeight = static_cast<float>(extent.height) / extent.width * imageWidth;

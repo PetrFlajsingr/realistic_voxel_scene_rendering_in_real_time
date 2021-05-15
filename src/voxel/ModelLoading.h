@@ -13,8 +13,7 @@ namespace pf::vox {
 
 class LoadException : public StackTraceException {
  public:
-  explicit LoadException(std::string_view message);
-  explicit LoadException(std::string_view fmt, auto &&...args) : LoadException(fmt::format(fmt, args...)) {}
+  explicit LoadException(std::string_view fmt, auto &&...args) : StackTraceException(fmt::format(fmt, args...)) {}
 };
 
 enum class FileType { Vox, Unknown };

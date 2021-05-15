@@ -1,0 +1,44 @@
+[resources]
+path_models = '/home/petr/Desktop/magica_voxel/vox'
+path_shaders = '/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders'
+
+[ui.imgui.cameraFOVSlider]
+value = 45.0
+
+[ui.imgui.cameraGroup]
+collapsed = false
+
+[ui.imgui.cameraMouseSpeedSlider]
+value = 2.5
+
+[ui.imgui.cameraMoveSpeedSlider]
+value = 2.5
+
+[ui.imgui.check_shadows]
+checked = true
+
+[ui.imgui.debug_val_inpug]
+value = 1
+
+[ui.imgui.models_choice]
+selected = 50
+
+[ui.imgui.picker_light_ambient]
+color = [ 0.1000000014901161, 0.1000000014901161, 0.1000000014901161 ]
+
+[ui.imgui.picker_light_diffuse]
+color = [ 0.6000000238418579, 0.6000000238418579, 0.6000000238418579 ]
+
+[ui.imgui.picker_light_specular]
+color = [ 0.8999999761581421, 0.8999999761581421, 0.8999999761581421 ]
+
+[ui.imgui.slider_lightpos]
+value = [ 0.0, -2.0, 0.0 ]
+
+[ui.imgui.view_choice]
+[ui.imgui.vsync_chckbx]
+checked = true
+
+[ui.window]
+height = 1200
+width = 1600

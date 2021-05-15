@@ -14,6 +14,7 @@
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
+#include <fstream>
 
 #define MINIMISE_TREE 1
 
@@ -36,6 +37,7 @@ SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType f
                           magic_enum::enum_name(fileType));
   }
 }
+
 SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
   const auto bb = details::findBB(scene);
   logdFmt("VOX", "Found BB");
@@ -93,7 +95,7 @@ uint32_t calcOctreeLevelCount(const math::BoundingBox<3> &bb) {
     const auto levelLength = std::pow(2, i);
     if (length <= levelLength) { return i; }
   }
-  throw LoadException::fmt("Octree depth higher than limit '{}'", OCTREE_DEPTH_LIMIT);
+  throw LoadException("Octree depth higher than limit '{}'", OCTREE_DEPTH_LIMIT);
 }
 
 math::BoundingBox<3> bbToOctreeBB(math::BoundingBox<3> bb, uint32_t levels) {
@@ -190,7 +192,7 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
       const auto &[child, descriptor] = *iter;
       offset += countNonLeafChildrenForNode(*previousChild);
       if (offset > 32767) {
-        throw StackTraceException("Far pointers not yet implemented");
+        //throw StackTraceException("Far pointers not yet implemented");
       }
       descriptor.childData.childPointer = offset;
     }
