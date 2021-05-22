@@ -27,12 +27,12 @@ class ImGuiGlfwVulkan : public ImGuiInterface {
 
   ~ImGuiGlfwVulkan() override;
 
+  void updateFonts() override;
  protected:
   void renderImpl() override;
 
  private:
   void setupDescriptorPool();
-  void uploadFonts();
   std::shared_ptr<vulkan::DescriptorPool> descriptorPool;
   std::shared_ptr<vulkan::LogicalDevice> logicalDevice;
   std::shared_ptr<vulkan::RenderPass> renderPass;

@@ -151,14 +151,14 @@ if (ENABLE_STACKTRACE)
     CPMAddPackage(
             NAME pf_common
             GITHUB_REPOSITORY PetrFlajsingr/pf_common
-            GIT_TAG v1.0.6
+            GIT_TAG v1.0.7
             OPTIONS "ENABLE_STACKTRACE ON"
     )
 else ()
     CPMAddPackage(
             NAME pf_common
             GITHUB_REPOSITORY PetrFlajsingr/pf_common
-            GIT_TAG v1.0.6
+            GIT_TAG v1.0.7
     )
 endif ()
 if (ENABLE_STACKTRACE)
@@ -203,6 +203,7 @@ set(SOURCES
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
         src/ui/ImGuiGlfwVulkan.cpp
+        src/ui/SimpleSVORenderer_UI.cpp
         include/imgui/imgui_impl_glfw.cpp
         include/imgui/imgui_impl_vulkan.cpp
         src/utils/Camera.cpp
@@ -223,6 +224,7 @@ set(INCLUDES
         src/ui/GlfwWindow.h
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
+        src/ui/SimpleSVORenderer_UI.h
         src/rendering/TriangleRenderer.h
         #src/rendering/RTSimpleRenderer.h
         #src/rendering/NaiveVoxelRenderer.h

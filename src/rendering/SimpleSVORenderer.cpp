@@ -3,23 +3,21 @@
 //
 
 #include "SimpleSVORenderer.h"
-#include "../../../pf_common/include/pf_common/files.h"
 #include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>
 #include <pf_common/ByteLiterals.h>
+#include <pf_common/files.h>
 #include <pf_imgui/elements.h>
+#include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 #include <pf_imgui/unique_id.h>
-#include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
 namespace pf {
 using namespace vulkan;
 using namespace pf::byte_literals;
-
-enum class ViewType : int { Color = 0, Normals, Iterations, Distance, ChildIndex, TreeLevel };
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
@@ -29,8 +27,8 @@ SimpleSVORenderer::~SimpleSVORenderer() {
   log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
   vkLogicalDevice->wait();
   log(spdlog::level::info, APP_TAG, "Saving UI to config");
-  imgui->updateConfig();
-  config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
+  ui->imgui->updateConfig();
+  config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
 }
 
 void SimpleSVORenderer::render() {
@@ -50,7 +48,7 @@ void SimpleSVORenderer::render() {
   fence.reset();
   vkComputeFence->reset();
 
-  imgui->render();
+  ui->imgui->render();
 
   recordCommands();
 
@@ -83,8 +81,6 @@ void SimpleSVORenderer::render() {
   auto end = std::chrono::steady_clock::now();
   average += std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
   average /= 2;
-
-  timeOutput->setText(std::to_string(average.count()));
 
   fpsCounter.onFrame();
 }
@@ -400,7 +396,7 @@ void SimpleSVORenderer::recordCommands() {
                                   .frameBuffer = *vkSwapChain->getFrameBuffers()[vkSwapChain->getCurrentImageIndex()],
                                   .clearValues = {},
                                   .extent = vkSwapChain->getExtent()});
-  imgui->addToCommandBuffer(graphRecording);
+  ui->imgui->addToCommandBuffer(graphRecording);
   graphRecording.endRenderPass();
 }
 
@@ -420,223 +416,123 @@ void SimpleSVORenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
   using namespace pf::enum_operators;
-  setDarkStyle(*imgui);
 
-  auto &renderSettingsWindow = imgui->createWindow("render_sett_window", "Render settings");
-  auto &tata = renderSettingsWindow.createChild<WidthDecorator<Slider<int>>>(uniqueId(), 10, "testerino", 0, 100);
-  auto &bbi = renderSettingsWindow.createChild<Button>(uniqueId(), "jaja", ButtonType::Normal, Repeatable::Yes);
-  bbi.addClickListener([&] {
-    tata.setWidth(tata.getWidth() + 1);
-  });
-  renderSettingsWindow.createChild<Slider<int>>(uniqueId(), "w", -100, 100).addValueListener([&] (auto val) {
-    auto newSize = bbi.getSize();
-    newSize.x = val;
-    bbi.setSize(newSize);
-  });
-  renderSettingsWindow.createChild<Slider<int>>(uniqueId(), "h", -100, 100).addValueListener([&] (auto val) {
-    auto newSize = bbi.getSize();
-    newSize.y = val;
-    bbi.setSize(newSize);
-  });
 
-  auto &viewTypeCB = renderSettingsWindow.createChild<ComboBox<ViewType>>(
-      "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,
-      Persistent::Yes);
-  viewTypeCB.addValueListener(
+  ui->viewTypeComboBox.addValueListener(
       [this](const auto &viewType) {
         const auto viewTypeIdx = static_cast<int>(viewType);
         debugUniformBuffer->mapping().set(viewTypeIdx);
       },
       true);
-  viewTypeCB.setTooltip("Render type for debug");
 
-  renderSettingsWindow.createChild<Text>("lighting_header", "Lighting:");
-  auto &lightLayout = renderSettingsWindow.createChild<BoxLayout>("lighting", LayoutDirection::TopToBottom,
-                                                                  ImVec2(0, 180), ShowBorder::Yes);
-  auto &lightPosSlider = renderSettingsWindow.createChild<Slider3D<float>>(
-      "slider_lightpos", "Light position", glm::vec2{-100, 100}, glm::vec2{-100, 100}, glm::vec2{-100, 100},
-      glm::vec3{}, 0.5f, Persistent::Yes);
-  lightPosSlider.addValueListener(
+  ui->lightPosSlider.addValueListener(
       [&](auto pos) {
         pos.y *= -1;
         lightUniformBuffer->mapping().set(pos);
       },
       true);
-  lightPosSlider.setTooltip("Position of light point in the scene");
-  auto &shadowsChB =
-      lightLayout.createChild<Checkbox>("check_shadows", "Shadows", Checkbox::Type::Toggle, false, Persistent::Yes);
-  shadowsChB.addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); }, true);
-  shadowsChB.setTooltip("Enable/disable shadows");
 
-  lightLayout.createChild<Text>("phong_params_header", "Phong parameters:");
-  auto &phongParamsLayout = lightLayout.createChild<BoxLayout>("phong_params_layout", LayoutDirection::TopToBottom,
-                                                               ImVec2(0, 90), ShowBorder::Yes);
-  phongParamsLayout.setCollapsible(true);
-  auto &ambientPicker = phongParamsLayout.createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>(
-      "picker_light_ambient", "Ambient", glm::vec3{0.1f}, Persistent::Yes);
-  ambientPicker.setDragAllowed(true);
-  ambientPicker.setDropAllowed(true);
-  ambientPicker.addValueListener(
+  ui->shadowsCheckbox.addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); },
+                                       true);
+
+  ui->ambientColPicker.addValueListener(
       [&](const auto &ambientColor) {
         lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
       },
       true);
-  ambientPicker.setTooltip("Color of ambient light");
 
-  auto &diffusePicker = phongParamsLayout.createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>(
-      "picker_light_diffuse", "Diffuse", glm::vec3{0.6f}, Persistent::Yes);
-  diffusePicker.setDragAllowed(true);
-  diffusePicker.setDropAllowed(true);
-  diffusePicker.addValueListener(
+  ui->diffuseColPicker.addValueListener(
       [&](const auto &diffuseColor) {
         lightUniformBuffer->mapping().set(glm::vec4{diffuseColor, 1}, 2);
       },
       true);
-  diffusePicker.setTooltip("Color of diffuse light");
 
-  auto &specularPicker = phongParamsLayout.createChild<ColorChooser<ColorChooserType::Edit, glm::vec3>>(
-      "picker_light_specular", "Specular", glm::vec3{0.9f}, Persistent::Yes);
-  specularPicker.setDragAllowed(true);
-  specularPicker.setDropAllowed(true);
-  specularPicker.addValueListener(
+  ui->specularColPicker.addValueListener(
       [&](const auto &specularColor) {
         lightUniformBuffer->mapping().set(glm::vec4{specularColor, 1}, 3);
       },
       true);
-  specularPicker.setTooltip("Color of specular light");
-
-  renderSettingsWindow.createChild<Text>("models_header", "Models:");
-  auto &modelsLayout = renderSettingsWindow.createChild<BoxLayout>("models_layout", LayoutDirection::TopToBottom,
-                                                                   ImVec2{0, 100}, ShowBorder::Yes);
 
   const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
   const auto modelFileNames = loadModelFileNames(modelsPath);
+  ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) {
+                           return ModelInfo{path};
+                         }));
 
-  auto &openModelBtn = modelsLayout.createChild<Button>("open_model_btn", "Open model");
-  openModelBtn.addClickListener([this] {
-    imgui->openFileDialog(
-        "Select model", {FileExtensionSettings{{"vox"}, "Vox model"}},
+  ui->openModelButton.addClickListener([this] {
+    ui->imgui->openFileDialog(
+        "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
-          svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selected[0]));
+          auto modelPath = selected[0];
+          const auto svoCreate = vox::loadFileAsSVO(modelPath);
+          ui->updateSceneInfo(modelPath.filename().string(), svoCreate.second.depth, svoCreate.second.initVoxelCount, svoCreate.second.voxelCount);
+          svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
           isSceneLoaded = false;
         },
         [] {});
   });
-  openModelBtn.setTooltip("Select model file via file explorer");
 
-  auto &modelCB = modelsLayout.createChild<ComboBox<std::string>>(
-      "models_choice", "Model", "Select model", modelFileNames, ComboBoxCount::Items8, Persistent::Yes);
-  modelCB.addValueListener([modelsPath, this](const auto &modelName) {
-    const auto selectedModelPath = modelsPath / modelName;
-    svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
+  ui->modelList.addValueListener([modelsPath, this](const auto &modelName) {
+    const auto selectedModelPath = modelsPath / modelName.path;
+    const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+    ui->updateSceneInfo(modelName.path, svoCreate.second.depth, svoCreate.second.initVoxelCount, svoCreate.second.voxelCount);
+    svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
     isSceneLoaded = false;
   });
-  modelCB.setTooltip("Models found in model folder (config file)");
 
-  auto &filterModels = modelsLayout.createChild<InputText>("model_filter", "Filter");
-  filterModels.addValueListener([&modelCB](auto filterVal) {
-    modelCB.setFilter([filterVal](auto item) { return item.find(filterVal) != std::string::npos; });
+  ui->modelsFilterInput.addValueListener([this](auto filterVal) {
+    ui->modelList.setFilter([filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
   });
-  filterModels.setTooltip("Filter list of models");
 
-  auto &modelReloadBtnLayout =
-      modelsLayout.createChild<BoxLayout>("models_buttons", LayoutDirection::LeftToRight, ImVec2(0, 20));
-
-  auto &reloadModelsBtn = modelReloadBtnLayout.createChild<Button>("model_list_reload", "Reload models");
-  reloadModelsBtn.addClickListener([&modelCB, modelsPath, this] {
+  ui->reloadModelListButton.addClickListener([modelsPath, this] {
     const auto modelFileNames = loadModelFileNames(modelsPath);
-    modelCB.setItems(modelFileNames);
+    ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
   });
-  reloadModelsBtn.setTooltip("Reload models from model folder (config file)");
 
-  auto &reloadSelectedBtn = modelReloadBtnLayout.createChild<Button>("model_reload", "Reload selected");
-  reloadSelectedBtn.addClickListener([&modelCB, modelsPath, this] {
-    if (const auto selected = modelCB.getSelectedItem(); selected.has_value()) {
-      const auto selectedModelPath = modelsPath / *modelCB.getSelectedItem();
-      svo = std::make_unique<vox::SparseVoxelOctree>(vox::loadFileAsSVO(selectedModelPath));
+  ui->reloadSelectedModelButton.addClickListener([modelsPath, this] {
+    if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
+      const auto selectedModelPath = modelsPath / item->path;
+      const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+      ui->updateSceneInfo(item->path, svoCreate.second.depth, svoCreate.second.initVoxelCount, svoCreate.second.voxelCount);
+      svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
       isSceneLoaded = false;
     }
   });
-  reloadSelectedBtn.setTooltip("Reload currently selected model");
 
-  auto &debugWindow = imgui->createWindow("debug_window", "Debug");
+  ui->shaderDebugValueInput.addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); },
+                                             true);
 
-  timeOutput = &debugWindow.createChild<Text>("dasdsadasdas", "");
-  debugWindow.createChild<Button>("dasdsa", "Reset timer").addClickListener([this] {
-    average = std::chrono::microseconds(0);
+  subscriptions.emplace_back(addLogListener([this](auto record) { ui->logMemo.addRecord(record); }));
+  subscriptions.emplace_back(addLogListener([this](auto record) { ui->logErrMemo.addRecord(record); }, true));
+
+  ui->chaiConfirmButton.addClickListener([this] {
+    const auto input = ui->chaiInputText.getText();
+    ui->chaiOutputMemo.addRecord(">>> "s + input);
+    ui->chaiInputText.clear();
+    try {
+      chai->eval(input);
+    } catch (const chaiscript::exception::eval_error &e) { ui->chaiOutputMemo.addRecord("<<< "s + e.pretty_print()); }
   });
-
-  debugWindow.createChild<Input<int>>("debug_val_inpug", "Shader debug value", -100000, 100000, 0, Persistent::Yes)
-      .addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); }, true);
-
-  auto &debugWindowTabs = debugWindow.createChild<TabBar>("debug_tabbar");
-  auto &logTab = debugWindowTabs.addTab("log_tab", "Log");
-  auto &chaiTab = debugWindowTabs.addTab("chai_tab", "ChaiScript");
-
-  auto &logMemo = logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100);
-  subscriptions.emplace_back(addLogListener([&logMemo = logMemo](auto record) { logMemo.addRecord(record); }));
-  logTab.createChild<Button>(uniqueId(), "add").addClickListener([&logMemo] {
-    logMemo.addRecord("record");
-  });
-  auto &logErrMemo = logTab.createChild<Memo>("log_err_output", "Log err:", 100, true, true, 100);
-  subscriptions.emplace_back(
-      addLogListener([&logErrMemo = logErrMemo](auto record) { logErrMemo.addRecord(record); }, true));
-
-  auto &chaiInputPanel =
-      chaiTab.createChild<BoxLayout>("chai_input_panel", LayoutDirection::LeftToRight, ImVec2{0, 120});
-
-  chaiInputPanel.createChild<Text>("chain_input_label", "Input:");
-  auto &chaiInput = chaiInputPanel.createChild<InputText>("chai_input", "", "", TextInputType::MultiLine);
-  auto &chai_output = chaiTab.createChild<Memo>("chai_output", "Output:", 100, true, true, 100);
-
-  chaiInputPanel.createChild<Button>("chain_input_confirm", "Confirm")
-      .addClickListener([&chaiInput = chaiInput, &chai_output = chai_output, this] {
-        const auto input = chaiInput.getText();
-        chai_output.addRecord(">>> "s + input);
-        chaiInput.clear();
-        try {
-          chai->eval(input);
-        } catch (const chaiscript::exception::eval_error &e) { chai_output.addRecord("<<< "s + e.pretty_print()); }
-      });
 
   chai->add(chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }), "log");
 
-  auto &infoWindow = imgui->createWindow("infoWindow", "Stats");
-
-  auto fpsPlot = &infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Histogram, std::vector<float>{},
-                                                     std::nullopt, 200, 0, 60, ImVec2{0, 50});
   const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
-  auto fpsLabel = &infoWindow.createChild<Text>("fpsText", "FPS");
 
-  auto &fpsResetBtn = infoWindow.createChild<Button>("fpsResetBtn", "Reset FPS");
-  fpsResetBtn.addClickListener([this] { fpsCounter.reset(); });
-  fpsResetBtn.setTooltip("Reset FPS counters");
+  ui->resetFpsButton.addClickListener([this] {
+    fpsCounter.reset();
+    ui->fpsPlot.clear();
+  });
 
-  auto &vsyncChB =
-      infoWindow.createChild<Checkbox>("vsync_chckbx", "Vsync", Checkbox::Type::Toggle, true, Persistent::Yes);
-  vsyncChB.addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); }, true);
-  vsyncChB.setTooltip("Enable/disable vsync, CURRENTLY NOT WORKING");
+  ui->vsyncCheckbox.addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); }, true);
 
-
-  auto &cameraGroup = infoWindow.createChild<Group>("cameraGroup", "Camera", Persistent::Yes, AllowCollapse::Yes);
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
   const auto cameraDirTemplate = "Direction: {0:0.2f}x{1:0.2f}x{2:0.2f}";
-  auto cameraPosText = &cameraGroup.createChild<Text>("cameraPositionText", "");
-  auto cameraDirText = &cameraGroup.createChild<Text>("cameraDirText", "");
-  cameraGroup
-      .createChild<Slider<float>>("cameraMoveSpeedSlider", "Movement speed", 0.1f, 50.f, camera.getMovementSpeed(),
-                                  Persistent::Yes)
-      .addValueListener([this](auto value) { camera.setMovementSpeed(value); }, true);
-  cameraGroup
-      .createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f, camera.getMouseSpeed(),
-                                  Persistent::Yes)
-      .addValueListener([this](auto value) { camera.setMouseSpeed(value); }, true);
-  cameraGroup
-      .createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f, camera.getFieldOfView(),
-                                  Persistent::Yes)
-      .addValueListener([this](auto value) { camera.setFieldOfView(value); }, true);
 
-  auto &debugImagesWindow = imgui->createWindow("debug_images_window", "Debug images");
+  ui->cameraMoveSpeedSlider.addValueListener([this](auto value) { camera.setMovementSpeed(value); }, true);
+  ui->cameraMouseSpeedSlider.addValueListener([this](auto value) { camera.setMouseSpeed(value); }, true);
+  ui->cameraFOVSlider.addValueListener([this](auto value) { camera.setFieldOfView(value); }, true);
+
+  //auto &debugImagesWindow = imgui->createWindow("debug_images_window", "Debug images");
   //renderSettingsWindow
   //    .createChild<ComboBox>(
   //        "view_choice_texture", "View type", "Select view type",
@@ -647,27 +543,19 @@ void SimpleSVORenderer::initUI() {
   //          logd(MAIN_TAG, "TODO: view_choice_texture");
   //        },
   //        true);
-  const auto extent = vkSwapChain->getExtent();
-  const auto imageWidth = 400.f;
-  const auto imageHeight = static_cast<float>(extent.height) / extent.width * imageWidth;
-  debugImagesWindow.createChild<pf::ui::ig::Image>(
-      "iter_image",
-      (ImTextureID) ImGui_ImplVulkan_AddTexture(**vkIterImageSampler, **vkIterImageView,
-                                                static_cast<VkImageLayout>(vkIterImage->getLayout())),
-      ImVec2{imageWidth, imageHeight});
 
-  fpsCounter.setOnNewFrame([this, cameraPosText, cameraDirText, cameraDirTemplate, cameraPosTemplate, fpsPlot,
-                            fpsMsgTemplate, fpsLabel](const FPSCounter &counter) {
-    fpsPlot->addValue(counter.currentFPS());
-    fpsLabel->setText(fmt::format(fpsMsgTemplate, counter.currentFPS(), counter.averageFPS()));
+  fpsCounter.setOnNewFrame([this, cameraDirTemplate, cameraPosTemplate, fpsMsgTemplate](const FPSCounter &counter) {
+    ui->fpsPlot.addValue(counter.currentFPS());
+    ui->fpsLabel.setText(fmt::format(fpsMsgTemplate, counter.currentFPS(), counter.averageFPS()));
     const auto camPos = camera.getPosition();
-    cameraPosText->setText(fmt::format(cameraPosTemplate, camPos.x, camPos.y, camPos.z));
+    ui->cameraPosText.setText(fmt::format(cameraPosTemplate, camPos.x, camPos.y, camPos.z));
     const auto camDir = camera.getFront();
-    cameraDirText->setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
+    ui->cameraDirText.setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
   });
 
-  imgui->setStateFromConfig();
+  ui->imgui->setStateFromConfig();
 }
+
 std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
   return potentialModelFiles | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })

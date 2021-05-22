@@ -5,6 +5,7 @@
 #include "SparseVoxelOctreeCreation.h"
 #include "../../../pf_common/include/pf_common/bits.h"
 #include "SparseVoxelOctree.h"
+#include <fstream>
 #include <logging/loggers.h>
 #include <magic_enum.hpp>
 #include <range/v3/action/sort.hpp>
@@ -14,14 +15,13 @@
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
-#include <fstream>
 
 #define MINIMISE_TREE 1
 
 namespace pf::vox {
 using namespace ranges;
 
-SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType) {
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType) {
   logdFmt("VOX", "Loading file: {}", srcFile.string());
   if (fileType == FileType::Unknown) {
     const auto detectedFileType = details::detectFileType(srcFile);
@@ -38,7 +38,7 @@ SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType f
   }
 }
 
-SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> convertSceneToSVO(const Scene &scene) {
   const auto bb = details::findBB(scene);
   logdFmt("VOX", "Found BB");
   [[maybe_unused]] const auto octreeLevels = details::calcOctreeLevelCount(bb);
@@ -54,11 +54,14 @@ SparseVoxelOctree convertSceneToSVO(const Scene &scene) {
   std::ranges::for_each(
       voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
   logdFmt("VOX", "Built intermediate tree");
-  return rawTreeToSVO(tree);
+  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0};
+  auto resultTree = rawTreeToSVO(tree);
+  createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
+  return {resultTree.first, createInfo};
 }
 
 namespace details {
-SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream) {
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istream) {
   const auto scene = loadVoxScene(std::move(istream));
   logdFmt("VOX", "Loaded scene");
   return convertSceneToSVO(scene);
@@ -275,14 +278,17 @@ void setFilledNodesToLeaf(Node<TemporaryTreeNode> &node) {
   }
 }
 
-SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
-  if (!tree.hasRoot()) { return SparseVoxelOctree(); }
+std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
+  if (!tree.hasRoot()) { return {SparseVoxelOctree(), 0}; }
   std::ranges::for_each(tree.iterNodesBreadthFirst(), [](auto &node) { node.sortChildren(std::less<>()); });
   logdFmt("VOX", "Sorted child nodes");
+  auto minimisedCount = 0;
 #if MINIMISE_TREE == 1
   std::ranges::for_each(tree.getRoot().children(), setFilledNodesToLeaf);
-  logdFmt("VOX", "Minimised tree, remaining leaf voxels: {}",
-          std::ranges::count_if(tree.iterBreadthFirst(), [](const auto &record) { return record.isLeaf; }));
+  const auto leafCount =
+      std::ranges::count_if(tree.iterBreadthFirst(), [](const auto &record) { return record.isLeaf; });
+  minimisedCount = leafCount;
+  logdFmt("VOX", "Minimised tree, remaining leaf voxels: {}", leafCount);
 #endif
   // TODO:
   auto childDescriptors = std::vector<ChildDescriptor>();
@@ -329,7 +335,7 @@ SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
   block.infoSection.attachments = blockAttachments;
 
   logdFmt("VOX", "SVO build done");
-  return SparseVoxelOctree({std::move(block)});
+  return {SparseVoxelOctree({std::move(block)}), minimisedCount};
 }
 std::strong_ordering TemporaryTreeNode::operator<=>(const TemporaryTreeNode &rhs) const {
   if (idx < rhs.idx) { return std::strong_ordering::less; }

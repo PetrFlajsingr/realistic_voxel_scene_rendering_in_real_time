@@ -16,6 +16,7 @@
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view/map.hpp>
 #include <toml++/toml.h>
+#include <ui/SimpleSVORenderer_UI.h>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
 #include <voxel/SparseVoxelOctree.h>
@@ -81,13 +82,13 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
     auto imguiConfig =
         config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
-    imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
-                                                      window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
-    window.addKeyListener(events::KeyEventType::Pressed, [&](const events::KeyEvent &event) {
+    auto imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                                           window.getHandle(), ImGuiConfigFlags{}, imguiConfig);
+    window.addKeyListener(events::KeyEventType::Pressed, [this](const events::KeyEvent &event) {
       if (event.key == 'H') {
-        switch (imgui->getVisibility()) {
-          case ui::ig::Visibility::Visible: imgui->setVisibility(ui::ig::Visibility::Invisible); break;
-          case ui::ig::Visibility::Invisible: imgui->setVisibility(ui::ig::Visibility::Visible); break;
+        switch (ui->imgui->getVisibility()) {
+          case ui::ig::Visibility::Visible: ui->imgui->setVisibility(ui::ig::Visibility::Invisible); break;
+          case ui::ig::Visibility::Invisible: ui->imgui->setVisibility(ui::ig::Visibility::Visible); break;
         }
         return true;
       }
@@ -96,8 +97,12 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
     camera.setScreenWidth(window.getResolution().width);
     camera.setScreenHeight(window.getResolution().height);
-    window.setInputIgnorePredicate([this] { return imgui->isWindowHovered() || imgui->isKeyboardCaptured(); });
+    window.setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
     camera.registerControls(window);
+
+    ui = std::make_unique<SimpleSVORenderer_UI>(std::move(imgui), camera,
+                                                TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler});
+
     initUI();
     window.setMainLoopCallback([&] { render(); });
   }
@@ -203,9 +208,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Fence> vkComputeFence;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
 
-  std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
+  std::unique_ptr<SimpleSVORenderer_UI> ui;
 
-  ui::ig::Text *timeOutput;
   std::chrono::microseconds average = std::chrono::microseconds(0);
 
   FPSCounter fpsCounter;

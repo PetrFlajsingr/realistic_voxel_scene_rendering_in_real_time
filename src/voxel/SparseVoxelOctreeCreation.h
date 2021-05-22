@@ -16,9 +16,15 @@ namespace pf::vox {
 
 constexpr auto OCTREE_DEPTH_LIMIT = 64;
 
-SparseVoxelOctree loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType = FileType::Unknown);
+struct SparseVoxelOctreeCreateInfo {
+  uint32_t depth;
+  uint32_t initVoxelCount;
+  uint32_t voxelCount;
+};
 
-SparseVoxelOctree convertSceneToSVO(const Scene &scene);
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType = FileType::Unknown);
+
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> convertSceneToSVO(const Scene &scene);
 
 namespace details {
 struct TemporaryTreeNode {
@@ -32,7 +38,7 @@ struct TemporaryTreeNode {
   std::strong_ordering operator<=>(const TemporaryTreeNode &rhs) const;
 };
 
-SparseVoxelOctree loadVoxFileAsSVO(std::ifstream &&istream);
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istream);
 
 math::BoundingBox<3> findBB(const Scene &scene);
 
@@ -42,7 +48,7 @@ uint32_t calcOctreeLevelCount(const math::BoundingBox<3> &bb);
 
 void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const Voxel &voxel, uint32_t octreeLevels);
 
-SparseVoxelOctree rawTreeToSVO(Tree<TemporaryTreeNode> &tree);
+std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tree);
 }// namespace details
 
 }// namespace pf::vox

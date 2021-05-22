@@ -47,7 +47,7 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
   init_info.CheckVkResultFn = details::checkVkResult;
   ImGui_ImplVulkan_Init(&init_info, **renderPass);
 
-  uploadFonts();
+  updateFonts();
 
   swapChain->addRebuildListener([&] { ImGui_ImplVulkan_SetMinImageCount(swapChain->getImageViews().size()); });
 }
@@ -71,7 +71,7 @@ void ImGuiGlfwVulkan::setupDescriptorPool() {
   descriptorPool = logicalDevice->createDescriptorPool(std::move(descPoolConfig));
 }
 
-void ImGuiGlfwVulkan::uploadFonts() {
+void ImGuiGlfwVulkan::updateFonts() {
   auto commandPoolConfig = vulkan::CommandPoolConfig();
   commandPoolConfig.queueFamily = vk::QueueFlagBits::eGraphics;
   auto commandPool = logicalDevice->createCommandPool(std::move(commandPoolConfig));
