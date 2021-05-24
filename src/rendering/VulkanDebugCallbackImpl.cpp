@@ -30,13 +30,13 @@ bool VulkanDebugCallbackImpl::debugCallback(const pf::vulkan::DebugCallbackData 
   const auto messageToPrint = makeValidationMessageReadable(data.message, 125);
 #ifdef STACKTRACE_VULKAN_REPORT
   if (log_level == spdlog::level::err) {
-    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}, stacktrace:\n{}", messageToPrint, data.messageId,
-           stacktraceSrc);
+    log(log_level, VK_TAG, "Validation layer: {} message id: {}, stacktrace:\n{}", messageToPrint, data.messageId,
+        stacktraceSrc);
   } else {
-    logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", messageToPrint, data.messageId);
+    log(log_level, VK_TAG, "Validation layer: {} message id: {}", messageToPrint, data.messageId);
   }
 #else
-  logFmt(log_level, VK_TAG, "Validation layer: {} message id: {}", messageToPrint, data.messageId);
+  log(log_level, VK_TAG, "Validation layer: {} message id: {}", messageToPrint, data.messageId);
 #endif
   return false;
 }

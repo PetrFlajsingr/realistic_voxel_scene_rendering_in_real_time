@@ -16,9 +16,8 @@ using namespace ranges;
 
 std::string ChildDescriptor::toString() const {
   const auto uintChildData = *reinterpret_cast<const uint32_t *>(&childData);
-  return fmt::format(
-      "Child data: (raw){:32b}, valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}",
-      uintChildData, uintChildData >> 8 & 0xFF, uintChildData & 0xFF, childData.childPointer);
+  return fmt::format("Child data: (raw){:32b}, valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", uintChildData,
+                     uintChildData >> 8 & 0xFF, uintChildData & 0xFF, childData.childPointer);
 }
 
 std::string ChildDescriptor::stringDraw() const {

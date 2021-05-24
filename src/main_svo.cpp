@@ -4,8 +4,8 @@
 #include "logging/loggers.h"
 #include <pf_common/concepts/Serializable.h>
 #include <pf_common/files.h>
-#include <range/v3/view/transform.hpp>
 #include <range/v3/view/join.hpp>
+#include <range/v3/view/transform.hpp>
 #include <voxel/SparseVoxelOctreeCreation.h>
 #define ANKERL_NANOBENCH_IMPLEMENT
 #include <nanobench.h>
@@ -13,7 +13,6 @@
 using namespace pf;
 using namespace ranges;
 using namespace std::string_literals;
-
 
 int main([[maybe_unused]] int argc, char **argv) {
   assert(argc > 1);
@@ -27,14 +26,14 @@ int main([[maybe_unused]] int argc, char **argv) {
   bench.title("Voxel loading").warmup(0).relative(true);
   bench.performanceCounters(true);
 
-
   std::ranges::for_each(files, [&](const auto &file) {
     const auto scene = vox::loadScene(file);
     const auto voxelCnt =
         (scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
          | views::join | to_vector)
             .size();
-    bench.run("Voxels: "s + std::to_string(voxelCnt) + " file: " + file.string(), [&] { ankerl::nanobench::doNotOptimizeAway(vox::convertSceneToSVO(scene)); });
+    bench.run("Voxels: "s + std::to_string(voxelCnt) + " file: " + file.string(),
+              [&] { ankerl::nanobench::doNotOptimizeAway(vox::convertSceneToSVO(scene)); });
   });
 
   return 0;

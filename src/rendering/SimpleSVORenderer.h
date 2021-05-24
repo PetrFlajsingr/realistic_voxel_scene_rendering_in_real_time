@@ -37,6 +37,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   template<pf::ui::Window Window>
   void init(Window &window) {
+    closeWindow = [&window] { window.close(); };
     camera.setSwapLeftRight(true);
     pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
@@ -45,40 +46,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
     createSurface(window);
     createDevices();
 
-    createSwapchain(window);
-    createRenderTextures();
-    createDescriptorPool();
-    createPipeline();
-
-    createCommands();
-    createFences();
-    createSemaphores();
-
-    // clang-format off
-    vkRenderPass = vulkan::RenderPassBuilder(vkLogicalDevice)
-        .attachment("color")
-        .format(vkSwapChain->getFormat())
-        .samples(vk::SampleCountFlagBits::e1)
-        .loadOp(vk::AttachmentLoadOp::eDontCare)
-        .storeOp(vk::AttachmentStoreOp::eStore)
-        .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .initialLayout(vk::ImageLayout::eUndefined)
-        .finalLayout(vk::ImageLayout::ePresentSrcKHR)
-        .attachmentDone()
-        .subpass("main")
-        .pipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-        .colorAttachment("color")
-        .dependency()
-        .srcSubpass()
-        .dstSubpass("main")
-        .srcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-        .dstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-        .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
-        .dependencyDone()
-        .subpassDone()
-        .build();
-    // clang-format on
+    buildVulkanObjects(window);
 
     auto imguiConfig =
         config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
@@ -114,6 +82,44 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   static std::unordered_set<std::string> getValidationLayers() {
     return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
   }
+  template<pf::ui::Window Window>
+  void buildVulkanObjects(Window &window) {
+    createSwapchain(window);
+    createRenderTextures();
+    createDescriptorPool();
+    createPipeline();
+
+    createCommands();
+    createFences();
+    createSemaphores();
+
+    // clang-format off
+    vkRenderPass = vulkan::RenderPassBuilder(vkLogicalDevice)
+        .attachment("color")
+        .format(vkSwapChain->getFormat())
+        .samples(vk::SampleCountFlagBits::e1)
+        .loadOp(vk::AttachmentLoadOp::eDontCare)
+        .storeOp(vk::AttachmentStoreOp::eStore)
+        .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+        .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+        .initialLayout(vk::ImageLayout::eUndefined)
+        .finalLayout(vk::ImageLayout::ePresentSrcKHR)
+        .attachmentDone()
+        .subpass("main")
+        .pipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+        .colorAttachment("color")
+        .dependency()
+        .srcSubpass()
+        .dstSubpass("main")
+        .srcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+        .dstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+        .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
+        .dependencyDone()
+        .subpassDone()
+        .build();
+    // clang-format on
+  }
+
   template<pf::ui::Window Window>
   void createInstance(Window &window) {
     using namespace vulkan;
@@ -151,7 +157,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
     vkSwapChain = vkLogicalDevice->createSwapChain(
         vkSurface,
         {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
-         .presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+         //.presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+         .presentModes = {vk::PresentModeKHR::eImmediate},
          .resolution = {window.getResolution().width, window.getResolution().height},
          .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst
              | vk::ImageUsageFlagBits::eColorAttachment,
@@ -210,8 +217,6 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::unique_ptr<SimpleSVORenderer_UI> ui;
 
-  std::chrono::microseconds average = std::chrono::microseconds(0);
-
   FPSCounter fpsCounter;
 
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
@@ -221,6 +226,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   bool isSceneLoaded = true;
 
   std::vector<Subscription> subscriptions;
+
+  std::function<void()> closeWindow;
 };
 
 }// namespace pf

@@ -12,6 +12,7 @@
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 #include <pf_imgui/unique_id.h>
+#include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
@@ -32,14 +33,17 @@ SimpleSVORenderer::~SimpleSVORenderer() {
 }
 
 void SimpleSVORenderer::render() {
+  auto sampler = FlameGraphSampler{};
+  auto mainSample = sampler.blockSampler("render loop");
+  auto sceneLoadSample = mainSample.blockSampler("svo loading");
   if (!isSceneLoaded) {
     isSceneLoaded = true;
     vox::copySvoToBuffer(*svo, svoBuffer->mapping());
     logd(APP_TAG, "Copied svo to buffer");
   }
+  sceneLoadSample.end();
 
-  auto begin = std::chrono::steady_clock::now();
-
+  auto swapSample = mainSample.blockSampler("swap");
   vkSwapChain->swap();
 
   auto &semaphore = vkSwapChain->getCurrentSemaphore();
@@ -47,11 +51,16 @@ void SimpleSVORenderer::render() {
 
   fence.reset();
   vkComputeFence->reset();
+  swapSample.end();
+
+  auto imguiSample = mainSample.blockSampler("imgui");
 
   ui->imgui->render();
+  imguiSample.end();
 
+  auto commandRecordSample = mainSample.blockSampler("commandRecord");
   recordCommands();
-
+  commandRecordSample.end();
   {
     auto cameraMapping = cameraUniformBuffer->mapping();
     cameraMapping.set(std::vector{glm::vec4{camera.getPosition(), 0}, glm::vec4{camera.getFront(), 0}});
@@ -60,6 +69,7 @@ void SimpleSVORenderer::render() {
   const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
+  auto computeSample = mainSample.blockSampler("compute");
   vkCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {semaphore},
                                                 .signalSemaphores = {*computeSemaphore},
                                                 .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -67,7 +77,9 @@ void SimpleSVORenderer::render() {
                                                 .wait = true});
 
   fence.reset();
+  computeSample.end();
 
+  auto presentSample = mainSample.blockSampler("present");
   vkGraphicsCommandBuffers[commandBufferIndex]->submit({.waitSemaphores = {*computeSemaphore},
                                                         .signalSemaphores = {*renderSemaphores[frameIndex]},
                                                         .flags = vk::PipelineStageFlagBits::eColorAttachmentOutput,
@@ -76,13 +88,11 @@ void SimpleSVORenderer::render() {
 
   vkSwapChain->present(
       {.waitSemaphores = {*renderSemaphores[frameIndex]}, .presentQueue = vkLogicalDevice->getPresentQueue()});
-
+  presentSample.end();
   vkSwapChain->frameDone();
-  auto end = std::chrono::steady_clock::now();
-  average += std::chrono::duration_cast<std::chrono::microseconds>(end - begin);
-  average /= 2;
-
   fpsCounter.onFrame();
+  mainSample.end();
+  ui->flameGraph.setSamples(sampler.getSamples());
 }
 
 void SimpleSVORenderer::createDevices() {
@@ -417,6 +427,22 @@ void SimpleSVORenderer::initUI() {
   using namespace pf::ui::ig;
   using namespace pf::enum_operators;
 
+  auto openModelFnc = [this] {
+    ui->imgui->openFileDialog(
+        "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
+        [this](const auto &selected) {
+          auto modelPath = selected[0];
+          const auto svoCreate = vox::loadFileAsSVO(modelPath);
+          ui->updateSceneInfo(modelPath.filename().string(), svoCreate.second.depth, svoCreate.second.initVoxelCount,
+                              svoCreate.second.voxelCount);
+          svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
+          isSceneLoaded = false;
+        },
+        [] {});
+  };
+
+  ui->closeMenuItem.addClickListener(closeWindow);
+  ui->openModelMenuItem.addClickListener(openModelFnc);
 
   ui->viewTypeComboBox.addValueListener(
       [this](const auto &viewType) {
@@ -455,33 +481,22 @@ void SimpleSVORenderer::initUI() {
 
   const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
   const auto modelFileNames = loadModelFileNames(modelsPath);
-  ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) {
-                           return ModelInfo{path};
-                         }));
+  ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
 
-  ui->openModelButton.addClickListener([this] {
-    ui->imgui->openFileDialog(
-        "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
-        [this](const auto &selected) {
-          auto modelPath = selected[0];
-          const auto svoCreate = vox::loadFileAsSVO(modelPath);
-          ui->updateSceneInfo(modelPath.filename().string(), svoCreate.second.depth, svoCreate.second.initVoxelCount, svoCreate.second.voxelCount);
-          svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-          isSceneLoaded = false;
-        },
-        [] {});
-  });
+  ui->openModelButton.addClickListener(openModelFnc);
 
   ui->modelList.addValueListener([modelsPath, this](const auto &modelName) {
     const auto selectedModelPath = modelsPath / modelName.path;
     const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-    ui->updateSceneInfo(modelName.path, svoCreate.second.depth, svoCreate.second.initVoxelCount, svoCreate.second.voxelCount);
+    ui->updateSceneInfo(modelName.path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
+                        svoCreate.second.voxelCount);
     svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
     isSceneLoaded = false;
   });
 
   ui->modelsFilterInput.addValueListener([this](auto filterVal) {
-    ui->modelList.setFilter([filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
+    ui->modelList.setFilter(
+        [filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
   });
 
   ui->reloadModelListButton.addClickListener([modelsPath, this] {
@@ -493,7 +508,8 @@ void SimpleSVORenderer::initUI() {
     if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
       const auto selectedModelPath = modelsPath / item->path;
       const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-      ui->updateSceneInfo(item->path, svoCreate.second.depth, svoCreate.second.initVoxelCount, svoCreate.second.voxelCount);
+      ui->updateSceneInfo(item->path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
+                          svoCreate.second.voxelCount);
       svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
       isSceneLoaded = false;
     }
@@ -516,14 +532,15 @@ void SimpleSVORenderer::initUI() {
 
   chai->add(chaiscript::fun([](const std::string &str) { log(spdlog::level::debug, APP_TAG, str); }), "log");
 
-  const auto fpsMsgTemplate = "FPS:\nCurrent: {0:0.2f}\nAverage: {0:0.2f}";
+  const auto fpsMsgTemplate = "FPS:\nCurrent: {:0.2f}\nAverage: {:0.2f}";
 
   ui->resetFpsButton.addClickListener([this] {
     fpsCounter.reset();
-    ui->fpsPlot.clear();
+    ui->fpsCurrentPlot.clear();
+    ui->fpsAveragePlot.clear();
   });
 
-  ui->vsyncCheckbox.addValueListener([](auto enabled) { logdFmt("UI", "Vsync enabled: {}", enabled); }, true);
+  ui->vsyncCheckbox.addValueListener([](auto enabled) { logd("UI", "Vsync enabled: {}", enabled); }, true);
 
   const auto cameraPosTemplate = "Position: {0:0.2f}x{1:0.2f}x{2:0.2f}";
   const auto cameraDirTemplate = "Direction: {0:0.2f}x{1:0.2f}x{2:0.2f}";
@@ -545,7 +562,13 @@ void SimpleSVORenderer::initUI() {
   //        true);
 
   fpsCounter.setOnNewFrame([this, cameraDirTemplate, cameraPosTemplate, fpsMsgTemplate](const FPSCounter &counter) {
-    ui->fpsPlot.addValue(counter.currentFPS());
+    static auto cntSinceLast = 0;
+    if (cntSinceLast > counter.currentFPS() / 10) {
+      ui->fpsCurrentPlot.addValue(counter.currentFPS());
+      ui->fpsAveragePlot.addValue(counter.averageFPS());
+      cntSinceLast = 0;
+    }
+    ++cntSinceLast;
     ui->fpsLabel.setText(fmt::format(fpsMsgTemplate, counter.currentFPS(), counter.averageFPS()));
     const auto camPos = camera.getPosition();
     ui->cameraPosText.setText(fmt::format(cameraPosTemplate, camPos.x, camPos.y, camPos.z));

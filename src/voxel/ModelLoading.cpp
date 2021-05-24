@@ -12,8 +12,8 @@
 #include "ogt_vox.h"
 #pragma GCC diagnostic pop
 
-#include <glm/vec3.hpp>
 #include <fstream>
+#include <glm/vec3.hpp>
 
 namespace pf::vox {
 

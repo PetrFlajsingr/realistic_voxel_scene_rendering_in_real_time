@@ -10,12 +10,11 @@
 
 namespace pf {
 template<typename T, typename Window>
-concept Renderer = ui::Window<Window> &&requires(T t, Window window) {
+concept Renderer = ui::Window<Window> && requires(T t, Window window) {
   {t.init(window)};
   {t.render()};
   {t.stop()};
-}
-&&std::move_constructible<T>;
+} && std::move_constructible<T>;
 
 }// namespace pf
 #endif//VOXEL_RENDER_RENDERER_H

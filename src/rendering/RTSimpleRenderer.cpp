@@ -6,8 +6,8 @@
 #include "logging/loggers.h"
 #include <fmt/chrono.h>
 #include <pf_imgui/elements.h>
-#include <voxel/ModelLoading.h>
 #include <pf_imgui/styles/dark.h>
+#include <voxel/ModelLoading.h>
 
 struct TimeMeasure {
   TimeMeasure(std::string n) : name(n) { start = std::chrono::steady_clock::now(); }
@@ -380,8 +380,6 @@ RTSimpleRenderer::~RTSimpleRenderer() {
   imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", imgui->getConfig());
 }
-void RTSimpleRenderer::stop() {
-
-}
+void RTSimpleRenderer::stop() {}
 
 }// namespace pf

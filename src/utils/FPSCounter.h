@@ -12,6 +12,7 @@ namespace pf {
 
 class FPSCounter {
  public:
+  using Duration = std::chrono::nanoseconds;
   FPSCounter() = default;
 
   void onFrame();
@@ -21,14 +22,15 @@ class FPSCounter {
 
   [[nodiscard]] float averageFPS() const;
   [[nodiscard]] float currentFPS() const;
+  [[nodiscard]] std::size_t currentFrameNumber() const;
 
-  [[nodiscard]] std::chrono::milliseconds currentDuration() const;
-  [[nodiscard]] std::chrono::milliseconds averageDuration() const;
+  [[nodiscard]] Duration currentDuration() const;
+  [[nodiscard]] Duration averageDuration() const;
 
  private:
   std::size_t totalFrameCount = 0;
-  std::chrono::milliseconds frameDuration{};
-  std::chrono::milliseconds totalTime{};
+  Duration frameDuration{};
+  Duration totalTime{};
   std::chrono::steady_clock::time_point lastFrame = std::chrono::steady_clock::now();
 
   std::function<void(const FPSCounter &)> onNewFrame = [](auto) {};

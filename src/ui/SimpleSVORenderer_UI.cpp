@@ -3,17 +3,26 @@
 //
 
 #include "SimpleSVORenderer_UI.h"
+#include <logging/loggers.h>
 #include <pf_imgui/elements/Bullet.h>
 #include <pf_imgui/elements/Slider2D.h>
 #include <pf_imgui/styles/dark.h>
-
-#include <logging/loggers.h>
 
 namespace pf {
 using namespace ui::ig;
 SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
                                            const Camera &camera, TextureData iterTextureData)
-    : imgui(std::move(imguiInterface)),
+    : imgui(std::move(imguiInterface)), windowMenuBar(imgui->getMenuBar()),
+      fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
+      openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", "Open model")),
+      fileMenuSeparator1(fileSubMenu.addSeparator("fileMenuSeparator1")),
+      closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", "Close")),
+      viewSubMenu(windowMenuBar.addSubmenu("view_main_menu", "View")),
+      infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true)),
+      renderSettingsMenuItem(viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true)),
+      debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true)),
+      debugImagesMenuItem(viewSubMenu.addCheckboxItem("view_debug_images_menu", "Debug images", true)),
+      shaderControlsMenuItem(viewSubMenu.addCheckboxItem("view_shader_controls_menu", "Shader controls", true)),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
       viewTypeComboBox(renderSettingsWindow.createChild<ComboBox<ViewType>>(
           "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,
@@ -58,12 +67,17 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       chaiOutputMemo(chaiscriptTab.createChild<Memo>("chai_output", "Output:", 100, true, true, 100)),
       chaiConfirmButton(chaiInputLayout.createChild<Button>("chain_input_confirm", "Confirm")),
       infoWindow(imgui->createWindow("info_window", "Info")),
-      fpsPlot(infoWindow.createChild<SimplePlot>("fps_plot", "Fps", PlotType::Lines, std::vector<float>{}, std::nullopt,
-                                                 200, 0, 60, Size{Width::Auto(), 50})),
+      fpsCurrentPlot(infoWindow.createChild<SimplePlot>("fps_plot", "Fps current", PlotType::Lines,
+                                                        std::vector<float>{}, std::nullopt, 200, 0, FLT_MAX,
+                                                        Size{Width::Auto(), 30})),
+      fpsAveragePlot(infoWindow.createChild<SimplePlot>("fps_avg_plot", "Fps average", PlotType::Lines,
+                                                        std::vector<float>{}, std::nullopt, 200, 0, FLT_MAX,
+                                                        Size{Width::Auto(), 30})),
       fpsLabel(infoWindow.createChild<Text>("fps_label", "FPS")),
       resetFpsButton(infoWindow.createChild<Button>("fps_reset_button", "Reset FPS")),
       vsyncCheckbox(
           infoWindow.createChild<Checkbox>("vsync_chckbx", "Vsync", Checkbox::Type::Toggle, true, Persistent::Yes)),
+      flameGraph(infoWindow.createChild<FlameGraph>("perf_flamegraph", "Render loop", Size::Auto())),
       cameraGroup(infoWindow.createChild<Group>("camera_group", "Camera", Persistent::Yes, AllowCollapse::Yes)),
       cameraPosText(cameraGroup.createChild<Text>("camera_pos_text", "")),
       cameraDirText(cameraGroup.createChild<Text>("camera_dir_text", "")),
@@ -90,15 +104,38 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
               static_cast<VkImageLayout>(iterTextureData.vkIterImage.getLayout())),
           Size::Auto())),
       shaderControlsWindow(imgui->createWindow("shader_controls_window", "Shader controls")),
-      shaderDebugValueInput(shaderControlsWindow.createChild<DragInput<int>>("shader_int1_drag", "Shader debug val 1",
-                                                                             1, 1, 10, 1, Persistent::Yes)) {
+      shaderDebugValueInput(shaderControlsWindow.createChild<SpinInput<int>>("shader_int1_drag", "Shader debug val 1",
+                                                                             1, 8, 1, 1, 10, Persistent::Yes)) {
   setDarkStyle(*imgui);
 
+  iterationImage.setTooltip("Visualisation of ray iterations");
+
+  infoMenuItem.addValueListener(
+      [this](auto value) { infoWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  renderSettingsMenuItem.addValueListener(
+      [this](auto value) { renderSettingsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  debugMenuItem.addValueListener(
+      [this](auto value) { debugWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  debugImagesMenuItem.addValueListener(
+      [this](auto value) { debugImagesWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  shaderControlsMenuItem.addValueListener(
+      [this](auto value) { shaderControlsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+
   renderSettingsWindow.setCollapsible(true);
+  renderSettingsWindow.setCloseable(true);
+  renderSettingsWindow.addCloseListener([this] { renderSettingsMenuItem.setValue(false); });
   infoWindow.setCollapsible(true);
+  infoWindow.setCloseable(true);
+  infoWindow.addCloseListener([this] { infoMenuItem.setValue(false); });
   debugImagesWindow.setCollapsible(true);
+  debugImagesWindow.setCloseable(true);
+  debugImagesWindow.addCloseListener([this] { debugImagesMenuItem.setValue(false); });
   shaderControlsWindow.setCollapsible(true);
+  shaderControlsWindow.setCloseable(true);
+  shaderControlsWindow.addCloseListener([this] { shaderControlsMenuItem.setValue(false); });
   debugWindow.setCollapsible(true);
+  debugWindow.setCloseable(true);
+  debugWindow.addCloseListener([this] { debugMenuItem.setValue(false); });
   viewTypeComboBox.setTooltip("Render type for debug");
   lightPosSlider.setTooltip("Position of light point in the scene");
   shadowsCheckbox.setTooltip("Enable/disable shadows");
@@ -135,7 +172,6 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   chaiscriptTab.setTooltip("Chaiscript interface");
   resetFpsButton.setTooltip("Reset FPS counters");
   vsyncCheckbox.setTooltip("Enable/disable vsync, CURRENTLY NOT WORKING");
-
 }
 void SimpleSVORenderer_UI::updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount,
                                            uint32_t miniVoxelCount) {

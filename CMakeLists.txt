@@ -55,7 +55,7 @@ if (ENABLE_STACKTRACE)
 endif ()
 
 set(CMAKE_CXX_STANDARD 20)
-list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-fcoroutines" "-Werror=return-type"
+list(APPEND flags "-O3" "-fconcepts" "-fconcepts-diagnostics-depth=10" "-fcoroutines" "-Werror=return-type"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
         "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits" "-Wno-strict-aliasing" "-g")
 
@@ -74,7 +74,7 @@ elseif (CMAKE_BUILD_TYPE MATCHES Release)
     message(" ")
     message("CMAKE IN RELEASE MODE")
     message(" ")
-    list(APPEND flags "-o3")
+    list(APPEND flags "-O3")
 elseif (CMAKE_BUILD_TYPE MATCHES ASAN)
     message(" ")
     message("CMAKE IN ADDRESS SANITISE MODE")

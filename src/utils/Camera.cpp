@@ -20,6 +20,7 @@ Camera::Camera(ui::Resolution resolution, float movementSpeed, float mouseSpeed,
 
 const glm::vec3 &Camera::move(Direction direction, float deltaTime) {
   const auto velocity = movementSpeed * deltaTime;
+
   switch (direction) {
     case Direction::Forward: position += front * velocity; break;
     case Direction::Backward: position -= front * velocity; break;

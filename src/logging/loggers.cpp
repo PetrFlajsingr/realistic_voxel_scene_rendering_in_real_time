@@ -66,21 +66,11 @@ void pf::initGlobalLogger(const GlobalLoggerSettings &settings) {
   globalLogger = spdlog::get(GLOBAL_LOGGER_NAME);
 }
 
-void pf::log(spdlog::level::level_enum level, std::string_view tag, std::string_view msg) {
-  globalLogger->log(level, fmt::format(TAG_FORMAT, tag, msg));
-}
-
 void pf::logSrc(spdlog::level::level_enum level, std::string_view tag, std::string_view msg,
                 std::experimental::source_location src_loc) {
   const auto format = "[{}:{}] {}";
   log(level, tag, fmt::format(format, src_loc.file_name(), src_loc.function_name(), msg));
 }
-void pf::logt(std::string_view tag, std::string_view msg) { log(spdlog::level::trace, tag, msg); }
-void pf::logi(std::string_view tag, std::string_view msg) { log(spdlog::level::info, tag, msg); }
-void pf::logd(std::string_view tag, std::string_view msg) { log(spdlog::level::debug, tag, msg); }
-void pf::logw(std::string_view tag, std::string_view msg) { log(spdlog::level::warn, tag, msg); }
-void pf::logc(std::string_view tag, std::string_view msg) { log(spdlog::level::critical, tag, msg); }
-void pf::loge(std::string_view tag, std::string_view msg) { log(spdlog::level::err, tag, msg); }
 
 GlobalLoggerInterface::GlobalLoggerInterface(const std::string &loggerName) : ILogger(loggerName) {}
 void GlobalLoggerInterface::log(pf::LogLevel level, std::string_view tag, std::string_view msg) {

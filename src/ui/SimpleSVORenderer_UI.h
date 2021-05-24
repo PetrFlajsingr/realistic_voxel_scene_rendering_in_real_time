@@ -10,18 +10,21 @@
 #include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/ComboBox.h>
-#include <pf_imgui/elements/DragInput.h>
+#include <pf_imgui/elements/FlameGraph.h>
 #include <pf_imgui/elements/Group.h>
 #include <pf_imgui/elements/Image.h>
 #include <pf_imgui/elements/InputText.h>
 #include <pf_imgui/elements/ListBox.h>
 #include <pf_imgui/elements/Memo.h>
+#include <pf_imgui/elements/Separator.h>
 #include <pf_imgui/elements/Slider.h>
 #include <pf_imgui/elements/Slider3D.h>
+#include <pf_imgui/elements/SpinInput.h>
 #include <pf_imgui/elements/TabBar.h>
 #include <pf_imgui/elements/Text.h>
-#include <pf_imgui/elements/Separator.h>
+#include <pf_imgui/elements/plots/Plot.h>
 #include <pf_imgui/elements/plots/SimplePlot.h>
+#include <pf_imgui/elements/plots/types/Line.h>
 #include <pf_imgui/layouts/StretchLayout.h>
 #include <ui/ImGuiGlfwVulkan.h>
 #include <utils/Camera.h>
@@ -36,7 +39,6 @@ inline std::ostream &operator<<(std::ostream &o, ViewType viewType) {
   o << magic_enum::enum_name(viewType);
   return o;
 }
-
 
 // TODO: more info
 struct ModelInfo {
@@ -62,6 +64,17 @@ class SimpleSVORenderer_UI {
   std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
 
   // clang-format off
+  ui::ig::AppMenuBar &windowMenuBar;
+    ui::ig::SubMenu &fileSubMenu;
+      ui::ig::MenuButtonItem &openModelMenuItem;
+      ui::ig::MenuSeparatorItem &fileMenuSeparator1;
+      ui::ig::MenuButtonItem &closeMenuItem;
+    ui::ig::SubMenu &viewSubMenu;
+      ui::ig::MenuCheckboxItem &infoMenuItem;
+      ui::ig::MenuCheckboxItem &renderSettingsMenuItem;
+      ui::ig::MenuCheckboxItem &debugMenuItem;
+      ui::ig::MenuCheckboxItem &debugImagesMenuItem;
+      ui::ig::MenuCheckboxItem &shaderControlsMenuItem;
   ui::ig::Window &renderSettingsWindow;
     ui::ig::ComboBox<ViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;
@@ -93,10 +106,12 @@ class SimpleSVORenderer_UI {
         ui::ig::Memo &chaiOutputMemo;
         ui::ig::Button &chaiConfirmButton;
   ui::ig::Window &infoWindow;
-    ui::ig::SimplePlot &fpsPlot;
+    ui::ig::SimplePlot &fpsCurrentPlot;
+    ui::ig::SimplePlot &fpsAveragePlot;
     ui::ig::Text &fpsLabel;
     ui::ig::Button &resetFpsButton;
     ui::ig::Checkbox &vsyncCheckbox;
+    ui::ig::FlameGraph &flameGraph;
     ui::ig::Group &cameraGroup;
       ui::ig::Text &cameraPosText;
       ui::ig::Text &cameraDirText;
@@ -113,15 +128,15 @@ class SimpleSVORenderer_UI {
     ui::ig::StretchLayout &imageStretchLayout;
       ui::ig::Image &iterationImage;
   ui::ig::Window &shaderControlsWindow;
-    ui::ig::DragInput<int> &shaderDebugValueInput; // TODO
+    ui::ig::SpinInput<int> &shaderDebugValueInput; // TODO
   // clang-format on
 
-    void updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount, uint32_t miniVoxelCount);
+  void updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount, uint32_t miniVoxelCount);
 
-   private:
-    constexpr static auto SVO_HEIGHT_TEXT = "SVO height: {}";
-    constexpr static auto VOXEL_COUNT_TEXT = "Scene voxel count: {}";
-    constexpr static auto VOXEL_COUNT_MINIMIZED_TEXT = "Scene minimized voxel count: {}";
+ private:
+  constexpr static auto SVO_HEIGHT_TEXT = "SVO height: {}";
+  constexpr static auto VOXEL_COUNT_TEXT = "Scene voxel count: {}";
+  constexpr static auto VOXEL_COUNT_MINIMIZED_TEXT = "Scene minimized voxel count: {}";
 };
 
 }// namespace pf

@@ -28,6 +28,7 @@ class ImGuiGlfwVulkan : public ImGuiInterface {
   ~ImGuiGlfwVulkan() override;
 
   void updateFonts() override;
+
  protected:
   void renderImpl() override;
 

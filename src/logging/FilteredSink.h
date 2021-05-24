@@ -20,8 +20,7 @@ class FilteredSink : public Sink {
     filter = f;
   }
 
- private:
-  FilterFnc filter = [](spdlog::level::level_enum, spdlog::string_view_t) { return true; };
+ private : FilterFnc filter = [](spdlog::level::level_enum, spdlog::string_view_t) { return true; };
 };
 
 #endif//VOXEL_RENDER_FILTERED_SINK_H

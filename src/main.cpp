@@ -7,9 +7,9 @@
 #include "rendering/SimpleSVORenderer.h"
 #include "rendering/TriangleRenderer.h"
 #include <filesystem>
+#include <pf_common/RAII.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
-#include <pf_common/RAII.h>
 // TODO: change include guards
 
 argparse::ArgumentParser createArgumentParser() {
@@ -55,30 +55,28 @@ int main(int argc, char *argv[]) {
 
   auto configPath = argumentParser.get<std::filesystem::path>("--config");
   //try {
-    auto config = toml::parse_file(configPath.string());
-    auto saveConfigRAII = pf::RAII([&] {
-      saveConfig(configPath, config);
-    });
+  auto config = toml::parse_file(configPath.string());
+  auto saveConfigRAII = pf::RAII([&] { saveConfig(configPath, config); });
 
-    createLogger(argumentParser);
+  createLogger(argumentParser);
 
-    auto resolutionConfig = config["ui"]["window"];
-    const auto windowSettings =
-        ui::WindowSettings{.resolution = {static_cast<size_t>(resolutionConfig["width"].value_or(800)),
-                                          static_cast<size_t>(resolutionConfig["height"].value_or(600))},
-                           .title = "test",
-                           .mode = ui::Mode::Windowed};
+  auto resolutionConfig = config["ui"]["window"];
+  const auto windowSettings =
+      ui::WindowSettings{.resolution = {static_cast<size_t>(resolutionConfig["width"].value_or(800)),
+                                        static_cast<size_t>(resolutionConfig["height"].value_or(600))},
+                         .title = "test",
+                         .mode = ui::Mode::Windowed};
 
-    {
-      auto app = Application<ui::GlfwWindow, SimpleSVORenderer>(
-          SimpleSVORenderer(*config.as_table()),
-          application_settings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
-      //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
-      //    TriangleRenderer(*config.as_table()),
-      //    application_settings{.debug = argumentParser.get<bool>("-d"),
-      //                         .window_settings = windowSettings});
-      app.run();
-    }
+  {
+    auto app = Application<ui::GlfwWindow, SimpleSVORenderer>(
+        SimpleSVORenderer(*config.as_table()),
+        application_settings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
+    //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
+    //    TriangleRenderer(*config.as_table()),
+    //    application_settings{.debug = argumentParser.get<bool>("-d"),
+    //                         .window_settings = windowSettings});
+    app.run();
+  }
 
   //} catch (const std::exception &exception) {
   //  //pf::log(spdlog::level::critical, MAIN_TAG, "Application crash:");

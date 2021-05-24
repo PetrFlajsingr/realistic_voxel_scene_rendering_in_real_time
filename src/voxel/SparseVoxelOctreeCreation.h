@@ -22,7 +22,8 @@ struct SparseVoxelOctreeCreateInfo {
   uint32_t voxelCount;
 };
 
-std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile, FileType fileType = FileType::Unknown);
+std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile,
+                                                                        FileType fileType = FileType::Unknown);
 
 std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> convertSceneToSVO(const Scene &scene);
 
