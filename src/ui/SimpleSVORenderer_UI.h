@@ -22,6 +22,7 @@
 #include <pf_imgui/elements/SpinInput.h>
 #include <pf_imgui/elements/TabBar.h>
 #include <pf_imgui/elements/Text.h>
+#include <pf_imgui/elements/DragInput.h>
 #include <pf_imgui/elements/plots/Plot.h>
 #include <pf_imgui/elements/plots/SimplePlot.h>
 #include <pf_imgui/elements/plots/types/Line.h>
@@ -128,7 +129,13 @@ class SimpleSVORenderer_UI {
     ui::ig::StretchLayout &imageStretchLayout;
       ui::ig::Image &iterationImage;
   ui::ig::Window &shaderControlsWindow;
-    ui::ig::SpinInput<int> &shaderDebugValueInput; // TODO
+    ui::ig::SpinInput<int> &shaderDebugValueInput;
+    ui::ig::DragInput<float> &shaderDebugFloatValueSlider;
+    ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
+    ui::ig::Separator &shaderSeparator1;
+    ui::ig::DragInput<glm::vec3> &shaderDebugTranslateDrag;
+    ui::ig::DragInput<glm::vec3> &shaderDebugRotateDrag;
+    ui::ig::DragInput<glm::vec3> &shaderDebugScaleDrag;
   // clang-format on
 
   void updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount, uint32_t miniVoxelCount);

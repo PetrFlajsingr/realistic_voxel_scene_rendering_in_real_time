@@ -9,6 +9,7 @@
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
+#include <RunInfo.h>
 #include <chaiscript/chaiscript.hpp>
 #include <pf_glfw_vulkan/concepts/Window.h>
 #include <pf_glfw_vulkan/lib_config.h>
@@ -25,7 +26,6 @@ namespace pf {
 
 constexpr auto LOCAL_SIZE_X = 8;
 constexpr auto LOCAL_SIZE_Y = 8;
-
 class SimpleSVORenderer : public VulkanDebugCallbackImpl {
  public:
   explicit SimpleSVORenderer(toml::table &tomlConfig);
@@ -38,7 +38,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   template<pf::ui::Window Window>
   void init(Window &window) {
     closeWindow = [&window] { window.close(); };
-    camera.setSwapLeftRight(true);
+    camera.setSwapLeftRight(false);
     pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
     log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
 
@@ -178,6 +178,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   void initUI();
 
+  void updateTransformMatrix();
+
   std::vector<std::string> loadModelFileNames(const std::filesystem::path &dir);
 
   std::reference_wrapper<toml::table> config;
@@ -228,6 +230,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::vector<Subscription> subscriptions;
 
   std::function<void()> closeWindow;
+
+  glm::mat4 transformMatrix{1};
 };
 
 }// namespace pf

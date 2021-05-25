@@ -6,13 +6,13 @@
 #define REALISTIC_VOXEL_RENDERING_SRC_UTILS_CAMERA_H
 
 #include "common_enums.h"
-#include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 #include <pf_glfw_vulkan/concepts/Window.h>
 
 namespace pf {
 class Camera {
  public:
-  explicit Camera(ui::Resolution resolution, float movementSpeed = 2.5, float mouseSpeed = 2.5,
+  explicit Camera(ui::Resolution resolution, float near, float far, float movementSpeed = 2.5, float mouseSpeed = 2.5,
                   const glm::vec3 &position = {0, 0, 0}, const glm::vec3 &front = {0, 0, -1},
                   const glm::vec3 &up = {0, 1, 0}, float fieldOfView = 45, float yaw = -90, float pitch = 0,
                   float roll = 0);
@@ -83,11 +83,20 @@ class Camera {
   [[nodiscard]] bool isSwapLeftRight() const;
   void setSwapLeftRight(bool swap);
 
+  [[nodiscard]] glm::mat4 getViewMatrix() const;
+  [[nodiscard]] glm::mat4 getProjectionMatrix() const;
+
+  [[nodiscard]] float getNear() const;
+  [[nodiscard]] float getFar() const;
+
  private:
   void update();
 
   double screenWidth;
   double screenHeight;
+
+  float nearF;
+  float farF;
 
   float movementSpeed;
   float mouseSpeed;

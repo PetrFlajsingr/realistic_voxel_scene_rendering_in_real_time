@@ -4,15 +4,17 @@
 
 #include "Camera.h"
 #include <bits/stl_algo.h>
+#include <glm/ext/matrix_clip_space.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
 #include <pf_glfw_vulkan/concepts/Window.h>
 
 namespace pf {
 
-Camera::Camera(ui::Resolution resolution, float movementSpeed, float mouseSpeed, const glm::vec3 &position,
+Camera::Camera(ui::Resolution resolution, float near, float far, float movementSpeed, float mouseSpeed, const glm::vec3 &position,
                const glm::vec3 &front, const glm::vec3 &up, float fieldOfView, float yaw, float pitch, float roll)
-    : screenWidth(resolution.width), screenHeight(resolution.height), movementSpeed(movementSpeed),
+    : screenWidth(resolution.width), screenHeight(resolution.height), nearF(near), farF(far), movementSpeed(movementSpeed),
       mouseSpeed(mouseSpeed), position(position), front(front), up(up), fieldOfView(fieldOfView), yaw(yaw),
       pitch(pitch), roll(roll) {
   update();
@@ -24,8 +26,8 @@ const glm::vec3 &Camera::move(Direction direction, float deltaTime) {
   switch (direction) {
     case Direction::Forward: position += front * velocity; break;
     case Direction::Backward: position -= front * velocity; break;
-    case Direction::Left: position += right * velocity; break;
-    case Direction::Right: position -= right * velocity; break;
+    case Direction::Left: position -= right * velocity; break;
+    case Direction::Right: position += right * velocity; break;
   }
   return position;
 }
@@ -116,6 +118,20 @@ void Camera::update() {
   //up = glm::normalize(glm::cross(right, front));
 }
 bool Camera::isSwapLeftRight() const { return swapLeftRight; }
+
 void Camera::setSwapLeftRight(bool swap) { swapLeftRight = swap; }
+
+glm::mat4 Camera::getViewMatrix() const {
+  return glm::lookAt(position, position + front, up);
+}
+glm::mat4 Camera::getProjectionMatrix() const {
+  return glm::perspective(glm::radians(fieldOfView), static_cast<float>(screenWidth / screenHeight), nearF, farF);
+}
+float Camera::getNear() const {
+  return nearF;
+}
+float Camera::getFar() const {
+  return farF;
+}
 
 }// namespace pf

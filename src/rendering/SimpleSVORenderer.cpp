@@ -6,6 +6,8 @@
 #include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 #include <pf_common/ByteLiterals.h>
 #include <pf_common/files.h>
 #include <pf_imgui/elements.h>
@@ -21,7 +23,7 @@ using namespace vulkan;
 using namespace pf::byte_literals;
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
+    : config(tomlConfig), camera({0, 0}, 0.1f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
 
 SimpleSVORenderer::~SimpleSVORenderer() {
   if (vkLogicalDevice == nullptr) { return; }
@@ -63,7 +65,14 @@ void SimpleSVORenderer::render() {
   commandRecordSample.end();
   {
     auto cameraMapping = cameraUniformBuffer->mapping();
-    cameraMapping.set(std::vector{glm::vec4{camera.getPosition(), 0}, glm::vec4{camera.getFront(), 0}});
+    cameraMapping.set(
+        std::vector{glm::vec4{camera.getPosition(), 0}, glm::vec4{camera.getFront(), 0}, glm::vec4{camera.getUp(), 0}});
+    cameraMapping.setRawOffset(camera.getViewMatrix(), sizeof(glm::vec4) * 3);
+    cameraMapping.setRawOffset(camera.getProjectionMatrix(), sizeof(glm::vec4) * 3 + sizeof(glm::mat4));
+    const auto invProjView = glm::inverse(camera.getProjectionMatrix() * camera.getViewMatrix());
+    cameraMapping.setRawOffset(invProjView, sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 2);
+    cameraMapping.setRawOffset(camera.getNear(), sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3);
+    cameraMapping.setRawOffset(camera.getFar(), sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + sizeof(float));
   }
 
   const auto commandBufferIndex = vkSwapChain->getCurrentImageIndex();
@@ -214,10 +223,11 @@ void SimpleSVORenderer::createPipeline() {
   allocInfo.descriptorPool = **vkDescPool;
   computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
 
-  cameraUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(float) * 8,
-                                                       .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                       .sharingMode = vk::SharingMode::eExclusive,
-                                                       .queueFamilyIndices = {}});
+  cameraUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + 2 * sizeof(float),
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
 
   lightUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 4,
                                                       .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
@@ -230,10 +240,11 @@ void SimpleSVORenderer::createPipeline() {
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
 
-  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3,
-                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                      .sharingMode = vk::SharingMode::eExclusive,
-                                                      .queueFamilyIndices = {}});
+  debugUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(glm::mat4),
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -461,6 +472,16 @@ void SimpleSVORenderer::initUI() {
   ui->shadowsCheckbox.addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); },
                                        true);
 
+  ui->shaderDebugFloatValueSlider.addValueListener([this](auto value) { debugUniformBuffer->mapping().set(value, 3); },
+                                                   true);
+
+  ui->shaderDebugTranslateDrag.addValueListener([this](const auto &) { updateTransformMatrix(); });
+  ui->shaderDebugScaleDrag.addValueListener([this](const auto &) { updateTransformMatrix(); });
+  ui->shaderDebugRotateDrag.addValueListener([this](const auto &) { updateTransformMatrix(); }, true);
+
+  ui->shaderDebugIterDivideDrag.addValueListener(
+      [this](auto value) { debugUniformBuffer->mapping().setRawOffset(value, sizeof(int) * 3 + sizeof(float)); }, true);
+
   ui->ambientColPicker.addValueListener(
       [&](const auto &ambientColor) {
         lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
@@ -587,6 +608,32 @@ std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesy
 }
 void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
+}
+void SimpleSVORenderer::updateTransformMatrix() {
+  auto logMatrix = [](auto name, auto mat) {
+    logd(MAIN_TAG, "{}: \n{}, {}, {}, {}\n{}, {}, {}, {}\n{}, {}, {}, {}\n{}, {}, {}, {}\n", name, mat[0].x, mat[0].y,
+         mat[0].z, mat[0].w, mat[1].x, mat[1].y, mat[1].z, mat[1].w, mat[2].x, mat[2].y, mat[2].z, mat[2].w, mat[3].x,
+         mat[3].y, mat[3].z, mat[3].w);
+  };
+  const auto translateVec = ui->shaderDebugTranslateDrag.getValue();
+  const auto scaleVec = ui->shaderDebugScaleDrag.getValue();
+  const auto rotateVec = ui->shaderDebugRotateDrag.getValue();
+
+  const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
+  logMatrix("translate", translateMat);
+  const auto scaleMat = glm::scale(scaleVec);
+  //logMatrix("scale", scaleMat);
+  const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
+  //logMatrix("rotateX", rotateMatX);
+  const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
+  //logMatrix("rotateY", rotateMatY);
+  const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
+  //logMatrix("rotateZ", rotateMatZ);
+  const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
+  //logMatrix("rotate", rotateMat);
+  transformMatrix = translateMat * rotateMat * scaleMat;
+  //logMatrix("transform", transformMatrix);
+  debugUniformBuffer->mapping().setRawOffset(transformMatrix, sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float));
 }
 
 }// namespace pf

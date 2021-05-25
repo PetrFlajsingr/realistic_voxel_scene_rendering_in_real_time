@@ -34,7 +34,7 @@ class TriangleRenderer : VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::ImageView> testTextureView;
 
  public:
-  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}){};
+  explicit TriangleRenderer(toml::table &tomlConfig) : config(tomlConfig), camera({0, 0}, 0.1f, 50.f){};
   TriangleRenderer(TriangleRenderer &&other) = default;
   TriangleRenderer &operator=(TriangleRenderer &&other) = default;
   TriangleRenderer(const TriangleRenderer &) = delete;

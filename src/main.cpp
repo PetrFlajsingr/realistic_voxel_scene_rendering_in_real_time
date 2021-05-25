@@ -10,6 +10,7 @@
 #include <pf_common/RAII.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <toml++/toml.h>
+
 // TODO: change include guards
 
 argparse::ArgumentParser createArgumentParser() {
@@ -55,10 +56,10 @@ int main(int argc, char *argv[]) {
 
   auto configPath = argumentParser.get<std::filesystem::path>("--config");
   //try {
+  createLogger(argumentParser);
+
   auto config = toml::parse_file(configPath.string());
   auto saveConfigRAII = pf::RAII([&] { saveConfig(configPath, config); });
-
-  createLogger(argumentParser);
 
   auto resolutionConfig = config["ui"]["window"];
   const auto windowSettings =

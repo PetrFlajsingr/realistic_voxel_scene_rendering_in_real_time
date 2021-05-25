@@ -105,7 +105,18 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           Size::Auto())),
       shaderControlsWindow(imgui->createWindow("shader_controls_window", "Shader controls")),
       shaderDebugValueInput(shaderControlsWindow.createChild<SpinInput<int>>("shader_int1_drag", "Shader debug val 1",
-                                                                             1, 8, 1, 1, 10, Persistent::Yes)) {
+                                                                             1, 8, 1, 1, 10, Persistent::Yes)),
+      shaderDebugFloatValueSlider(shaderControlsWindow.createChild<DragInput<float>>(
+          "shader_float1_spin", "Shader float debug val", 0.01, -100, 100, 1)),
+      shaderDebugIterDivideDrag(shaderControlsWindow.createChild<DragInput<float>>(
+          "shader_iter_divide_drag", "Iteration view divider", 1, 1, 1024, 64, Persistent::Yes)),
+      shaderSeparator1(shaderControlsWindow.createChild<Separator>("separator_shader")),
+      shaderDebugTranslateDrag(shaderControlsWindow.createChild<DragInput<glm::vec3>>(
+          "shader_translate_drag", "Translation", 0.01, -10, 10, glm::vec3{0})),
+      shaderDebugRotateDrag(shaderControlsWindow.createChild<DragInput<glm::vec3>>("shader_rotate_drag", "Rotation",
+                                                                                   0.05, -180, 180, glm::vec3{0})),
+      shaderDebugScaleDrag(shaderControlsWindow.createChild<DragInput<glm::vec3>>("shader_scale_drag", "Scale", 0.05,
+                                                                                  0.01, 10, glm::vec3{1, 1, 1})) {
   setDarkStyle(*imgui);
 
   iterationImage.setTooltip("Visualisation of ray iterations");
@@ -120,6 +131,12 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       [this](auto value) { debugImagesWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
   shaderControlsMenuItem.addValueListener(
       [this](auto value) { shaderControlsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+
+  infoMenuItem.setCloseOnInteract(false);
+  renderSettingsMenuItem.setCloseOnInteract(false);
+  debugMenuItem.setCloseOnInteract(false);
+  debugImagesMenuItem.setCloseOnInteract(false);
+  shaderControlsMenuItem.setCloseOnInteract(false);
 
   renderSettingsWindow.setCollapsible(true);
   renderSettingsWindow.setCloseable(true);
