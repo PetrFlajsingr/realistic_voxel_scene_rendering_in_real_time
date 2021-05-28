@@ -23,6 +23,9 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true)),
       debugImagesMenuItem(viewSubMenu.addCheckboxItem("view_debug_images_menu", "Debug images", true)),
       shaderControlsMenuItem(viewSubMenu.addCheckboxItem("view_shader_controls_menu", "Shader controls", true)),
+      separatorMenu1(viewSubMenu.addSeparator("separator_menu_1")),
+      hideAllMenuItem(viewSubMenu.addButtonItem("hide_all_windows_menu", "Hide all")),
+      showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
       viewTypeComboBox(renderSettingsWindow.createChild<ComboBox<ViewType>>(
           "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,
@@ -85,8 +88,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
                                                                    50.f, camera.getMovementSpeed(), Persistent::Yes)),
       cameraMouseSpeedSlider(cameraGroup.createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f,
                                                                     camera.getMouseSpeed(), Persistent::Yes)),
-      cameraFOVSlider(cameraGroup.createChild<Slider<float>>("cameraFOVSlider", "Field of view", 1.f, 90.f,
-                                                             camera.getFieldOfView(), Persistent::Yes)),
+      cameraFOVSlider(cameraGroup.createChild<Slider<int>>("cameraFOVSlider", "Field of view", 1, 179,
+                                                           camera.getFieldOfView(), Persistent::Yes)),
       sceneInfoGroup(infoWindow.createChild<Group>("scene_group", "Scene", Persistent::Yes, AllowCollapse::Yes)),
       modelNameText(sceneInfoGroup.createChild<Text>("model_name_text", "")),
       modelNameSeparator(sceneInfoGroup.createChild<Separator>(uniqueId())),
@@ -131,6 +134,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       [this](auto value) { debugImagesWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
   shaderControlsMenuItem.addValueListener(
       [this](auto value) { shaderControlsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  hideAllMenuItem.addClickListener([this] { setWindowsVisible(false); });
+  showAllMenuItem.addClickListener([this] { setWindowsVisible(true); });
 
   infoMenuItem.setCloseOnInteract(false);
   renderSettingsMenuItem.setCloseOnInteract(false);
@@ -189,6 +194,10 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   chaiscriptTab.setTooltip("Chaiscript interface");
   resetFpsButton.setTooltip("Reset FPS counters");
   vsyncCheckbox.setTooltip("Enable/disable vsync, CURRENTLY NOT WORKING");
+
+  cameraMoveSpeedSlider.setTooltip("Camera movement speed with WASD");
+  cameraMouseSpeedSlider.setTooltip("Camera pan speed with mouse");
+  cameraFOVSlider.setTooltip("Camera field of view");
 }
 void SimpleSVORenderer_UI::updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount,
                                            uint32_t miniVoxelCount) {
@@ -196,6 +205,13 @@ void SimpleSVORenderer_UI::updateSceneInfo(const std::string &modelName, uint32_
   svoHeightText.setText(SVO_HEIGHT_TEXT, svoHeight);
   voxelCountText.setText(VOXEL_COUNT_TEXT, voxelCount);
   voxelCountMinimizedText.setText(VOXEL_COUNT_MINIMIZED_TEXT, miniVoxelCount);
+}
+void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
+  infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  renderSettingsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  debugWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  debugImagesWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  shaderControlsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
 }
 
 std::ostream &operator<<(std::ostream &os, const ModelInfo &info) {

@@ -23,7 +23,7 @@ using namespace vulkan;
 using namespace pf::byte_literals;
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}, 0.1f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
+    : config(tomlConfig), camera({0, 0}, 0.001f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
 
 SimpleSVORenderer::~SimpleSVORenderer() {
   if (vkLogicalDevice == nullptr) { return; }
@@ -610,29 +610,17 @@ void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
 }
 void SimpleSVORenderer::updateTransformMatrix() {
-  auto logMatrix = [](auto name, auto mat) {
-    logd(MAIN_TAG, "{}: \n{}, {}, {}, {}\n{}, {}, {}, {}\n{}, {}, {}, {}\n{}, {}, {}, {}\n", name, mat[0].x, mat[0].y,
-         mat[0].z, mat[0].w, mat[1].x, mat[1].y, mat[1].z, mat[1].w, mat[2].x, mat[2].y, mat[2].z, mat[2].w, mat[3].x,
-         mat[3].y, mat[3].z, mat[3].w);
-  };
   const auto translateVec = ui->shaderDebugTranslateDrag.getValue();
   const auto scaleVec = ui->shaderDebugScaleDrag.getValue();
   const auto rotateVec = ui->shaderDebugRotateDrag.getValue();
 
   const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
-  logMatrix("translate", translateMat);
   const auto scaleMat = glm::scale(scaleVec);
-  //logMatrix("scale", scaleMat);
   const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
-  //logMatrix("rotateX", rotateMatX);
   const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
-  //logMatrix("rotateY", rotateMatY);
   const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
-  //logMatrix("rotateZ", rotateMatZ);
   const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
-  //logMatrix("rotate", rotateMat);
   transformMatrix = translateMat * rotateMat * scaleMat;
-  //logMatrix("transform", transformMatrix);
   debugUniformBuffer->mapping().setRawOffset(transformMatrix, sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float));
 }
 

@@ -63,6 +63,11 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
       return false;
     });
 
+    window.addTextListener([](events::TextEvent event) {
+      logd(MAIN_TAG, event.text);
+      return true;
+    });
+
     camera.setScreenWidth(window.getResolution().width);
     camera.setScreenHeight(window.getResolution().height);
     window.setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });

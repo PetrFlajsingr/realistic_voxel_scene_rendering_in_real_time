@@ -690,9 +690,8 @@ void main() {
         } else if (viewType == NORMAL_VIEW) {
           finalColor += traceResult.normal * 0.5f + 0.5f;
         } else if (viewType == DISTANCE_VIEW) {
-          const float near = 0.0001f;
-          const float far = 5.f;
-          const float z = (far + near) / (far - near) + 1.f / traceResult.t * ((-2 * far * near) / (far - near));
+          const float z = (camera.far + camera.near) / (camera.far - camera.near)
+              + 1.f / traceResult.t * ((-2 * camera.far * camera.near) / (camera.far - camera.near));
           finalColor += vec3(1 - z);
           //finalColor += vec3(1 - log2(traceResult.t / debugFloatVal));// * 100);
         } else if (viewType == CHILD_INDEX_VIEW) {

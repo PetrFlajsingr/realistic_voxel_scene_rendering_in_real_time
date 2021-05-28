@@ -5,10 +5,11 @@
 #include "ImGuiGlfwVulkan.h"
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
+#include <imgui_internal.h>
+#include <pf_common/RAII.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <pf_glfw_vulkan/vulkan/utils.h>
 #include <pf_imgui/dialogs/FileDialog.h>
-
 #include <utility>
 
 namespace pf::ui::ig {
@@ -97,22 +98,38 @@ void ImGuiGlfwVulkan::updateFonts() {
   logicalDevice->wait();
 }
 
-void ImGuiGlfwVulkan::renderImpl() {
+void ImGuiGlfwVulkan::render() {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
+  if (getVisibility() == Visibility::Visible) {
+    if (getEnabled() == Enabled::No) {
+      ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+      ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
+      auto raiiEnabled = pf::RAII([] {
+        ImGui::PopItemFlag();
+        ImGui::PopStyleVar();
+      });
+      renderImpl();
+    } else {
+      renderImpl();
+    }
+  }
+  ImGui::Render();
+}
+
+void ImGuiGlfwVulkan::renderImpl() {
   if (hasMenuBar()) { menuBar->render(); }
   ImGuiInterface::renderImpl();
   renderDialogs();
-  ImGui::Render();
 }
+
 ImGuiGlfwVulkan::~ImGuiGlfwVulkan() {
   logicalDevice->wait();
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 }
-
 void ImGuiGlfwVulkan::addToCommandBuffer(vulkan::CommandBufferRecording &recording) {
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *recording.getCommandBuffer());
 }

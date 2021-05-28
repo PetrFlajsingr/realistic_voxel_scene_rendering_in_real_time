@@ -76,6 +76,9 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuCheckboxItem &debugMenuItem;
       ui::ig::MenuCheckboxItem &debugImagesMenuItem;
       ui::ig::MenuCheckboxItem &shaderControlsMenuItem;
+      ui::ig::MenuSeparatorItem &separatorMenu1;
+      ui::ig::MenuButtonItem &hideAllMenuItem;
+      ui::ig::MenuButtonItem &showAllMenuItem;
   ui::ig::Window &renderSettingsWindow;
     ui::ig::ComboBox<ViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;
@@ -118,7 +121,7 @@ class SimpleSVORenderer_UI {
       ui::ig::Text &cameraDirText;
       ui::ig::Slider<float> &cameraMoveSpeedSlider;
       ui::ig::Slider<float> &cameraMouseSpeedSlider;
-      ui::ig::Slider<float> &cameraFOVSlider;
+      ui::ig::Slider<int> &cameraFOVSlider;
     ui::ig::Group &sceneInfoGroup;
       ui::ig::Text &modelNameText;
       ui::ig::Separator &modelNameSeparator;
@@ -139,6 +142,8 @@ class SimpleSVORenderer_UI {
   // clang-format on
 
   void updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount, uint32_t miniVoxelCount);
+
+  void setWindowsVisible(bool visible);
 
  private:
   constexpr static auto SVO_HEIGHT_TEXT = "SVO height: {}";

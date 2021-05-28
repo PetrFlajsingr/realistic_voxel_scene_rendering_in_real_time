@@ -7,6 +7,6 @@
 
 enum class Enabled { Yes, No };
 
-enum class Direction { Forward, Backward, Left, Right };
+enum class Direction { Forward, Backward, Left, Right, Up, Down };
 
 #endif//VOXEL_RENDER_COMMON_ENUMS_H
