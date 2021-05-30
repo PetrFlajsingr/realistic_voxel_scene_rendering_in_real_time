@@ -10,6 +10,7 @@
 #include <glm/gtx/transform.hpp>
 #include <pf_common/ByteLiterals.h>
 #include <pf_common/files.h>
+#include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <pf_imgui/elements.h>
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
@@ -42,6 +43,121 @@ SimpleSVORenderer::~SimpleSVORenderer() {
   log(spdlog::level::info, APP_TAG, "Saving UI to config");
   ui->imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
+}
+
+void SimpleSVORenderer::init(ui::Window &window) {
+  enqueue = [&window](std::function<void()> fnc) { window.enqueue(fnc); };
+  closeWindow = [&window] { window.close(); };
+  camera.setSwapLeftRight(false);
+  pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
+  log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
+
+  createInstance(window);
+  createSurface(window);
+  createDevices();
+
+  buildVulkanObjects(window);
+
+  GLFWwindow *windowHandle = nullptr;
+  if (auto glfwWindow = dynamic_cast<ui::GlfwWindow *>(&window); glfwWindow != nullptr) {
+    windowHandle = glfwWindow->getHandle();
+  }
+  assert(windowHandle != nullptr);
+
+  auto imguiConfig =
+      config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
+  auto imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
+                                                         windowHandle, ImGuiConfigFlags{}, imguiConfig);
+  window.addKeyboardListener(events::KeyEventType::Pressed, [this](const events::KeyEvent &event) {
+    if (event.key == 'H') {
+      switch (ui->imgui->getVisibility()) {
+        case ui::ig::Visibility::Visible: ui->imgui->setVisibility(ui::ig::Visibility::Invisible); break;
+        case ui::ig::Visibility::Invisible: ui->imgui->setVisibility(ui::ig::Visibility::Visible); break;
+      }
+      return true;
+    }
+    return false;
+  });
+
+  window.addTextListener([](events::TextEvent event) {
+    logd(MAIN_TAG, event.text);
+    return true;
+  });
+
+  camera.setScreenWidth(window.getResolution().width);
+  camera.setScreenHeight(window.getResolution().height);
+  window.setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
+  camera.registerControls(window);
+
+  ui = std::make_unique<SimpleSVORenderer_UI>(std::move(imgui), camera,
+                                              TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler});
+
+  initUI();
+  window.setMainLoopCallback([&] { render(); });
+}
+
+std::unordered_set<std::string> SimpleSVORenderer::getValidationLayers() {
+  return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
+}
+
+void SimpleSVORenderer::buildVulkanObjects(ui::Window &window) {
+  createSwapchain(window);
+  createRenderTextures();
+  createDescriptorPool();
+  createPipeline();
+
+  createCommands();
+  createFences();
+  createSemaphores();
+
+  // clang-format off
+  vkRenderPass = vulkan::RenderPassBuilder(vkLogicalDevice)
+      .attachment("color")
+      .format(vkSwapChain->getFormat())
+      .samples(vk::SampleCountFlagBits::e1)
+      .loadOp(vk::AttachmentLoadOp::eDontCare)
+      .storeOp(vk::AttachmentStoreOp::eStore)
+      .stencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+      .stencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+      .initialLayout(vk::ImageLayout::eUndefined)
+      .finalLayout(vk::ImageLayout::ePresentSrcKHR)
+      .attachmentDone()
+      .subpass("main")
+      .pipelineBindPoint(vk::PipelineBindPoint::eGraphics)
+      .colorAttachment("color")
+      .dependency()
+      .srcSubpass()
+      .dstSubpass("main")
+      .srcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+      .dstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+      .dstAccessFlags(vk::AccessFlagBits::eColorAttachmentWrite)
+      .dependencyDone()
+      .subpassDone()
+      .build();
+  // clang-format on
+}
+
+void SimpleSVORenderer::createInstance(ui::Window &window) {
+  using namespace vulkan;
+  using namespace vulkan::literals;
+  const auto windowExtensions = window.requiredVulkanExtensions();
+  auto validationLayers = getValidationLayers();
+  vkInstance = Instance::CreateShared(InstanceConfig{
+      .appName = "Realistic voxel rendering in real time",
+      .appVersion = "0.1.0"_v,
+      .vkVersion = "1.2.0"_v,
+      .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
+      .requiredWindowExtensions = windowExtensions,
+      .validationLayers = validationLayers,
+      .callback = [this](const DebugCallbackData &data, vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                         const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
+        return debugCallback(data, severity, type_flags);
+      }});
+}
+
+void SimpleSVORenderer::createSurface(ui::Window &window) {
+  using namespace vulkan;
+  vkSurface = Surface::CreateShared(vkInstance, window);
 }
 
 void SimpleSVORenderer::render() {
@@ -125,6 +241,28 @@ void SimpleSVORenderer::createDevices() {
                                                                   VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME},
                                      .validationLayers = getValidationLayers(),
                                      .surface = *vkSurface});
+}
+
+void SimpleSVORenderer::createSwapchain(ui::Window &window) {
+  using namespace ranges;
+  auto queuesView = vkLogicalDevice->getQueueIndices() | views::values;
+  auto sharingQueues = std::unordered_set(queuesView.begin(), queuesView.end());
+  if (const auto presentIdx = vkLogicalDevice->getPresentQueueIndex(); presentIdx.has_value()) {
+    sharingQueues.emplace(*presentIdx);
+  }
+  vkSwapChain = vkLogicalDevice->createSwapChain(
+      vkSurface,
+      {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
+       //.presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
+       .presentModes = {vk::PresentModeKHR::eImmediate},
+       .resolution = {window.getResolution().width, window.getResolution().height},
+       .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst
+           | vk::ImageUsageFlagBits::eColorAttachment,
+       .sharingQueues = {},
+       .imageArrayLayers = 1,
+       .clipped = true,
+       .oldSwapChain = std::nullopt,
+       .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
 }
 
 void SimpleSVORenderer::createRenderTextures() {
@@ -348,7 +486,6 @@ void SimpleSVORenderer::createPipeline() {
   vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
-
 void SimpleSVORenderer::createCommands() {
   vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
@@ -367,7 +504,6 @@ void SimpleSVORenderer::createCommands() {
       {.level = vk::CommandBufferLevel::ePrimary,
        .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
 }
-
 void SimpleSVORenderer::recordCommands() {
   // TODO: add these calls to recording
   static bool isComputeRecorded = false;
@@ -445,19 +581,16 @@ void SimpleSVORenderer::recordCommands() {
   ui->imgui->addToCommandBuffer(graphRecording);
   graphRecording.endRenderPass();
 }
-
 void SimpleSVORenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled}); });
 }
-
 void SimpleSVORenderer::createSemaphores() {
   computeSemaphore = vkLogicalDevice->createSemaphore();
   std::ranges::generate_n(std::back_inserter(renderSemaphores), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createSemaphore(); });
 }
-
 void SimpleSVORenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
@@ -655,7 +788,6 @@ void SimpleSVORenderer::initUI() {
 
   ui->imgui->setStateFromConfig();
 }
-
 std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
   return potentialModelFiles | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })

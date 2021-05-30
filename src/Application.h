@@ -10,7 +10,7 @@
 #include <iostream>
 #include <memory>
 #include <pf_common/exceptions/StackTraceException.h>
-#include <pf_glfw_vulkan/concepts/Window.h>
+#include <pf_glfw_vulkan/ui/Window.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view.hpp>
 
@@ -20,7 +20,7 @@ struct application_settings {
   ui::WindowSettings window_settings;
 };
 
-template<ui::Window Window, Renderer<Window> Renderer>
+template<std::derived_from<ui::Window> Window, Renderer Renderer>
 class Application {
  public:
   explicit Application(Renderer &&renderer, const application_settings &settings)
@@ -31,7 +31,7 @@ class Application {
   }
 
   void run() {
-    window->mainLoop();
+    window->run();
     renderer.stop();
     logi(APP_TAG, "Main loop ended.");
   }
@@ -42,7 +42,7 @@ class Application {
     if (auto init_res = window->init(); init_res.has_value()) {
       throw StackTraceException("Window creation failed: {}", init_res.value());
     }
-    logi(APP_TAG, "Window initialised\n{}", *window);
+    logi(APP_TAG, "Window initialised");
     renderer.init(*window);
     window->setMainLoopCallback([this] { renderer.render(); });
   }

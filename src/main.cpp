@@ -2,10 +2,7 @@
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
-#include "rendering/NaiveVoxelRenderer.h"
-#include "rendering/RTSimpleRenderer.h"
 #include "rendering/SimpleSVORenderer.h"
-#include "rendering/TriangleRenderer.h"
 #include <filesystem>
 #include <pf_common/RAII.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>

@@ -8,7 +8,6 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
-#include <pf_glfw_vulkan/concepts/Window.h>
 
 namespace pf {
 // glm inverzni projekcni matice
@@ -19,6 +18,52 @@ Camera::Camera(ui::Resolution resolution, float near, float far, float movementS
       movementSpeed(movementSpeed), mouseSpeed(mouseSpeed), position(position), front(front), up(up),
       fieldOfView(fieldOfView), yaw(yaw), pitch(pitch), roll(roll) {
   update();
+}
+
+void Camera::registerControls(ui::Window &window) {
+  const auto interactionPredicate = [&window] { return window.getMouseButtonsDown().is(events::MouseButton::Right); };
+  subscriptions.push_back(window.addMouseListener(events::MouseEventType::Wheel,
+                                                  [this, interactionPredicate](const events::MouseEvent &event) {
+                                                    if (interactionPredicate()) {
+                                                      changeFov(event.delta.second);
+                                                      return true;
+                                                    }
+                                                    return false;
+                                                  }));
+  subscriptions.push_back(window.addMouseListener(
+      events::MouseEventType::Move, [this, interactionPredicate, &window](const events::MouseEvent &event) {
+        if (interactionPredicate()) {
+          mouse(event.delta.first, event.delta.second);
+          return true;
+        }
+        return false;
+      }));
+  subscriptions.push_back(
+      window.addMouseListener(events::MouseEventType::Down, [&window](const events::MouseEvent &event) {
+        if (event.button == events::MouseButton::Right) { window.setCursorHiddenAndCaptured(true); }
+        return false;
+      }));
+  subscriptions.push_back(
+      window.addMouseListener(events::MouseEventType::Up, [&window](const events::MouseEvent &event) {
+        if (event.button == events::MouseButton::Right) { window.setCursorHiddenAndCaptured(false); }
+        return false;
+      }));
+  const auto keyMove = [this, interactionPredicate](const events::KeyEvent &event) {
+    auto interacted = true;
+    const auto multiplier = event.modifiersKeys.is(events::ModifierKey::Shift) ? 2.0 : 1.0;
+    switch (std::tolower(event.key)) {
+      case 'w': move(Direction::Forward, 0.167, multiplier); break;
+      case 'a': move(Direction::Left, 0.167, multiplier); break;
+      case 's': move(Direction::Backward, 0.167, multiplier); break;
+      case 'd': move(Direction::Right, 0.167, multiplier); break;
+      case 'q': move(Direction::Up, 0.167, multiplier); break;
+      case 'e': move(Direction::Down, 0.167, multiplier); break;
+      default: interacted = false;
+    }
+    return interacted;
+  };
+  window.addKeyboardListener(events::KeyEventType::Repeat, keyMove);
+  window.addKeyboardListener(events::KeyEventType::Pressed, keyMove);
 }
 
 const glm::vec3 &Camera::move(Direction direction, float deltaTime, float multiplier) {
@@ -110,7 +155,6 @@ void Camera::setFront(const glm::vec3 &newFront) {
 }
 
 const glm::vec3 &Camera::getRight() const { return right; }
-
 void Camera::update() {
   front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
   front.y = sin(glm::radians(pitch));
@@ -120,10 +164,10 @@ void Camera::update() {
   right = glm::normalize(glm::cross(front, up));
   //up = glm::normalize(glm::cross(right, front));
 }
+
 bool Camera::isSwapLeftRight() const { return swapLeftRight; }
 
 void Camera::setSwapLeftRight(bool swap) { swapLeftRight = swap; }
-
 glm::mat4 Camera::getViewMatrix() const { return glm::lookAt(position, position + front, up); }
 glm::mat4 Camera::getProjectionMatrix() const {
   return glm::perspective(glm::radians(fieldOfView), static_cast<float>(screenWidth / screenHeight), nearF, farF);

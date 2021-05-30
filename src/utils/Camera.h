@@ -8,7 +8,7 @@
 #include "common_enums.h"
 #include <glm/glm.hpp>
 #include <logging/loggers.h>
-#include <pf_glfw_vulkan/concepts/Window.h>
+#include <pf_glfw_vulkan/ui/Window.h>
 #include <vector>
 
 namespace pf {
@@ -22,53 +22,7 @@ class Camera {
   Camera &operator=(Camera &&other);
   ~Camera();
 
-  void registerControls(ui::Window auto &window) {
-    const auto interactionPredicate = [&window] {
-      return window.getMouseButtonsDown().contains(events::MouseButton::Right);
-    };
-    subscriptions.push_back(window.addMouseListener(events::MouseEventType::Wheel,
-                                                    [this, interactionPredicate](const events::MouseEvent &event) {
-                                                      if (interactionPredicate()) {
-                                                        changeFov(event.delta.second);
-                                                        return true;
-                                                      }
-                                                      return false;
-                                                    }));
-    subscriptions.push_back(window.addMouseListener(
-        events::MouseEventType::Move, [this, interactionPredicate, &window](const events::MouseEvent &event) {
-          if (interactionPredicate()) {
-            mouse(event.delta.first, event.delta.second);
-            return true;
-          }
-          return false;
-        }));
-    subscriptions.push_back(
-        window.addMouseListener(events::MouseEventType::Down, [&window](const events::MouseEvent &event) {
-          if (event.button == events::MouseButton::Right) { window.setCursorDisabled(true); }
-          return false;
-        }));
-    subscriptions.push_back(
-        window.addMouseListener(events::MouseEventType::Up, [&window](const events::MouseEvent &event) {
-          if (event.button == events::MouseButton::Right) { window.setCursorDisabled(false); }
-          return false;
-        }));
-    const auto keyMove = [this, interactionPredicate](const events::KeyEvent &event) {
-      auto interacted = true;
-      const auto multiplier = event.modifiersKeys.is(events::ModifierKey::Shift) ? 2.0 : 1.0;
-      switch (std::tolower(event.key)) {
-        case 'w': move(Direction::Forward, 0.167, multiplier); break;
-        case 'a': move(Direction::Left, 0.167, multiplier); break;
-        case 's': move(Direction::Backward, 0.167, multiplier); break;
-        case 'd': move(Direction::Right, 0.167, multiplier); break;
-        case 'q': move(Direction::Up, 0.167, multiplier); break;
-        case 'e': move(Direction::Down, 0.167, multiplier); break;
-        default: interacted = false;
-      }
-      return interacted;
-    };
-    window.addKeyListener(events::KeyEventType::Repeat, keyMove);
-    window.addKeyListener(events::KeyEventType::Pressed, keyMove);
-  }
+  void registerControls(ui::Window &window);
 
   const glm::vec3 &move(Direction direction, float deltaTime, float multiplier = 1.f);
   void mouse(float xDelta, float yDelta, bool contrainPitch = true);
