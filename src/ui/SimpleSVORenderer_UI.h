@@ -7,9 +7,11 @@
 
 #include <ostream>
 #include <pf_common/enums.h>
+#include <pf_common/coroutines/Sequence.h>
 #include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/ComboBox.h>
+#include <pf_imgui/elements/DragInput.h>
 #include <pf_imgui/elements/FlameGraph.h>
 #include <pf_imgui/elements/Group.h>
 #include <pf_imgui/elements/Image.h>
@@ -22,10 +24,10 @@
 #include <pf_imgui/elements/SpinInput.h>
 #include <pf_imgui/elements/TabBar.h>
 #include <pf_imgui/elements/Text.h>
-#include <pf_imgui/elements/DragInput.h>
 #include <pf_imgui/elements/plots/Plot.h>
 #include <pf_imgui/elements/plots/SimplePlot.h>
 #include <pf_imgui/elements/plots/types/Line.h>
+#include <pf_imgui/layouts/AbsoluteLayout.h>
 #include <pf_imgui/layouts/StretchLayout.h>
 #include <ui/ImGuiGlfwVulkan.h>
 #include <utils/Camera.h>
@@ -44,9 +46,17 @@ inline std::ostream &operator<<(std::ostream &o, ViewType viewType) {
 // TODO: more info
 struct ModelInfo {
   std::filesystem::path path;
+  std::uint32_t svoHeight{0};
+  std::uint32_t voxelCount{0};
+  std::uint32_t minimizedVoxelCount{0};
+  glm::vec3 translateVec{0, 0, 0};
+  glm::vec3 scaleVec{1, 1, 1};
+  glm::vec3 rotateVec{0, 0, 0};
+  std::uint32_t id = getNext(IdGenerator);
   bool operator==(const ModelInfo &rhs) const;
   bool operator!=(const ModelInfo &rhs) const;
   friend std::ostream &operator<<(std::ostream &os, const ModelInfo &info);
+  inline static auto IdGenerator = iota<std::uint32_t>();
 };
 
 // TODO: terminal interface in pf_imgui
@@ -76,6 +86,7 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuCheckboxItem &debugMenuItem;
       ui::ig::MenuCheckboxItem &debugImagesMenuItem;
       ui::ig::MenuCheckboxItem &shaderControlsMenuItem;
+      ui::ig::MenuCheckboxItem &modelsMenuItem;
       ui::ig::MenuSeparatorItem &separatorMenu1;
       ui::ig::MenuButtonItem &hideAllMenuItem;
       ui::ig::MenuButtonItem &showAllMenuItem;
@@ -90,14 +101,6 @@ class SimpleSVORenderer_UI {
         ui::ig::ColorEdit<glm::vec3> &ambientColPicker;
         ui::ig::ColorEdit<glm::vec3> &diffuseColPicker;
         ui::ig::ColorEdit<glm::vec3> &specularColPicker;
-    ui::ig::Text &modelsText;
-    ui::ig::BoxLayout &modelsLayout;
-      ui::ig::Button &openModelButton;
-      ui::ig::ListBox<ModelInfo> &modelList;
-      ui::ig::InputText &modelsFilterInput;
-      ui::ig::BoxLayout &modelReloadButtonsLayout;
-      ui::ig::Button &reloadModelListButton;
-      ui::ig::Button &reloadSelectedModelButton;
   ui::ig::Window &debugWindow;
     ui::ig::TabBar &debugTabBar;
       ui::ig::Tab &logTab;
@@ -122,12 +125,6 @@ class SimpleSVORenderer_UI {
       ui::ig::Slider<float> &cameraMoveSpeedSlider;
       ui::ig::Slider<float> &cameraMouseSpeedSlider;
       ui::ig::Slider<int> &cameraFOVSlider;
-    ui::ig::Group &sceneInfoGroup;
-      ui::ig::Text &modelNameText;
-      ui::ig::Separator &modelNameSeparator;
-      ui::ig::Text &svoHeightText;
-      ui::ig::Text &voxelCountText;
-      ui::ig::Text &voxelCountMinimizedText;
   ui::ig::Window &debugImagesWindow;
     ui::ig::StretchLayout &imageStretchLayout;
       ui::ig::Image &iterationImage;
@@ -139,16 +136,30 @@ class SimpleSVORenderer_UI {
     ui::ig::DragInput<glm::vec3> &shaderDebugTranslateDrag;
     ui::ig::DragInput<glm::vec3> &shaderDebugRotateDrag;
     ui::ig::DragInput<glm::vec3> &shaderDebugScaleDrag;
-  // clang-format on
+  ui::ig::Window &modelsWindow;
+    ui::ig::AbsoluteLayout &modelListsLayout;
+      ui::ig::ListBox<ModelInfo> &modelList;
+      ui::ig::InputText &modelsFilterInput;
+      ui::ig::Button &reloadModelListButton;
+      ui::ig::Button &activateSelectedModelButton;
+      ui::ig::ListBox<ModelInfo> &activeModelList;
+      ui::ig::Button &removeSelectedActiveModelButton;
+    ui::ig::Text &modelDetailTitle;
+    ui::ig::BoxLayout &modelDetailLayout;
+      ui::ig::InputText &modelDetailPathText;
+      ui::ig::InputText &modelDetailSVOHeightText;
+      ui::ig::InputText &modelDetailVoxelCountText;
+      ui::ig::InputText &modelDetailMinimisedVoxelCountText;
+      ui::ig::Separator &modelDetailSeparator1;
+      ui::ig::DragInput<glm::vec3> &modelDetailTranslateDrag;
+      ui::ig::DragInput<glm::vec3> &modelDetailRotateDrag;
+      ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
 
-  void updateSceneInfo(const std::string &modelName, uint32_t svoHeight, uint32_t voxelCount, uint32_t miniVoxelCount);
+  // clang-format on
 
   void setWindowsVisible(bool visible);
 
  private:
-  constexpr static auto SVO_HEIGHT_TEXT = "SVO height: {}";
-  constexpr static auto VOXEL_COUNT_TEXT = "Scene voxel count: {}";
-  constexpr static auto VOXEL_COUNT_MINIMIZED_TEXT = "Scene minimized voxel count: {}";
 };
 
 }// namespace pf

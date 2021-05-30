@@ -18,11 +18,104 @@
 #include <range/v3/view/map.hpp>
 #include <toml++/toml.h>
 #include <ui/SimpleSVORenderer_UI.h>
+#include <utility>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
 #include <voxel/SparseVoxelOctree.h>
 
 namespace pf {
+/*
+enum class UniformLayout {
+  std140
+};// update alignmentForLayoutInBytes, sizeForLayoutInBytes and offsetForLayoutInBytes when adding new values
+
+template<typename T>
+consteval std::size_t alignmentForLayoutInBytes(UniformLayout layout) {
+  if (layout == UniformLayout::std140) {
+    if (OneOf<T, int, int32_t, unsigned int, uint32_t, float, bool>) { return 4; }
+    if (OneOf<T, double, glm::ivec2, glm::uvec2, glm::bvec2, glm::vec2>) { return 8; }
+    if (OneOf<T, glm::dvec2, glm::ivec3, glm::uvec3, glm::bvec3, glm::vec3, glm::ivec4, glm::uvec4, glm::bvec4,
+              glm::vec4>) {
+      return 16;
+    }
+    if (OneOf<T, glm::dvec3, glm::dvec4>) { return 32; }
+    if (OneOf<T, glm::mat3, glm::mat4>) { return 16; }
+  }
+  return 0;// unknown
+}
+
+template<typename T>
+consteval std::size_t sizeForLayoutInBytes(UniformLayout layout) {
+  if (layout == UniformLayout::std140) {
+    if (OneOf<T, int, int32_t, unsigned int, uint32_t, float, bool>) { return 4; }
+    if (OneOf<T, double, glm::ivec2, glm::uvec2, glm::bvec2, glm::vec2>) { return 8; }
+    if (OneOf<T, glm::ivec3, glm::uvec3, glm::bvec3, glm::vec3>) { return 12; }
+    if (OneOf<T, glm::dvec2, glm::ivec4, glm::uvec4, glm::bvec4, glm::vec4>) { return 16; }
+    if (OneOf<T, glm::dvec3>) { return 24; }
+    if (OneOf<T, glm::dvec4>) { return 32; }
+    if (OneOf<T, glm::mat3>) { return 3 * 16; }
+    if (OneOf<T, glm::mat4>) { return 4 * 16; }
+  }
+}
+
+template<typename T>
+consteval std::size_t offsetForLayoutInBytes(UniformLayout layout) {
+  if (layout == UniformLayout::std140) {
+    if (OneOf<T, int, int32_t, unsigned int, uint32_t, float, bool>) { return 4; }
+    if (OneOf<T, double, glm::ivec2, glm::uvec2, glm::bvec2, glm::vec2>) { return 8; }
+    if (OneOf<T, glm::ivec3, glm::uvec3, glm::bvec3, glm::vec3, glm::dvec2, glm::ivec4, glm::uvec4, glm::bvec4,
+              glm::vec4>) {
+      return 16;
+    }
+    if (OneOf<T, glm::dvec3, glm::dvec4>) { return 32; }
+    if (OneOf<T, glm::mat3, glm::mat4>) { return 4 * 16; }
+  }
+}
+
+template<typename Tuple, UniformLayout Layout, std::size_t... Index>
+requires (sizeof...(Index) > 0)
+consteval std::size_t Count(std::index_sequence<Index...> const &) {
+  return (offsetForLayoutInBytes<std::tuple_element_t<Index, Tuple>>(Layout) + ...);
+}
+template<typename Tuple, UniformLayout Layout, std::size_t... Index>
+requires (sizeof...(Index) == 0)
+consteval std::size_t Count(std::index_sequence<Index...> const &) {
+  return 0;
+}
+
+template<std::size_t N, UniformLayout Layout, typename... Args>
+consteval std::size_t countOffsetForTypesForLayout() {
+  using UtilTuple = std::tuple<Args...>;
+  return Count<UtilTuple, Layout>(std::make_index_sequence<N>());
+}
+
+template<typename T>
+concept GlslType = OneOf<T, int, int32_t, unsigned int, uint32_t, float, bool, double, glm::ivec2, glm::uvec2,
+                         glm::bvec2, glm::vec2, glm::ivec3, glm::uvec3, glm::bvec3, glm::vec3, glm::dvec2, glm::ivec4,
+                         glm::uvec4, glm::bvec4, glm::vec4, glm::dvec3, glm::dvec4, glm::mat3, glm::mat4>;
+
+template<UniformLayout Layout, GlslType... Args>
+class UniformAccessor {
+  using UtilTuple = std::tuple<Args...>;
+
+ public:
+  explicit UniformAccessor(std::shared_ptr<vulkan::Buffer> buffer) : buffer(std::move(buffer)) {}
+  template<std::size_t Index, typename T>
+  requires(std::same_as<std::decay_t<T>, std::tuple_element_t<Index, UtilTuple>>)
+      && (OneOf<std::decay_t<T>, Args...>) void set(T &&value) {
+    constexpr auto offset = countOffsetForTypesForLayout<Index, Layout, Args...>();
+    buffer->mapping().template setRawOffset(std::forward<T>(value), offset);
+  }
+  template<std::size_t Index>
+  std::tuple_element_t<Index, UtilTuple> get() {
+    constexpr auto offset = countOffsetForTypesForLayout<Index, Layout, Args...>();
+    return *reinterpret_cast<std::tuple_element_t<Index, UtilTuple> *>(
+        &buffer->mapping().template data<std::byte>()[offset]);
+  }
+
+ private:
+  std::shared_ptr<vulkan::Buffer> buffer;
+};*/
 
 constexpr auto LOCAL_SIZE_X = 8;
 constexpr auto LOCAL_SIZE_Y = 8;
@@ -37,6 +130,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   template<pf::ui::Window Window>
   void init(Window &window) {
+    enqueue = [&window](std::function<void()> fnc) { window.enqueue(fnc); };
     closeWindow = [&window] { window.close(); };
     camera.setSwapLeftRight(false);
     pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
@@ -214,6 +308,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> lightUniformBuffer;
   std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
   std::shared_ptr<vulkan::Buffer> svoBuffer;
+  std::shared_ptr<vulkan::Buffer> matricesUniformBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 
@@ -237,6 +332,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::function<void()> closeWindow;
 
   glm::mat4 transformMatrix{1};
+
+  std::function<void(std::function<void()>)> enqueue;// TODO: change this to window handle when changed to dynamic poly
 };
 
 }// namespace pf

@@ -22,6 +22,16 @@ namespace pf {
 using namespace vulkan;
 using namespace pf::byte_literals;
 
+/**
+ * Model info buffer:
+ * uint model count
+ * model infos
+ *      uint SVO offset
+ *      mat4 object matrix
+ *      mat4 inverse object matrix
+ *      vec3 scale
+ */
+
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
 
@@ -175,6 +185,7 @@ void SimpleSVORenderer::createDescriptorPool() {
                                                           {vk::DescriptorType::eStorageBuffer, 1},// svo
                                                           {vk::DescriptorType::eUniformBuffer, 1},// view type
                                                           {vk::DescriptorType::eStorageImage, 1}, // iterations
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// matrices
                                                       }});
 }
 
@@ -187,10 +198,6 @@ void SimpleSVORenderer::createPipeline() {
                                                        .type = vk::DescriptorType::eStorageImage,
                                                        .count = 1,
                                                        .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
-                                                      /*  {.binding = 1,
-                     .type = vk::DescriptorType::eStorageImage,
-                     .count = 1,
-                     .stageFlags = vk::ShaderStageFlagBits::eCompute},//depth*/
                                                       {.binding = 1,
                                                        .type = vk::DescriptorType::eUniformBuffer,
                                                        .count = 1,
@@ -209,6 +216,10 @@ void SimpleSVORenderer::createPipeline() {
                                                        .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug
                                                       {.binding = 5,
                                                        .type = vk::DescriptorType::eStorageImage,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
+                                                      {.binding = 6,
+                                                       .type = vk::DescriptorType::eUniformBuffer,
                                                        .count = 1,
                                                        .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
                                                   }});
@@ -235,16 +246,20 @@ void SimpleSVORenderer::createPipeline() {
                                                       .queueFamilyIndices = {}});
 
   // TODO: size
-  svoBuffer = vkLogicalDevice->createBuffer({.size = 100_MB,
+  svoBuffer = vkLogicalDevice->createBuffer({.size = 500_MB,
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
 
-  debugUniformBuffer =
-      vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(glm::mat4),
-                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                     .sharingMode = vk::SharingMode::eExclusive,
-                                     .queueFamilyIndices = {}});
+  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float),
+                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      .sharingMode = vk::SharingMode::eExclusive,
+                                                      .queueFamilyIndices = {}});
+
+  matricesUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::mat4) * 3,
+                                                         .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                         .sharingMode = vk::SharingMode::eExclusive,
+                                                         .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -302,8 +317,18 @@ void SimpleSVORenderer::createPipeline() {
                                                        .descriptorType = vk::DescriptorType::eStorageImage,
                                                        .pImageInfo = &computeIterInfo};
 
-  const auto writeSets =
-      std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite, uniformDebugWrite, computeIterWrite};
+  const auto uniformMatricesInfo = vk::DescriptorBufferInfo{.buffer = **matricesUniformBuffer,
+                                                            .offset = 0,
+                                                            .range = matricesUniformBuffer->getSize()};
+  const auto uniformMatricesWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                           .dstBinding = 6,
+                                                           .dstArrayElement = {},
+                                                           .descriptorCount = 1,
+                                                           .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                           .pBufferInfo = &uniformMatricesInfo};
+
+  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite,       svoWrite,
+                                     uniformDebugWrite, computeIterWrite,   uniformMatricesWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   // TODO: change string paths to filesystem::path
@@ -438,22 +463,21 @@ void SimpleSVORenderer::initUI() {
   using namespace pf::ui::ig;
   using namespace pf::enum_operators;
 
-  auto openModelFnc = [this] {
-    ui->imgui->openFileDialog(
-        "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
-        [this](const auto &selected) {
-          auto modelPath = selected[0];
-          const auto svoCreate = vox::loadFileAsSVO(modelPath);
-          ui->updateSceneInfo(modelPath.filename().string(), svoCreate.second.depth, svoCreate.second.initVoxelCount,
-                              svoCreate.second.voxelCount);
-          svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-          isSceneLoaded = false;
-        },
-        [] {});
-  };
+  //auto openModelFnc = [this] {
+  //  ui->imgui->openFileDialog(
+  //      "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
+  //      [this](const auto &selected) {
+  //        auto modelPath = selected[0];
+  //        const auto svoCreate = vox::loadFileAsSVO(modelPath);
+  //        // TODO: add model to active model list
+  //        svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
+  //        isSceneLoaded = false;
+  //      },
+  //      [] {});
+  //};
 
   ui->closeMenuItem.addClickListener(closeWindow);
-  ui->openModelMenuItem.addClickListener(openModelFnc);
+  // TODO: ui->openModelMenuItem.addClickListener(openModelFnc);
 
   ui->viewTypeComboBox.addValueListener(
       [this](const auto &viewType) {
@@ -504,16 +528,44 @@ void SimpleSVORenderer::initUI() {
   const auto modelFileNames = loadModelFileNames(modelsPath);
   ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
 
-  ui->openModelButton.addClickListener(openModelFnc);
+  //ui->openModelButton.addClickListener(openModelFnc);
 
-  ui->modelList.addValueListener([modelsPath, this](const auto &modelName) {
-    const auto selectedModelPath = modelsPath / modelName.path;
+  //ui->modelList.addValueListener([modelsPath, this](const auto &modelName) {
+  //  const auto selectedModelPath = modelsPath / modelName.path;
+  //  const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+  //  ui->updateSceneInfo(modelName.path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
+  //                      svoCreate.second.voxelCount);
+  //  svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
+  //  isSceneLoaded = false;
+  //});
+  ui->activeModelList.addDropListener([this, modelsPath](const auto &modelInfo) {
+    const auto selectedModelPath = modelsPath / modelInfo.path;
     const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-    ui->updateSceneInfo(modelName.path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
-                        svoCreate.second.voxelCount);
+    auto newModelInfo = ModelInfo{};
+    newModelInfo.path = modelInfo.path;
+    newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
+    newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
+    newModelInfo.svoHeight = svoCreate.second.depth;
+    enqueue([modelInfo, newModelInfo, this] {
+      ui->activeModelList.removeItem(modelInfo);
+      ui->activeModelList.addItem(newModelInfo, Selected::Yes);
+    });
     svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
     isSceneLoaded = false;
-  });
+  });// TODO: change this to load new SVO not reload
+
+  ui->activateSelectedModelButton.addClickListener([this, modelsPath] {
+    if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
+      const auto selectedModelPath = modelsPath / item->path;
+      const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+      item->voxelCount = svoCreate.second.initVoxelCount;
+      item->minimizedVoxelCount = svoCreate.second.voxelCount;
+      item->svoHeight = svoCreate.second.depth;
+      ui->activeModelList.addItem(*item, Selected::Yes);
+      svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
+      isSceneLoaded = false;
+    }
+  });// TODO: change so this will load new SVO not reload
 
   ui->modelsFilterInput.addValueListener([this](auto filterVal) {
     ui->modelList.setFilter(
@@ -525,16 +577,16 @@ void SimpleSVORenderer::initUI() {
     ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
   });
 
-  ui->reloadSelectedModelButton.addClickListener([modelsPath, this] {
-    if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
-      const auto selectedModelPath = modelsPath / item->path;
-      const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-      ui->updateSceneInfo(item->path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
-                          svoCreate.second.voxelCount);
-      svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-      isSceneLoaded = false;
-    }
-  });
+  //ui->reloadSelectedModelButton.addClickListener([modelsPath, this] {
+  //  if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
+  //    const auto selectedModelPath = modelsPath / item->path;
+  //    const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+  //    ui->updateSceneInfo(item->path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
+  //                        svoCreate.second.voxelCount);
+  //    svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
+  //    isSceneLoaded = false;
+  //  }
+  //});
 
   ui->shaderDebugValueInput.addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); },
                                              true);
@@ -597,6 +649,10 @@ void SimpleSVORenderer::initUI() {
     ui->cameraDirText.setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
   });
 
+  ui->shaderControlsWindow.createChild<Slider<float>>(uniqueId(), "Rot", -10, 10, 0).addValueListener([this](auto) {
+    updateTransformMatrix();
+  });
+
   ui->imgui->setStateFromConfig();
 }
 
@@ -611,17 +667,23 @@ void SimpleSVORenderer::stop() {
 }
 void SimpleSVORenderer::updateTransformMatrix() {
   const auto translateVec = ui->shaderDebugTranslateDrag.getValue();
-  const auto scaleVec = ui->shaderDebugScaleDrag.getValue();
+  const auto scaleVec = 1.f / ui->shaderDebugScaleDrag.getValue();
   const auto rotateVec = ui->shaderDebugRotateDrag.getValue();
 
+  const auto translateCenterMat = glm::translate(glm::mat4(1.f), glm::vec3{0.5, 0.5, 0.5});
+  const auto translateBackFromCenterMat = glm::inverse(translateCenterMat);
   const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
   const auto scaleMat = glm::scale(scaleVec);
   const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
   const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
   const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
   const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
-  transformMatrix = translateMat * rotateMat * scaleMat;
-  debugUniformBuffer->mapping().setRawOffset(transformMatrix, sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float));
+  transformMatrix = translateMat * scaleMat * translateBackFromCenterMat * rotateMat * translateCenterMat;
+  const auto invTransformMatrix = glm::inverse(translateCenterMat) * glm::inverse(rotateMat)
+      * glm::inverse(translateBackFromCenterMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
+  matricesUniformBuffer->mapping().set(transformMatrix, 1);
+  matricesUniformBuffer->mapping().set(invTransformMatrix, 2);
+  matricesUniformBuffer->mapping().setRawOffset(1.f / scaleVec, sizeof(glm::mat4) * 2);
 }
 
 }// namespace pf
