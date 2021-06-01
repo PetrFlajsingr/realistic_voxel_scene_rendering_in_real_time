@@ -212,7 +212,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
   ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
   ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
 
-  vec3 t_coef = 1.f / -abs(ray.direction) / 10;
+  vec3 t_coef = 1.f / -abs(ray.direction);// / 10;
 
   vec3 t_bias = t_coef * ray.origin;
 
@@ -489,7 +489,8 @@ vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
 TraceResult traceModel(uint modelIndex, Ray ray) {
   ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
   ray.origin += vec3(1, 1, 1);
-  ray.direction = normalize((transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz);
+  ray.direction =                                                                                //normalize(
+      (transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz;//);
   ray.originSize = 0.02;
   ray.directionSize = 0;
 
@@ -512,9 +513,9 @@ void main() {
   const vec2 uv = normalizeScreenCoords(vec2(idx, idy), vec2(dimensions));
   const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
   ray.origin = (camera.invProjView * nearPlanePos).xyz;
-  ray.direction = normalize(
+  ray.direction =// normalize(
       (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
-          .xyz);
+          .xyz;//);
 
   TraceResult traceResult;
   traceResult.hit = false;
@@ -539,7 +540,7 @@ void main() {
     for (uint i = 0; i < debug.modelCount; ++i) {
       Ray shadowRay;
       shadowRay.direction = lightDir;
-      shadowRay.origin = hitPointInCameraSpace;// + EPSILON * lightDir;
+      shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
       shadowRay.originSize = 0.02;
       shadowRay.directionSize = 0;
       shadowTraceResult = traceModel(i, shadowRay);
