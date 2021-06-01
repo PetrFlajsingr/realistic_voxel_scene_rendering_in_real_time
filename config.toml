@@ -2,6 +2,10 @@
 path_models = '/home/petr/Desktop/magica_voxel/vox'
 path_shaders = '/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders'
 
+[rendering.compute]
+local_size_x = 8
+local_size_y = 8
+
 [ui.imgui.cameraFOVSlider]
 value = 45.0
 

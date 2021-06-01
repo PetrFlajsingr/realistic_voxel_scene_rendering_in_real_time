@@ -5,9 +5,11 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 #include <ostream>
-#include <pf_common/enums.h>
 #include <pf_common/coroutines/Sequence.h>
+#include <pf_common/enums.h>
 #include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/ComboBox.h>
@@ -31,6 +33,7 @@
 #include <pf_imgui/layouts/StretchLayout.h>
 #include <ui/ImGuiGlfwVulkan.h>
 #include <utils/Camera.h>
+#include <utils/GpuMemoryPool.h>
 
 namespace pf {
 
@@ -52,11 +55,36 @@ struct ModelInfo {
   glm::vec3 translateVec{0, 0, 0};
   glm::vec3 scaleVec{1, 1, 1};
   glm::vec3 rotateVec{0, 0, 0};
+  std::shared_ptr<vulkan::BufferMemoryPool<4>::Block> svoMemoryBlock = nullptr;// TODO change this into unique_ptr
+  std::shared_ptr<vulkan::BufferMemoryPool<16>::Block> modelInfoMemoryBlock = nullptr;
   std::uint32_t id = getNext(IdGenerator);
+
   bool operator==(const ModelInfo &rhs) const;
   bool operator!=(const ModelInfo &rhs) const;
   friend std::ostream &operator<<(std::ostream &os, const ModelInfo &info);
   inline static auto IdGenerator = iota<std::uint32_t>();
+
+  inline void updateInfoToGPU() {
+    const auto translateCenterMat = glm::translate(glm::mat4(1.f), glm::vec3{0.5, 0.5, 0.5});
+    const auto translateBackFromCenterMat = glm::inverse(translateCenterMat);
+    const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
+    const auto scaleMat = glm::scale(scaleVec);
+    const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
+    const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
+    const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
+    const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
+    const auto transformMatrix = translateMat * scaleMat * translateBackFromCenterMat * rotateMat * translateCenterMat;
+    const auto invTransformMatrix = glm::inverse(translateCenterMat) * glm::inverse(rotateMat)
+        * glm::inverse(translateBackFromCenterMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
+    const std::uint32_t svoOffsetTmp = svoMemoryBlock->getOffset() / 4;
+    const auto scaleBufferData = glm::vec4{1.f / scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
+
+    auto mapping = modelInfoMemoryBlock->mapping();
+    mapping.set(scaleBufferData);
+    mapping.setRawOffset(transformMatrix, sizeof(glm::vec4));
+    mapping.setRawOffset(invTransformMatrix, sizeof(glm::vec4) + sizeof(glm::mat4));
+  }
+  void assignNewId();
 };
 
 // TODO: terminal interface in pf_imgui
@@ -132,10 +160,6 @@ class SimpleSVORenderer_UI {
     ui::ig::SpinInput<int> &shaderDebugValueInput;
     ui::ig::DragInput<float> &shaderDebugFloatValueSlider;
     ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
-    ui::ig::Separator &shaderSeparator1;
-    ui::ig::DragInput<glm::vec3> &shaderDebugTranslateDrag;
-    ui::ig::DragInput<glm::vec3> &shaderDebugRotateDrag;
-    ui::ig::DragInput<glm::vec3> &shaderDebugScaleDrag;
   ui::ig::Window &modelsWindow;
     ui::ig::AbsoluteLayout &modelListsLayout;
       ui::ig::ListBox<ModelInfo> &modelList;
@@ -151,6 +175,9 @@ class SimpleSVORenderer_UI {
       ui::ig::InputText &modelDetailVoxelCountText;
       ui::ig::InputText &modelDetailMinimisedVoxelCountText;
       ui::ig::Separator &modelDetailSeparator1;
+      ui::ig::Text &modelDetailBufferInfo;
+      ui::ig::Text &modelDetailBufferOffset;
+      ui::ig::Text &modelDetailBufferSize;
       ui::ig::DragInput<glm::vec3> &modelDetailTranslateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailRotateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
@@ -158,6 +185,9 @@ class SimpleSVORenderer_UI {
   // clang-format on
 
   void setWindowsVisible(bool visible);
+
+  constexpr static auto MODEL_BUFFER_OFFSET_INFO = "Offset: {} B";
+  constexpr static auto MODEL_BUFFER_SIZE_INFO = "Size: {} B";
 
  private:
 };

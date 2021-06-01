@@ -3,20 +3,19 @@
 //
 
 #include "SparseVoxelOctreeCreation.h"
-#include "../../../pf_common/include/pf_common/bits.h"
 #include "SparseVoxelOctree.h"
 #include <fstream>
 #include <logging/loggers.h>
 #include <magic_enum.hpp>
+#include <pf_common/bits.h>
 #include <range/v3/action/sort.hpp>
-#include <range/v3/action/unique.hpp>
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/join.hpp>
 #include <range/v3/view/reverse.hpp>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
 
-#define MINIMISE_TREE 0
+#define MINIMISE_TREE 1
 
 namespace pf::vox {
 using namespace ranges;
@@ -291,7 +290,7 @@ std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tre
   minimisedCount = leafCount;
   logd("VOX", "Minimised tree, remaining leaf voxels: {}", leafCount);
 #endif
-  // TODO:
+  // TODO: pages - now pointer get messed up due to size limit
   auto childDescriptors = std::vector<ChildDescriptor>();
 
   auto attLookups = std::vector<AttachmentLookupEntry>();

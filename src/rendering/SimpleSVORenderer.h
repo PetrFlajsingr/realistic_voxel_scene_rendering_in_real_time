@@ -21,6 +21,7 @@
 #include <utility>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
+#include <utils/GpuMemoryPool.h>
 #include <voxel/SparseVoxelOctree.h>
 
 namespace pf {
@@ -117,8 +118,6 @@ class UniformAccessor {
   std::shared_ptr<vulkan::Buffer> buffer;
 };*/
 
-constexpr auto LOCAL_SIZE_X = 8;
-constexpr auto LOCAL_SIZE_Y = 8;
 class SimpleSVORenderer : public VulkanDebugCallbackImpl {
  public:
   explicit SimpleSVORenderer(toml::table &tomlConfig);
@@ -154,8 +153,6 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   void initUI();
 
-  void updateTransformMatrix();
-
   std::vector<std::string> loadModelFileNames(const std::filesystem::path &dir);
 
   std::reference_wrapper<toml::table> config;
@@ -185,7 +182,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> lightUniformBuffer;
   std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
   std::shared_ptr<vulkan::Buffer> svoBuffer;
-  std::shared_ptr<vulkan::Buffer> matricesUniformBuffer;
+  std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 
@@ -200,17 +197,18 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
 
-  std::unique_ptr<vox::SparseVoxelOctree> svo = nullptr;
-
-  bool isSceneLoaded = true;
+  //std::unique_ptr<vox::SparseVoxelOctree> svo = nullptr;
 
   std::vector<Subscription> subscriptions;
 
   std::function<void()> closeWindow;
 
-  glm::mat4 transformMatrix{1};
-
   std::function<void(std::function<void()>)> enqueue;// TODO: change this to window handle when changed to dynamic poly
+
+  std::pair<std::size_t, std::size_t> computeLocalSize{1, 1};
+
+  std::shared_ptr<vulkan::BufferMemoryPool<4>> svoMemoryPool;
+  std::shared_ptr<vulkan::BufferMemoryPool<16>> modelInfoMemoryPool;
 };
 
 }// namespace pf

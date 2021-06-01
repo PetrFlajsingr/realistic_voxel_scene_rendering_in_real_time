@@ -9,6 +9,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 #include <pf_common/ByteLiterals.h>
+#include <pf_common/enums.h>
 #include <pf_common/files.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <pf_imgui/elements.h>
@@ -23,18 +24,27 @@ namespace pf {
 using namespace vulkan;
 using namespace pf::byte_literals;
 
+// TODO: remove this and make it work from pf_common/enums.h
+std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
+  o << magic_enum::enum_name(e);
+  return o;
+}
+
 /**
  * Model info buffer:
  * uint model count
  * model infos
- *      uint SVO offset
+ *      vec3 scale
+ *      uint SVO offset - scale and offset saved in vec4
  *      mat4 object matrix
  *      mat4 inverse object matrix
- *      vec3 scale
  */
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}, 0.001f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {}
+    : config(tomlConfig), camera({0, 0}, 0.001f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {
+  computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
+                               config.get()["rendering"]["compute"]["local_size_y"].value_or<std::size_t>(8)};
+}
 
 SimpleSVORenderer::~SimpleSVORenderer() {
   if (vkLogicalDevice == nullptr) { return; }
@@ -46,7 +56,7 @@ SimpleSVORenderer::~SimpleSVORenderer() {
 }
 
 void SimpleSVORenderer::init(ui::Window &window) {
-  enqueue = [&window](std::function<void()> fnc) { window.enqueue(fnc); };
+  enqueue = [&window](const std::function<void()>& fnc) { window.enqueue(fnc); };
   closeWindow = [&window] { window.close(); };
   camera.setSwapLeftRight(false);
   pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
@@ -163,13 +173,6 @@ void SimpleSVORenderer::createSurface(ui::Window &window) {
 void SimpleSVORenderer::render() {
   auto sampler = FlameGraphSampler{};
   auto mainSample = sampler.blockSampler("render loop");
-  auto sceneLoadSample = mainSample.blockSampler("svo loading");
-  if (!isSceneLoaded) {
-    isSceneLoaded = true;
-    vox::copySvoToBuffer(*svo, svoBuffer->mapping());
-    logd(APP_TAG, "Copied svo to buffer");
-  }
-  sceneLoadSample.end();
 
   auto swapSample = mainSample.blockSampler("swap");
   vkSwapChain->swap();
@@ -357,9 +360,9 @@ void SimpleSVORenderer::createPipeline() {
                                                        .count = 1,
                                                        .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
                                                       {.binding = 6,
-                                                       .type = vk::DescriptorType::eUniformBuffer,
+                                                       .type = vk::DescriptorType::eStorageBuffer,
                                                        .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// model infos
                                                   }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -388,16 +391,20 @@ void SimpleSVORenderer::createPipeline() {
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
+  svoMemoryPool = BufferMemoryPool<4>::CreateShared(svoBuffer);
+  // TODO: size
+  modelInfoBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
+                                                   .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
+                                                   .sharingMode = vk::SharingMode::eExclusive,
+                                                   .queueFamilyIndices = {}});
 
-  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float),
-                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                      .sharingMode = vk::SharingMode::eExclusive,
-                                                      .queueFamilyIndices = {}});
+  modelInfoMemoryPool = BufferMemoryPool<16>::CreateShared(modelInfoBuffer);
 
-  matricesUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::mat4) * 3,
-                                                         .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                         .sharingMode = vk::SharingMode::eExclusive,
-                                                         .queueFamilyIndices = {}});
+  debugUniformBuffer = vkLogicalDevice->createBuffer(
+      {.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(std::uint32_t),
+       .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+       .sharingMode = vk::SharingMode::eExclusive,
+       .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -455,29 +462,28 @@ void SimpleSVORenderer::createPipeline() {
                                                        .descriptorType = vk::DescriptorType::eStorageImage,
                                                        .pImageInfo = &computeIterInfo};
 
-  const auto uniformMatricesInfo = vk::DescriptorBufferInfo{.buffer = **matricesUniformBuffer,
-                                                            .offset = 0,
-                                                            .range = matricesUniformBuffer->getSize()};
-  const auto uniformMatricesWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                           .dstBinding = 6,
-                                                           .dstArrayElement = {},
-                                                           .descriptorCount = 1,
-                                                           .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                           .pBufferInfo = &uniformMatricesInfo};
+  const auto modelInfoInfo =
+      vk::DescriptorBufferInfo{.buffer = **modelInfoBuffer, .offset = 0, .range = modelInfoBuffer->getSize()};
+  const auto modelInfoWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                     .dstBinding = 6,
+                                                     .dstArrayElement = {},
+                                                     .descriptorCount = 1,
+                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                     .pBufferInfo = &modelInfoInfo};
 
-  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite,       svoWrite,
-                                     uniformDebugWrite, computeIterWrite,   uniformMatricesWrite};
+  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,
+                                     uniformDebugWrite, computeIterWrite,   modelInfoWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   // TODO: change string paths to filesystem::path
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
-      .name = "Triangle compute",
+      .name = "SVO",
       .type = ShaderType::Compute,
-      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo.comp")
+      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo2.comp")
                   .string(),
       .macros = {},
-      .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(LOCAL_SIZE_X)},
-                        {"LOCAL_SIZE_Y", std::to_string(LOCAL_SIZE_Y)}}});
+      .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(computeLocalSize.first)},
+                        {"LOCAL_SIZE_Y", std::to_string(computeLocalSize.second)}}});
 
   const auto computeStageInfo = vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
                                                                   .module = **computeShader,
@@ -519,8 +525,8 @@ void SimpleSVORenderer::recordCommands() {
           | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
       recording.getCommandBuffer()->bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                                        vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
-      recording.dispatch(vkSwapChain->getExtent().width / LOCAL_SIZE_X, vkSwapChain->getExtent().height / LOCAL_SIZE_Y,
-                         1);
+      recording.dispatch(vkSwapChain->getExtent().width / computeLocalSize.first,
+                         vkSwapChain->getExtent().height / computeLocalSize.second, 1);
       auto &currentSwapchainImage = *vkSwapChain->getImages()[i];
       {
         auto imageBarriers = std::vector<vk::ImageMemoryBarrier>{};
@@ -632,9 +638,17 @@ void SimpleSVORenderer::initUI() {
   ui->shaderDebugFloatValueSlider.addValueListener([this](auto value) { debugUniformBuffer->mapping().set(value, 3); },
                                                    true);
 
-  ui->shaderDebugTranslateDrag.addValueListener([this](const auto &) { updateTransformMatrix(); });
-  ui->shaderDebugScaleDrag.addValueListener([this](const auto &) { updateTransformMatrix(); });
-  ui->shaderDebugRotateDrag.addValueListener([this](const auto &) { updateTransformMatrix(); }, true);
+  ui->modelDetailTranslateDrag.addValueListener([this](const auto &) {
+    if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) { item->updateInfoToGPU(); }
+  });
+  ui->modelDetailScaleDrag.addValueListener([this](const auto &) {
+    if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) { item->updateInfoToGPU(); }
+  });
+  ui->modelDetailRotateDrag.addValueListener(
+      [this](const auto &) {
+        if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) { item->updateInfoToGPU(); }
+      },
+      true);
 
   ui->shaderDebugIterDivideDrag.addValueListener(
       [this](auto value) { debugUniformBuffer->mapping().setRawOffset(value, sizeof(int) * 3 + sizeof(float)); }, true);
@@ -663,14 +677,6 @@ void SimpleSVORenderer::initUI() {
 
   //ui->openModelButton.addClickListener(openModelFnc);
 
-  //ui->modelList.addValueListener([modelsPath, this](const auto &modelName) {
-  //  const auto selectedModelPath = modelsPath / modelName.path;
-  //  const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-  //  ui->updateSceneInfo(modelName.path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
-  //                      svoCreate.second.voxelCount);
-  //  svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-  //  isSceneLoaded = false;
-  //});
   ui->activeModelList.addDropListener([this, modelsPath](const auto &modelInfo) {
     const auto selectedModelPath = modelsPath / modelInfo.path;
     const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
@@ -679,26 +685,66 @@ void SimpleSVORenderer::initUI() {
     newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
     newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
     newModelInfo.svoHeight = svoCreate.second.depth;
+    auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
+    auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
+
+    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
+    std::string err;
+    if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!err.empty()) {
+      loge(MAIN_TAG, "Error while loading SVO: {}", err);
+      std::cout << MessageButtons::Ok;
+      ui->imgui->createMsgDlg<MessageButtons>("Error", fmt::format("Error while loading SVO: {}", err),
+                                              MessageButtons::Ok, [](auto) { return true; });
+      enqueue([modelInfo, this] { ui->activeModelList.removeItem(modelInfo); });
+      return;
+    }
+
+    newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
+    newModelInfo.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+    newModelInfo.updateInfoToGPU();
+
     enqueue([modelInfo, newModelInfo, this] {
       ui->activeModelList.removeItem(modelInfo);
       ui->activeModelList.addItem(newModelInfo, Selected::Yes);
     });
-    svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-    isSceneLoaded = false;
   });// TODO: change this to load new SVO not reload
 
   ui->activateSelectedModelButton.addClickListener([this, modelsPath] {
     if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
       const auto selectedModelPath = modelsPath / item->path;
       const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+      item->assignNewId();
       item->voxelCount = svoCreate.second.initVoxelCount;
       item->minimizedVoxelCount = svoCreate.second.voxelCount;
       item->svoHeight = svoCreate.second.depth;
+
+      auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
+      auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
+
+      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
+      std::string err;
+      if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+      if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+      if (!err.empty()) {
+        loge(MAIN_TAG, "Error while loading SVO: {}", err);
+        std::cout << MessageButtons::Ok;
+        ui->imgui->createMsgDlg<MessageButtons>("Error", fmt::format("Error while loading SVO: {}", err),
+                                                MessageButtons::Ok, [](auto) { return true; });
+        return;
+      }
+
+      item->svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
+      item->modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+      item->updateInfoToGPU();
       ui->activeModelList.addItem(*item, Selected::Yes);
-      svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-      isSceneLoaded = false;
     }
   });// TODO: change so this will load new SVO not reload
+
+  ui->activeModelList.addValueListener([this](const auto &) {
+    debugUniformBuffer->mapping().set<uint32_t>(ui->activeModelList.getItems().size(), 5);
+  }, true);
 
   ui->modelsFilterInput.addValueListener([this](auto filterVal) {
     ui->modelList.setFilter(
@@ -709,17 +755,6 @@ void SimpleSVORenderer::initUI() {
     const auto modelFileNames = loadModelFileNames(modelsPath);
     ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
   });
-
-  //ui->reloadSelectedModelButton.addClickListener([modelsPath, this] {
-  //  if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
-  //    const auto selectedModelPath = modelsPath / item->path;
-  //    const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-  //    ui->updateSceneInfo(item->path, svoCreate.second.depth, svoCreate.second.initVoxelCount,
-  //                        svoCreate.second.voxelCount);
-  //    svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-  //    isSceneLoaded = false;
-  //  }
-  //});
 
   ui->shaderDebugValueInput.addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); },
                                              true);
@@ -782,8 +817,10 @@ void SimpleSVORenderer::initUI() {
     ui->cameraDirText.setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
   });
 
-  ui->shaderControlsWindow.createChild<Slider<float>>(uniqueId(), "Rot", -10, 10, 0).addValueListener([this](auto) {
-    updateTransformMatrix();
+  ui->removeSelectedActiveModelButton.addClickListener([this] {
+    if (!ui->activeModelList.getSelectedItem().has_value()) { return; }
+    const auto idToRemove = ui->activeModelList.getSelectedItem()->id;
+    ui->activeModelList.removeItemIf([idToRemove](const auto &modelInfo) { return modelInfo.id == idToRemove; });
   });
 
   ui->imgui->setStateFromConfig();
@@ -796,26 +833,6 @@ std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesy
 }
 void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
-}
-void SimpleSVORenderer::updateTransformMatrix() {
-  const auto translateVec = ui->shaderDebugTranslateDrag.getValue();
-  const auto scaleVec = 1.f / ui->shaderDebugScaleDrag.getValue();
-  const auto rotateVec = ui->shaderDebugRotateDrag.getValue();
-
-  const auto translateCenterMat = glm::translate(glm::mat4(1.f), glm::vec3{0.5, 0.5, 0.5});
-  const auto translateBackFromCenterMat = glm::inverse(translateCenterMat);
-  const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
-  const auto scaleMat = glm::scale(scaleVec);
-  const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
-  const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
-  const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
-  const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
-  transformMatrix = translateMat * scaleMat * translateBackFromCenterMat * rotateMat * translateCenterMat;
-  const auto invTransformMatrix = glm::inverse(translateCenterMat) * glm::inverse(rotateMat)
-      * glm::inverse(translateBackFromCenterMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
-  matricesUniformBuffer->mapping().set(transformMatrix, 1);
-  matricesUniformBuffer->mapping().set(invTransformMatrix, 2);
-  matricesUniformBuffer->mapping().setRawOffset(1.f / scaleVec, sizeof(glm::mat4) * 2);
 }
 
 }// namespace pf

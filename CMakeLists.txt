@@ -183,7 +183,6 @@ CPMAddPackage(
         GIT_TAG master
 )
 
-
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
     target_include_directories(chaiscript INTERFACE ${chaiscript_SOURCE_DIR}/include)
@@ -250,6 +249,7 @@ set(INCLUDES
         src/voxel/Scene.h
         src/voxel/SparseVoxelOctree.h
         src/voxel/SparseVoxelOctreeCreation.h
+        src/utils/GpuMemoryPool.h
         )
 
 set(SVO_SOURCES

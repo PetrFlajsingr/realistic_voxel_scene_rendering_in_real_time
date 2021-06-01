@@ -85,7 +85,7 @@ layout(binding = 4, std140) uniform Debug {
   int shadows;
   float debugFloatVal;
   float iterDivide;
-  uint activeModelIndex;
+  uint modelCount;
 }
 debug;
 
@@ -174,6 +174,7 @@ struct TraceResult {
   vec3 color;
   vec3 normal;
   bool nearEdge;
+  uint objectId;
 };
 
 #define CHILD_PTR_MASK 0xFFFE0000u
@@ -211,7 +212,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
   ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
   ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
 
-  vec3 t_coef = 1.f / -abs(ray.direction) / 100;
+  vec3 t_coef = 1.f / -abs(ray.direction) / 10;
 
   vec3 t_bias = t_coef * ray.origin;
 
@@ -485,6 +486,18 @@ vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
   return traceResult.color * intensity;
 }
 
+TraceResult traceModel(uint modelIndex, Ray ray) {
+  ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
+  ray.origin += vec3(1, 1, 1);
+  ray.direction = normalize((transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz);
+  ray.originSize = 0.02;
+  ray.directionSize = 0;
+
+  TraceResult result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w));
+  result.objectId = modelIndex;
+  return result;
+}
+
 void main() {
   uint idx = gl_GlobalInvocationID.x;
   uint idy = gl_GlobalInvocationID.y;
@@ -492,92 +505,89 @@ void main() {
   ivec2 dimensions = imageSize(computeImage);
   if (idx > dimensions.x || idy > dimensions.y) { return; }
 
-  float count = 0;
   vec3 finalColor = vec3(0);
   vec3 iterColor = vec3(0);
 
   Ray ray;
-  const int AA_size = debug.debugVal;
-  const int aaKernelSize = AA_size / 2;
-  for (float aaY = -aaKernelSize; aaY <= aaKernelSize; aaY++) {
-    for (float aaX = -aaKernelSize; aaX <= aaKernelSize; aaX++) {
-      const vec2 uv = normalizeScreenCoords(vec2(idx, idy) + vec2(aaX, aaY) / AA_size, vec2(dimensions));
-      const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
-      //const vec3 origin = (camera.invProjView * nearPlanePos).xyz;
-      vec3 origin = (camera.invProjView * nearPlanePos).xyz;
-      const vec3 cameraSpaceOrigin = origin;
-      origin = (modelInfos.infos[debug.activeModelIndex].inverseObjectMatrix * vec4(origin, 1)).xyz;
-      origin += vec3(1, 1, 1);
+  const vec2 uv = normalizeScreenCoords(vec2(idx, idy), vec2(dimensions));
+  const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
+  ray.origin = (camera.invProjView * nearPlanePos).xyz;
+  ray.direction = normalize(
+      (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
+          .xyz);
 
-      //const vec3 direction =
-      //    (camera.invProjView
-      //     * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
-      //        .xyz;
+  TraceResult traceResult;
+  traceResult.hit = false;
+  traceResult.t = INF;
+  traceResult.iter = 0;
 
-      vec3 direction =
-          normalize((camera.invProjView
-                     * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
-                        .xyz);
-      const vec3 cameraSpaceDirection = direction;
-      direction = (transpose(modelInfos.infos[debug.activeModelIndex].inverseObjectMatrix) * vec4(direction, 0)).xyz;
+  for (uint i = 0; i < debug.modelCount; ++i) {
+    TraceResult modelTraceResult = traceModel(i, ray);
+    int oldIter = traceResult.iter;
+    if (modelTraceResult.hit && modelTraceResult.t < traceResult.t) { traceResult = modelTraceResult; }
+    traceResult.iter = oldIter + modelTraceResult.iter;
+  }
 
-      ray.origin = origin;
-      ray.direction = normalize(direction);
-      ray.originSize = 0.02;
-      ray.directionSize = 0;
-      TraceResult traceResult =
-          trace(ray, floatBitsToUint(modelInfos.infos[debug.activeModelIndex].scaleAndSvoBufferOffset.w));
-      TraceResult shadowTraceResult;
+  TraceResult shadowTraceResult;
+  shadowTraceResult.hit = false;
+  vec3 lightDir = normalize(light.pos.xyz - traceResult.pos);
 
-      vec3 lightDir = normalize(light.pos.xyz - traceResult.pos);
-      if (debug.shadows == 1 && traceResult.hit) {
-        Ray shadowRay;
-        shadowRay.direction = lightDir;
-        shadowRay.origin = traceResult.pos + EPSILON * lightDir;
-        shadowRay.originSize = 0.02;
-        shadowRay.directionSize = 0;
-        shadowTraceResult =
-            trace(shadowRay, floatBitsToUint(modelInfos.infos[debug.activeModelIndex].scaleAndSvoBufferOffset.w));
-        traceResult.iter += shadowTraceResult.iter;
-      } else {
-        shadowTraceResult.hit = false;
-      }
+  if (debug.shadows == 1 && traceResult.hit) {
+    const vec3 hitPointInCameraSpace = ray.origin
+        + ray.direction /* * modelInfos.infos[traceResult.objectId].scaleAndSvoBufferOffset.xyz*/ * traceResult.t;
 
-      iterColor += vec3(traceResult.iter / debug.iterDivide);
-      if (debug.viewType == ITER_VIEW) {
-        finalColor += vec3(traceResult.iter / debug.iterDivide);
-      } else if (traceResult.hit) {
-        if (debug.viewType == COLOR_VIEW) {
-          finalColor += calcLight(traceResult, lightDir, shadowTraceResult.hit);
-        } else if (debug.viewType == NORMAL_VIEW) {
-          finalColor += traceResult.normal * 0.5f + 0.5f;
-        } else if (debug.viewType == DISTANCE_VIEW) {
-          const vec3 pos = cameraSpaceOrigin
-              + cameraSpaceDirection * modelInfos.infos[debug.activeModelIndex].scaleAndSvoBufferOffset.xyz
-                  * traceResult.t;
-          const float dist = distance(cameraSpaceOrigin, pos);
-          const float z = (camera.far + camera.near) / (camera.far - camera.near)
-              + 1.f / dist * ((-2 * camera.far * camera.near) / (camera.far - camera.near));
-          //const float z = (camera.far + camera.near) / (camera.far - camera.near)
-          //    + 1.f / traceResult.t * ((-2 * camera.far * camera.near) / (camera.far - camera.near));
-          finalColor += vec3(1.f - z);
-        } else if (debug.viewType == CHILD_INDEX_VIEW) {
-          finalColor += lut[traceResult.childIdx];
-        } else if (debug.viewType == TREE_LEVEL_VIEW) {
-          finalColor += lut[STACK_SIZE - traceResult.stackPtr];
-        }
-      } else {
-        if (debug.viewType == DISTANCE_VIEW) {
-          finalColor += vec3(0);
-        } else {
-          finalColor += vec3(1);
-        }
-      }
-      count += 1.0;
+    for (uint i = 0; i < debug.modelCount; ++i) {
+      Ray shadowRay;
+      shadowRay.direction = lightDir;
+      shadowRay.origin = hitPointInCameraSpace;// + EPSILON * lightDir;
+      shadowRay.originSize = 0.02;
+      shadowRay.directionSize = 0;
+      shadowTraceResult = traceModel(i, shadowRay);
+      traceResult.iter += shadowTraceResult.iter;
+      if (shadowTraceResult.hit) { break; }
     }
   }
-  finalColor /= count;
-  iterColor /= count;
+
+  /*if (debug.shadows == 1 && traceResult.hit) {
+    Ray shadowRay;
+    shadowRay.direction = lightDir;
+    shadowRay.origin = traceResult.pos + EPSILON * lightDir;
+    shadowRay.originSize = 0.02;
+    shadowRay.directionSize = 0;
+    shadowTraceResult =
+        trace(shadowRay, floatBitsToUint(modelInfos.infos[debug.modelCount - 1].scaleAndSvoBufferOffset.w));
+    traceResult.iter += shadowTraceResult.iter;
+  } else {
+    shadowTraceResult.hit = false;
+  }*/
+
+  iterColor += vec3(traceResult.iter / debug.iterDivide);
+  if (debug.viewType == ITER_VIEW) {
+    finalColor += vec3(traceResult.iter / debug.iterDivide);
+  } else if (traceResult.hit) {
+    if (debug.viewType == COLOR_VIEW) {
+      finalColor += calcLight(traceResult, lightDir, shadowTraceResult.hit);
+    } else if (debug.viewType == NORMAL_VIEW) {
+      finalColor += traceResult.normal * 0.5f + 0.5f;
+    } else if (debug.viewType == DISTANCE_VIEW) {
+      /*const vec3 pos = cameraSpaceOrigin
+          + cameraSpaceDirection * modelInfos.infos[debug.modelCount - 1].scaleAndSvoBufferOffset.xyz * traceResult.t;
+      const float dist = distance(cameraSpaceOrigin, pos);
+      const float z = (camera.far + camera.near) / (camera.far - camera.near)
+          + 1.f / dist * ((-2 * camera.far * camera.near) / (camera.far - camera.near));
+      finalColor += vec3(1.f - z);*/
+    } else if (debug.viewType == CHILD_INDEX_VIEW) {
+      finalColor += lut[traceResult.childIdx];
+    } else if (debug.viewType == TREE_LEVEL_VIEW) {
+      finalColor += lut[STACK_SIZE - traceResult.stackPtr];
+    }
+  } else {
+    if (debug.viewType == DISTANCE_VIEW) {
+      finalColor += vec3(0);
+    } else {
+      finalColor += vec3(1);
+    }
+  }
 
   finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));
 

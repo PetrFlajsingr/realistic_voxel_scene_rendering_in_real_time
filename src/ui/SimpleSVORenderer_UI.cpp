@@ -97,13 +97,6 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           "shader_float1_spin", "Shader float debug val", 0.01, -100, 100, 1)),
       shaderDebugIterDivideDrag(shaderControlsWindow.createChild<DragInput<float>>(
           "shader_iter_divide_drag", "Iteration view divider", 1, 1, 1024, 64, Persistent::Yes)),
-      shaderSeparator1(shaderControlsWindow.createChild<Separator>("separator_shader")),
-      shaderDebugTranslateDrag(shaderControlsWindow.createChild<DragInput<glm::vec3>>(
-          "shader_translate_drag", "Translation", 0.01, -10, 10, glm::vec3{0})),
-      shaderDebugRotateDrag(shaderControlsWindow.createChild<DragInput<glm::vec3>>("shader_rotate_drag", "Rotation",
-                                                                                   0.05, -180, 180, glm::vec3{0})),
-      shaderDebugScaleDrag(shaderControlsWindow.createChild<DragInput<glm::vec3>>("shader_scale_drag", "Scale", 0.05,
-                                                                                  0.01, 10, glm::vec3{1, 1, 1})),
       modelsWindow(imgui->createWindow("models_window", "Models")),
       modelListsLayout(modelsWindow.createChild<AbsoluteLayout>("models_layout", Size{Width::Auto(), Height(170)})),
       modelList(modelListsLayout.createChild<WidthDecorator<ListBox<ModelInfo>>>(
@@ -128,6 +121,11 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       modelDetailMinimisedVoxelCountText(
           modelDetailLayout.createChild<InputText>("model_detail_min_voxel_count", "Minimised voxel count", "")),
       modelDetailSeparator1(modelDetailLayout.createChild<Separator>("model_detail_separator_1")),
+      modelDetailBufferInfo(modelDetailLayout.createChild<Text>("model_detail_buffer_info", "Buffer info:")),
+      modelDetailBufferOffset(
+          modelDetailLayout.createChild<Bullet<Text>>("model_detail_buffer_offset", MODEL_BUFFER_OFFSET_INFO)),
+      modelDetailBufferSize(
+          modelDetailLayout.createChild<Bullet<Text>>("model_detail_buffer_size", MODEL_BUFFER_SIZE_INFO)),
       modelDetailTranslateDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>(
           "model_detail_translate_drag", "Translation", 0.01, -100, 100, glm::vec3{0})),
       modelDetailRotateDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_rotate_drag", "Rotate",
@@ -138,6 +136,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
 {
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);
+  modelDetailLayout.setScrollable(true);
   modelDetailPathText.setReadOnly(true);
   modelDetailSVOHeightText.setReadOnly(true);
   modelDetailVoxelCountText.setReadOnly(true);
@@ -151,6 +150,10 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
     modelDetailTranslateDrag.setValue(modelInfo.translateVec);
     modelDetailRotateDrag.setValue(modelInfo.rotateVec);
     modelDetailScaleDrag.setValue(modelInfo.scaleVec);
+    if (modelInfo.svoMemoryBlock != nullptr) {
+      modelDetailBufferOffset.setText(MODEL_BUFFER_OFFSET_INFO, modelInfo.svoMemoryBlock->getOffset());
+      modelDetailBufferSize.setText(MODEL_BUFFER_SIZE_INFO, modelInfo.svoMemoryBlock->getSize());
+    }
   });
   modelDetailTranslateDrag.addValueListener([this](const auto &val) {
     if (auto selectedItem = activeModelList.getSelectedItem(); selectedItem.has_value()) {
@@ -288,4 +291,7 @@ std::ostream &operator<<(std::ostream &os, const ModelInfo &info) {
 }
 bool ModelInfo::operator==(const ModelInfo &rhs) const { return id == rhs.id; }
 bool ModelInfo::operator!=(const ModelInfo &rhs) const { return !(rhs == *this); }
+void ModelInfo::assignNewId() {
+  id = getNext(IdGenerator);
+}
 }// namespace pf
