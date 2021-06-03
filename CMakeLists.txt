@@ -57,7 +57,7 @@ endif ()
 set(CMAKE_CXX_STANDARD 20)
 list(APPEND flags "-fconcepts" "-fconcepts-diagnostics-depth=10" "-fcoroutines" "-Werror=return-type"
         "-Wall" "-Wextra" "-Werror" "-Wpedantic" "-Wno-unknown-pragmas" "-Wno-unused-function"
-        "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits" "-Wno-strict-aliasing" "-g")
+        "-Wpointer-arith" "-Wno-cast-qual" "-Wno-type-limits" "-Wno-strict-aliasing" "-g" "-Wno-stringop-truncation")
 
 if (USE_LLD_LINKER)
     list(APPEND flags "-fuse-ld=lld")
@@ -182,6 +182,9 @@ CPMAddPackage(
         GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
         GIT_TAG master
 )
+
+target_compile_options(pf_imgui PRIVATE "-O3")
+target_compile_options(pf_glfw_vulkan PRIVATE "-O3")
 
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)

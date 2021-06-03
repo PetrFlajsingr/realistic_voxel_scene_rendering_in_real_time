@@ -5,11 +5,13 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 
+#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
 #include <ostream>
 #include <pf_common/coroutines/Sequence.h>
 #include <pf_common/enums.h>
+#include <pf_common/math/BoundingBox.h>
 #include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/ComboBox.h>
@@ -18,7 +20,7 @@
 #include <pf_imgui/elements/Group.h>
 #include <pf_imgui/elements/Image.h>
 #include <pf_imgui/elements/InputText.h>
-#include <pf_imgui/elements/ListBox.h>
+#include <pf_imgui/elements/Listbox.h>
 #include <pf_imgui/elements/Memo.h>
 #include <pf_imgui/elements/Separator.h>
 #include <pf_imgui/elements/Slider.h>
@@ -55,6 +57,7 @@ struct ModelInfo {
   glm::vec3 translateVec{0, 0, 0};
   glm::vec3 scaleVec{1, 1, 1};
   glm::vec3 rotateVec{0, 0, 0};
+  math::BoundingBox<3> AABB{};
   std::shared_ptr<vulkan::BufferMemoryPool<4>::Block> svoMemoryBlock = nullptr;// TODO change this into unique_ptr
   std::shared_ptr<vulkan::BufferMemoryPool<16>::Block> modelInfoMemoryBlock = nullptr;
   std::uint32_t id = getNext(IdGenerator);
@@ -77,12 +80,16 @@ struct ModelInfo {
     const auto invTransformMatrix = glm::inverse(translateCenterMat) * glm::inverse(rotateMat)
         * glm::inverse(translateBackFromCenterMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
     const std::uint32_t svoOffsetTmp = svoMemoryBlock->getOffset() / 4;
-    const auto scaleBufferData = glm::vec4{1.f / scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
+    const auto scaleBufferData = glm::vec4{/*1.f /*/ scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
 
     auto mapping = modelInfoMemoryBlock->mapping();
     mapping.set(scaleBufferData);
     mapping.setRawOffset(transformMatrix, sizeof(glm::vec4));
     mapping.setRawOffset(invTransformMatrix, sizeof(glm::vec4) + sizeof(glm::mat4));
+    const auto AABB1 = glm::vec4{AABB.p1, AABB.p2.x};
+    const auto AABB2 = glm::vec4{AABB.p2.yz(), 0, 0};
+    mapping.setRawOffset(AABB1, sizeof(glm::vec4) + sizeof(glm::mat4) * 2);
+    mapping.setRawOffset(AABB2, sizeof(glm::vec4) + sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
   }
   void assignNewId();
 };
@@ -162,11 +169,11 @@ class SimpleSVORenderer_UI {
     ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
   ui::ig::Window &modelsWindow;
     ui::ig::AbsoluteLayout &modelListsLayout;
-      ui::ig::ListBox<ModelInfo> &modelList;
+      ui::ig::Listbox<ModelInfo> &modelList;
       ui::ig::InputText &modelsFilterInput;
       ui::ig::Button &reloadModelListButton;
       ui::ig::Button &activateSelectedModelButton;
-      ui::ig::ListBox<ModelInfo> &activeModelList;
+      ui::ig::Listbox<ModelInfo> &activeModelList;
       ui::ig::Button &removeSelectedActiveModelButton;
     ui::ig::Text &modelDetailTitle;
     ui::ig::BoxLayout &modelDetailLayout;

@@ -56,7 +56,7 @@ SimpleSVORenderer::~SimpleSVORenderer() {
 }
 
 void SimpleSVORenderer::init(ui::Window &window) {
-  enqueue = [&window](const std::function<void()>& fnc) { window.enqueue(fnc); };
+  enqueue = [&window](const std::function<void()> &fnc) { window.enqueue(fnc); };
   closeWindow = [&window] { window.close(); };
   camera.setSwapLeftRight(false);
   pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
@@ -685,10 +685,11 @@ void SimpleSVORenderer::initUI() {
     newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
     newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
     newModelInfo.svoHeight = svoCreate.second.depth;
+    newModelInfo.AABB = svoCreate.second.AABB;
     auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
     auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
 
-    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
+    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 3);
     std::string err;
     if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
     if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
@@ -719,11 +720,12 @@ void SimpleSVORenderer::initUI() {
       item->voxelCount = svoCreate.second.initVoxelCount;
       item->minimizedVoxelCount = svoCreate.second.voxelCount;
       item->svoHeight = svoCreate.second.depth;
+      item->AABB = svoCreate.second.AABB;
 
       auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
       auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
 
-      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
+      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 3);
       std::string err;
       if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
@@ -742,9 +744,9 @@ void SimpleSVORenderer::initUI() {
     }
   });// TODO: change so this will load new SVO not reload
 
-  ui->activeModelList.addValueListener([this](const auto &) {
-    debugUniformBuffer->mapping().set<uint32_t>(ui->activeModelList.getItems().size(), 5);
-  }, true);
+  ui->activeModelList.addValueListener(
+      [this](const auto &) { debugUniformBuffer->mapping().set<uint32_t>(ui->activeModelList.getItems().size(), 5); },
+      true);
 
   ui->modelsFilterInput.addValueListener([this](auto filterVal) {
     ui->modelList.setFilter(

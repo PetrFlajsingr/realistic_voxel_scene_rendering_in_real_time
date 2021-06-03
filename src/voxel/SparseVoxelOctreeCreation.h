@@ -20,6 +20,7 @@ struct SparseVoxelOctreeCreateInfo {
   uint32_t depth;
   uint32_t initVoxelCount;
   uint32_t voxelCount;
+  math::BoundingBox<3> AABB;
 };
 
 std::pair<SparseVoxelOctree, SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile,

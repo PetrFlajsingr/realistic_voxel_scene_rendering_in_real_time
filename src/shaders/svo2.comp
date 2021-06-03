@@ -66,6 +66,8 @@ struct ModelInfo {
   vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
   mat4 objectMatrix;
   mat4 inverseObjectMatrix;
+  vec4 AABB1;// xyz is p1.xyz, w is p2.x
+  vec4 AABB2;// xy is p2.yz
 };
 layout(std430, binding = 6) buffer SVOModelInfos {
   //uint modelCount;
@@ -123,22 +125,6 @@ struct BoundingBox {
   vec3 p2;
 };
 
-const BoundingBox SVOBoundingBox = BoundingBox(vec3(0, 0, 0), vec3(1, 1, 1));
-struct BoundingBoxIntersectResult {
-  bool hit;
-  float distance;
-};
-
-BoundingBoxIntersectResult intersectBoundingBox(BoundingBox boundingBox, vec3 rayOrigin, vec3 rayDir) {
-  const vec3 tMin = (boundingBox.p1 - rayOrigin) / rayDir;
-  const vec3 tMax = (boundingBox.p2 - rayOrigin) / rayDir;
-  const vec3 t1 = min(tMin, tMax);
-  const vec3 t2 = max(tMin, tMax);
-  const float tNear = max(max(t1.x, t1.y), t1.z);
-  const float tFar = min(min(t2.x, t2.y), t2.z);
-  return BoundingBoxIntersectResult(tNear < tFar, tNear);
-}
-
 vec3 getCameraRayDir(vec2 coord, vec3 camPos, vec3 camForward) {
   const vec3 camRight = normalize(cross(camera.up.xyz, camForward));
   const vec3 camUp = normalize(cross(camForward, camRight));
@@ -176,6 +162,16 @@ struct TraceResult {
   bool nearEdge;
   uint objectId;
 };
+
+bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) {
+  const vec3 tMin = (boxMin - ray.origin) / ray.direction;
+  const vec3 tMax = (boxMax - ray.origin) / ray.direction;
+  const vec3 t1 = min(tMin, tMax);
+  const vec3 t2 = max(tMin, tMax);
+  const float tNear = max(max(t1.x, t1.y), t1.z);
+  const float tFar = min(min(t2.x, t2.y), t2.z);
+  return tNear < tFar;
+}
 
 #define CHILD_PTR_MASK 0xFFFE0000u
 
@@ -488,14 +484,26 @@ vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
 
 TraceResult traceModel(uint modelIndex, Ray ray) {
   ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
-  ray.origin += vec3(1, 1, 1);
   ray.direction =                                                                                //normalize(
       (transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz;//);
   ray.originSize = 0.02;
   ray.directionSize = 0;
-
-  TraceResult result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w));
+  TraceResult result;
   result.objectId = modelIndex;
+  result.hit = false;
+  result.iter = 0;
+
+  const vec3 boxMin = modelInfos.infos[modelIndex].AABB1.xyz;
+  const vec3 boxMax = vec3(modelInfos.infos[modelIndex].AABB1.w, modelInfos.infos[modelIndex].AABB2.xy);
+  Ray AABBRay = ray;
+  AABBRay.direction = normalize(AABBRay.direction);
+  if (!intersectAABB(AABBRay, boxMin, boxMax)) { return result; }
+
+  ray.origin += vec3(1, 1, 1);
+
+  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w));
+  result.objectId = modelIndex;
+
   return result;
 }
 
@@ -531,15 +539,15 @@ void main() {
 
   TraceResult shadowTraceResult;
   shadowTraceResult.hit = false;
-  vec3 lightDir = normalize(light.pos.xyz - traceResult.pos);
-
+  //const vec3 hitPointInCameraSpace =
+  //    ray.origin + ray.direction * modelInfos.infos[traceResult.objectId].scaleAndSvoBufferOffset.xyz * traceResult.t;
+  const vec3 hitPointInCameraSpace =
+      (modelInfos.infos[traceResult.objectId].objectMatrix * vec4(traceResult.pos - vec3(1, 1, 1), 1)).xyz;
+  const vec3 lightDir = normalize(light.pos.xyz - hitPointInCameraSpace);
   if (debug.shadows == 1 && traceResult.hit) {
-    const vec3 hitPointInCameraSpace = ray.origin
-        + ray.direction /* * modelInfos.infos[traceResult.objectId].scaleAndSvoBufferOffset.xyz*/ * traceResult.t;
-
     for (uint i = 0; i < debug.modelCount; ++i) {
       Ray shadowRay;
-      shadowRay.direction = lightDir;
+      shadowRay.direction = lightDir * 5;// TODO: figure out why this needs to be done
       shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
       shadowRay.originSize = 0.02;
       shadowRay.directionSize = 0;
@@ -548,19 +556,6 @@ void main() {
       if (shadowTraceResult.hit) { break; }
     }
   }
-
-  /*if (debug.shadows == 1 && traceResult.hit) {
-    Ray shadowRay;
-    shadowRay.direction = lightDir;
-    shadowRay.origin = traceResult.pos + EPSILON * lightDir;
-    shadowRay.originSize = 0.02;
-    shadowRay.directionSize = 0;
-    shadowTraceResult =
-        trace(shadowRay, floatBitsToUint(modelInfos.infos[debug.modelCount - 1].scaleAndSvoBufferOffset.w));
-    traceResult.iter += shadowTraceResult.iter;
-  } else {
-    shadowTraceResult.hit = false;
-  }*/
 
   iterColor += vec3(traceResult.iter / debug.iterDivide);
   if (debug.viewType == ITER_VIEW) {
