@@ -535,7 +535,11 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
 
   TraceResult result;
   result.hit = false;
-  result.color = vec3(1);
+  if (debug.visualizeBVH == 1) {
+    result.color = vec3(1);
+  } else {
+    result.color = vec3(0);
+  }
   result.iter = 0;
   result.normal = vec3(0);
   TraceResult bestModelResult;
@@ -600,12 +604,6 @@ void main() {
   traceResult.t = INF;
   traceResult.iter = 0;
 
-  /*for (uint i = 0; i < debug.modelCount; ++i) {
-    TraceResult modelTraceResult = traceModel(i, ray);
-    int oldIter = traceResult.iter;
-    if (modelTraceResult.hit && modelTraceResult.t < traceResult.t) { traceResult = modelTraceResult; }
-    traceResult.iter = oldIter + modelTraceResult.iter;
-  }*/
   traceResult = traceBVH(ray, idx, idy);
 
   TraceResult shadowTraceResult;
@@ -616,16 +614,13 @@ void main() {
       (modelInfos.infos[traceResult.objectId].objectMatrix * vec4(traceResult.pos - vec3(1, 1, 1), 1)).xyz;
   const vec3 lightDir = normalize(light.pos.xyz - hitPointInCameraSpace);
   if (debug.shadows == 1 && traceResult.hit) {
-    /*for (uint i = 0; i < debug.modelCount; ++i) {
-      Ray shadowRay;
-      shadowRay.direction = lightDir * 5;// TODO: figure out why this needs to be done
-      shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
-      shadowRay.originSize = 0.02;
-      shadowRay.directionSize = 0;
-      shadowTraceResult = traceModel(i, shadowRay);
-      traceResult.iter += shadowTraceResult.iter;
-      if (shadowTraceResult.hit) { break; }
-    }*/
+    Ray shadowRay;
+    shadowRay.direction = lightDir * 5;// TODO: figure out why this needs to be done
+    shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
+    shadowRay.originSize = 0.02;
+    shadowRay.directionSize = 0;
+    shadowTraceResult = traceBVH(shadowRay, idx, idy);
+    traceResult.iter += shadowTraceResult.iter;
   }
 
   iterColor += vec3(traceResult.iter / debug.iterDivide);
