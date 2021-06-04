@@ -99,16 +99,16 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           "shader_iter_divide_drag", "Iteration view divider", 1, 1, 1024, 64, Persistent::Yes)),
       modelsWindow(imgui->createWindow("models_window", "Models")),
       modelListsLayout(modelsWindow.createChild<AbsoluteLayout>("models_layout", Size{Width::Auto(), Height(170)})),
-      modelList(modelListsLayout.createChild<Listbox<ModelInfo>>("models_list", ImVec2{10, 10}, "Models",
-                                                                 Size{200, 100}, std::nullopt)),
+      modelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>("models_list", ImVec2{10, 10}, "Models",
+                                                                         Size{200, 100}, std::nullopt)),
       modelsFilterInput(modelListsLayout.createChild<WidthDecorator<InputText>>("models_filter", ImVec2{10, 110},
                                                                                 Width{200}, "Filter")),
       reloadModelListButton(
           modelListsLayout.createChild<Button>("model_list_reload", ImVec2{10, 130}, "Reload models")),
       activateSelectedModelButton(modelListsLayout.createChild<Button>("activate_selected_model_button",
                                                                        ImVec2{265, 40}, "", ButtonType::ArrowRight)),
-      activeModelList(modelListsLayout.createChild<Listbox<ModelInfo>>("active_models_list", ImVec2{290, 10},
-                                                                       "Active models", Size{200, 100}, std::nullopt)),
+      activeModelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>(
+          "active_models_list", ImVec2{290, 10}, "Active models", Size{200, 100}, std::nullopt)),
       removeSelectedActiveModelButton(
           modelListsLayout.createChild<Button>("remove_selected_active_model_button", ImVec2{290, 110}, "Remove")),
       modelDetailTitle(modelsWindow.createChild<Text>("model_detail_title", "Detail")),
@@ -285,11 +285,4 @@ void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   modelsMenuItem.setValue(visible);
 }
 
-std::ostream &operator<<(std::ostream &os, const ModelInfo &info) {
-  os << info.path.filename().string();
-  return os;
-}
-bool ModelInfo::operator==(const ModelInfo &rhs) const { return id == rhs.id; }
-bool ModelInfo::operator!=(const ModelInfo &rhs) const { return !(rhs == *this); }
-void ModelInfo::assignNewId() { id = getNext(IdGenerator); }
 }// namespace pf

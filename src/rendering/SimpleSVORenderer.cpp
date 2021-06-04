@@ -363,6 +363,10 @@ void SimpleSVORenderer::createPipeline() {
                                                        .type = vk::DescriptorType::eStorageBuffer,
                                                        .count = 1,
                                                        .stageFlags = vk::ShaderStageFlagBits::eCompute},// model infos
+                                                      {.binding = 7,
+                                                       .type = vk::DescriptorType::eStorageBuffer,
+                                                       .count = 1,
+                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// bvh
                                                   }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -399,6 +403,11 @@ void SimpleSVORenderer::createPipeline() {
                                                    .queueFamilyIndices = {}});
 
   modelInfoMemoryPool = BufferMemoryPool<16>::CreateShared(modelInfoBuffer);
+  // TODO: size
+  bvhBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
+                                             .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
+                                             .sharingMode = vk::SharingMode::eExclusive,
+                                             .queueFamilyIndices = {}});
 
   debugUniformBuffer = vkLogicalDevice->createBuffer(
       {.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(std::uint32_t),
@@ -471,8 +480,17 @@ void SimpleSVORenderer::createPipeline() {
                                                      .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                      .pBufferInfo = &modelInfoInfo};
 
-  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,
-                                     uniformDebugWrite, computeIterWrite,   modelInfoWrite};
+  const auto bvhInfo =
+      vk::DescriptorBufferInfo{.buffer = **modelInfoBuffer, .offset = 0, .range = bvhBuffer->getSize()};
+  const auto bvhWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                               .dstBinding = 7,
+                                               .dstArrayElement = {},
+                                               .descriptorCount = 1,
+                                               .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                               .pBufferInfo = &bvhInfo};
+
+  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite,  svoWrite,
+                                     uniformDebugWrite, computeIterWrite,   modelInfoWrite, bvhWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   // TODO: change string paths to filesystem::path
@@ -639,14 +657,23 @@ void SimpleSVORenderer::initUI() {
                                                    true);
 
   ui->modelDetailTranslateDrag.addValueListener([this](const auto &) {
-    if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) { item->updateInfoToGPU(); }
+    if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) {
+      item->get().updateInfoToGPU();
+      rebuildAndUploadBVH();
+    }
   });
   ui->modelDetailScaleDrag.addValueListener([this](const auto &) {
-    if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) { item->updateInfoToGPU(); }
+    if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) {
+      item->get().updateInfoToGPU();
+      rebuildAndUploadBVH();
+    }
   });
   ui->modelDetailRotateDrag.addValueListener(
       [this](const auto &) {
-        if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) { item->updateInfoToGPU(); }
+        if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) {
+          item->get().updateInfoToGPU();
+          rebuildAndUploadBVH();
+        }
       },
       true);
 
@@ -673,14 +700,15 @@ void SimpleSVORenderer::initUI() {
 
   const auto modelsPath = std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>());
   const auto modelFileNames = loadModelFileNames(modelsPath);
-  ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
+  ui->modelList.setItems(modelFileNames
+                         | std::views::transform([](const auto &path) { return vox::GPUModelInfo{path}; }));
 
   //ui->openModelButton.addClickListener(openModelFnc);
 
   ui->activeModelList.addDropListener([this, modelsPath](const auto &modelInfo) {
     const auto selectedModelPath = modelsPath / modelInfo.path;
     const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-    auto newModelInfo = ModelInfo{};
+    auto newModelInfo = vox::GPUModelInfo{};
     newModelInfo.path = modelInfo.path;
     newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
     newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
@@ -689,7 +717,7 @@ void SimpleSVORenderer::initUI() {
     auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
     auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
 
-    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 3);
+    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
     std::string err;
     if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
     if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
@@ -709,23 +737,25 @@ void SimpleSVORenderer::initUI() {
     enqueue([modelInfo, newModelInfo, this] {
       ui->activeModelList.removeItem(modelInfo);
       ui->activeModelList.addItem(newModelInfo, Selected::Yes);
+      rebuildAndUploadBVH();
     });
   });// TODO: change this to load new SVO not reload
 
   ui->activateSelectedModelButton.addClickListener([this, modelsPath] {
     if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
-      const auto selectedModelPath = modelsPath / item->path;
+      auto newItem = item->get();
+      const auto selectedModelPath = modelsPath / newItem.path;
       const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-      item->assignNewId();
-      item->voxelCount = svoCreate.second.initVoxelCount;
-      item->minimizedVoxelCount = svoCreate.second.voxelCount;
-      item->svoHeight = svoCreate.second.depth;
-      item->AABB = svoCreate.second.AABB;
+      newItem.assignNewId();
+      newItem.voxelCount = svoCreate.second.initVoxelCount;
+      newItem.minimizedVoxelCount = svoCreate.second.voxelCount;
+      newItem.svoHeight = svoCreate.second.depth;
+      newItem.AABB = svoCreate.second.AABB;
 
       auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
       auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
 
-      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 3);
+      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
       std::string err;
       if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
@@ -737,10 +767,11 @@ void SimpleSVORenderer::initUI() {
         return;
       }
 
-      item->svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
-      item->modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
-      item->updateInfoToGPU();
-      ui->activeModelList.addItem(*item, Selected::Yes);
+      newItem.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
+      newItem.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+      newItem.updateInfoToGPU();
+      ui->activeModelList.addItem(newItem, Selected::Yes);
+      rebuildAndUploadBVH();
     }
   });// TODO: change so this will load new SVO not reload
 
@@ -755,7 +786,8 @@ void SimpleSVORenderer::initUI() {
 
   ui->reloadModelListButton.addClickListener([modelsPath, this] {
     const auto modelFileNames = loadModelFileNames(modelsPath);
-    ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelInfo{path}; }));
+    ui->modelList.setItems(modelFileNames
+                           | std::views::transform([](const auto &path) { return vox::GPUModelInfo{path}; }));
   });
 
   ui->shaderDebugValueInput.addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); },
@@ -821,7 +853,7 @@ void SimpleSVORenderer::initUI() {
 
   ui->removeSelectedActiveModelButton.addClickListener([this] {
     if (!ui->activeModelList.getSelectedItem().has_value()) { return; }
-    const auto idToRemove = ui->activeModelList.getSelectedItem()->id;
+    const auto idToRemove = ui->activeModelList.getSelectedItem()->get().id;
     ui->activeModelList.removeItemIf([idToRemove](const auto &modelInfo) { return modelInfo.id == idToRemove; });
   });
 
@@ -835,6 +867,11 @@ std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesy
 }
 void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
+}
+void SimpleSVORenderer::rebuildAndUploadBVH() {
+  auto bvhTree = vox::createBVH(ui->activeModelList.getItems());
+  auto mapping = bvhBuffer->mapping();
+  vox::saveBVHToBuffer(bvhTree, mapping);
 }
 
 }// namespace pf

@@ -69,11 +69,15 @@ struct ModelInfo {
   vec4 AABB1;// xyz is p1.xyz, w is p2.x
   vec4 AABB2;// xy is p2.yz
 };
-layout(std430, binding = 6) buffer SVOModelInfos {
-  //uint modelCount;
-  ModelInfo infos[];
-}
+layout(std430, binding = 6) buffer SVOModelInfos { ModelInfo infos[]; }
 modelInfos;
+
+struct BVHNode {
+  vec4 AABB1;        // p1.xyz, p2.x
+  vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
+};
+layout(std430, binding = 7) buffer BVHModelAABBs { BVHNode nodes[]; }
+bvh;
 
 #define COLOR_VIEW 0
 #define NORMAL_VIEW 1

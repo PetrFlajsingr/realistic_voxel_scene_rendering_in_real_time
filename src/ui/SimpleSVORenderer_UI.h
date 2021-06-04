@@ -6,10 +6,6 @@
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
-#include <ostream>
-#include <pf_common/coroutines/Sequence.h>
 #include <pf_common/enums.h>
 #include <pf_common/math/BoundingBox.h>
 #include <pf_imgui/elements/Checkbox.h>
@@ -35,7 +31,7 @@
 #include <pf_imgui/layouts/StretchLayout.h>
 #include <ui/ImGuiGlfwVulkan.h>
 #include <utils/Camera.h>
-#include <utils/GpuMemoryPool.h>
+#include <voxel/GPUModelInfo.h>
 
 namespace pf {
 
@@ -47,52 +43,6 @@ inline std::ostream &operator<<(std::ostream &o, ViewType viewType) {
   o << magic_enum::enum_name(viewType);
   return o;
 }
-
-// TODO: more info
-struct ModelInfo {
-  std::filesystem::path path;
-  std::uint32_t svoHeight{0};
-  std::uint32_t voxelCount{0};
-  std::uint32_t minimizedVoxelCount{0};
-  glm::vec3 translateVec{0, 0, 0};
-  glm::vec3 scaleVec{1, 1, 1};
-  glm::vec3 rotateVec{0, 0, 0};
-  math::BoundingBox<3> AABB{};
-  std::shared_ptr<vulkan::BufferMemoryPool<4>::Block> svoMemoryBlock = nullptr;// TODO change this into unique_ptr
-  std::shared_ptr<vulkan::BufferMemoryPool<16>::Block> modelInfoMemoryBlock = nullptr;
-  std::uint32_t id = getNext(IdGenerator);
-
-  bool operator==(const ModelInfo &rhs) const;
-  bool operator!=(const ModelInfo &rhs) const;
-  friend std::ostream &operator<<(std::ostream &os, const ModelInfo &info);
-  inline static auto IdGenerator = iota<std::uint32_t>();
-
-  inline void updateInfoToGPU() {
-    const auto translateCenterMat = glm::translate(glm::mat4(1.f), glm::vec3{0.5, 0.5, 0.5});
-    const auto translateBackFromCenterMat = glm::inverse(translateCenterMat);
-    const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
-    const auto scaleMat = glm::scale(scaleVec);
-    const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
-    const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
-    const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
-    const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
-    const auto transformMatrix = translateMat * scaleMat * translateBackFromCenterMat * rotateMat * translateCenterMat;
-    const auto invTransformMatrix = glm::inverse(translateCenterMat) * glm::inverse(rotateMat)
-        * glm::inverse(translateBackFromCenterMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
-    const std::uint32_t svoOffsetTmp = svoMemoryBlock->getOffset() / 4;
-    const auto scaleBufferData = glm::vec4{/*1.f /*/ scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
-
-    auto mapping = modelInfoMemoryBlock->mapping();
-    mapping.set(scaleBufferData);
-    mapping.setRawOffset(transformMatrix, sizeof(glm::vec4));
-    mapping.setRawOffset(invTransformMatrix, sizeof(glm::vec4) + sizeof(glm::mat4));
-    const auto AABB1 = glm::vec4{AABB.p1, AABB.p2.x};
-    const auto AABB2 = glm::vec4{AABB.p2.yz(), 0, 0};
-    mapping.setRawOffset(AABB1, sizeof(glm::vec4) + sizeof(glm::mat4) * 2);
-    mapping.setRawOffset(AABB2, sizeof(glm::vec4) + sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
-  }
-  void assignNewId();
-};
 
 // TODO: terminal interface in pf_imgui
 
@@ -169,11 +119,11 @@ class SimpleSVORenderer_UI {
     ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
   ui::ig::Window &modelsWindow;
     ui::ig::AbsoluteLayout &modelListsLayout;
-      ui::ig::Listbox<ModelInfo> &modelList;
+      ui::ig::Listbox<vox::GPUModelInfo> &modelList;
       ui::ig::InputText &modelsFilterInput;
       ui::ig::Button &reloadModelListButton;
       ui::ig::Button &activateSelectedModelButton;
-      ui::ig::Listbox<ModelInfo> &activeModelList;
+      ui::ig::Listbox<vox::GPUModelInfo> &activeModelList;
       ui::ig::Button &removeSelectedActiveModelButton;
     ui::ig::Text &modelDetailTitle;
     ui::ig::BoxLayout &modelDetailLayout;

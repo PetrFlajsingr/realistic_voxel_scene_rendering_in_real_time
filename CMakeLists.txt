@@ -151,14 +151,14 @@ if (ENABLE_STACKTRACE)
     CPMAddPackage(
             NAME pf_common
             GITHUB_REPOSITORY PetrFlajsingr/pf_common
-            GIT_TAG v1.0.7
+            GIT_TAG v1.0.8
             OPTIONS "ENABLE_STACKTRACE ON"
     )
 else ()
     CPMAddPackage(
             NAME pf_common
             GITHUB_REPOSITORY PetrFlajsingr/pf_common
-            GIT_TAG v1.0.7
+            GIT_TAG v1.0.8
     )
 endif ()
 if (ENABLE_STACKTRACE)
@@ -215,8 +215,9 @@ set(SOURCES
         src/voxel/ModelLoading.cpp
         src/voxel/Scene.cpp
         src/voxel/SparseVoxelOctree.cpp
+        src/voxel/GPUModelInfo.cpp
         src/voxel/SparseVoxelOctreeCreation.cpp
-        )
+        src/voxel/AABB_BVH.cpp)
 
 set(INCLUDES
         src/logging/loggers.h
@@ -252,6 +253,8 @@ set(INCLUDES
         src/voxel/Scene.h
         src/voxel/SparseVoxelOctree.h
         src/voxel/SparseVoxelOctreeCreation.h
+        src/voxel/AABB_BVH.h
+        src/voxel/GPUModelInfo.h
         src/utils/GpuMemoryPool.h
         )
 

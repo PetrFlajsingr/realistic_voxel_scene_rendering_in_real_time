@@ -23,6 +23,7 @@
 #include <utils/FPSCounter.h>
 #include <utils/GpuMemoryPool.h>
 #include <voxel/SparseVoxelOctree.h>
+#include <voxel/AABB_BVH.h>
 
 namespace pf {
 /*
@@ -153,6 +154,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   void initUI();
 
+  void rebuildAndUploadBVH();
+
   std::vector<std::string> loadModelFileNames(const std::filesystem::path &dir);
 
   std::reference_wrapper<toml::table> config;
@@ -183,6 +186,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
+  std::shared_ptr<vulkan::Buffer> bvhBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 
