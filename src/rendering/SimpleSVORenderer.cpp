@@ -410,7 +410,7 @@ void SimpleSVORenderer::createPipeline() {
                                              .queueFamilyIndices = {}});
 
   debugUniformBuffer = vkLogicalDevice->createBuffer(
-      {.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(std::uint32_t),
+      {.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(std::uint32_t) + sizeof(std::uint32_t),
        .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
        .sharingMode = vk::SharingMode::eExclusive,
        .queueFamilyIndices = {}});
@@ -480,8 +480,7 @@ void SimpleSVORenderer::createPipeline() {
                                                      .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                      .pBufferInfo = &modelInfoInfo};
 
-  const auto bvhInfo =
-      vk::DescriptorBufferInfo{.buffer = **bvhBuffer, .offset = 0, .range = bvhBuffer->getSize()};
+  const auto bvhInfo = vk::DescriptorBufferInfo{.buffer = **bvhBuffer, .offset = 0, .range = bvhBuffer->getSize()};
   const auto bvhWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
                                                .dstBinding = 7,
                                                .dstArrayElement = {},
@@ -855,6 +854,9 @@ void SimpleSVORenderer::initUI() {
 
   ui->debugPrintEnableCheckbox.addValueListener(
       [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 5).set(enabled ? 1 : 0); }, true);
+
+  ui->bvhVisualizeCheckbox.addValueListener(
+      [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 6).set(enabled ? 1 : 0); }, true);
 
   ui->imgui->setStateFromConfig();
 }

@@ -115,6 +115,7 @@ class SimpleSVORenderer_UI {
       ui::ig::Image &iterationImage;
   ui::ig::Window &shaderControlsWindow;
     ui::ig::Checkbox &debugPrintEnableCheckbox;
+    ui::ig::Checkbox &bvhVisualizeCheckbox;
     ui::ig::SpinInput<int> &shaderDebugValueInput;
     ui::ig::DragInput<float> &shaderDebugFloatValueSlider;
     ui::ig::DragInput<float> &shaderDebugIterDivideDrag;

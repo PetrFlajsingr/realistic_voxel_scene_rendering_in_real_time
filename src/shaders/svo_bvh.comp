@@ -95,6 +95,7 @@ layout(binding = 4, std140) uniform Debug {
   float debugFloatVal;
   float iterDivide;
   uint printEnabled;
+  uint visualizeBVH;
 }
 debug;
 
@@ -548,9 +549,12 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
     const vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
     if (isPrintId && debug.printEnabled == 1) { debugPrintfEXT("boxMin: %fx%fx%f", boxMin.x, boxMin.y, boxMin.z); }
     if (isPrintId && debug.printEnabled == 1) { debugPrintfEXT("boxMax: %fx%fx%f", boxMax.x, boxMax.y, boxMax.z); }
+    if (debug.visualizeBVH == 1) { ++result.iter; }
     if (intersectAABB(aabbRay, boxMin, boxMax)) {
-      result.hit = true;
-      result.color -= lut[nodeToCheckIdx % 7 + 1] / 3;
+      if (debug.visualizeBVH == 1) {
+        result.hit = true;
+        result.color -= lut[nodeToCheckIdx % 7 + 1] / 3;
+      }
       const uint offset = GET_BVH_NODE_OFFSET(currentNode);
       if (IS_BVH_NODE_LEAF(currentNode)) {
         TraceResult modelTraceResult = traceModel(offset, ray);
