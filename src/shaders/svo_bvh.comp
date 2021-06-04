@@ -189,7 +189,7 @@ bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) {
   const vec3 t2 = max(tMin, tMax);
   const float tNear = max(max(t1.x, t1.y), t1.z);
   const float tFar = min(min(t2.x, t2.y), t2.z);
-  return tNear < tFar;
+  return tNear > 0.f && tNear < tFar;
 }
 
 #define CHILD_PTR_MASK 0xFFFE0000u
@@ -551,8 +551,6 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
     const BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
     const vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
     const vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
-    if (isPrintId && debug.printEnabled == 1) { debugPrintfEXT("boxMin: %fx%fx%f", boxMin.x, boxMin.y, boxMin.z); }
-    if (isPrintId && debug.printEnabled == 1) { debugPrintfEXT("boxMax: %fx%fx%f", boxMax.x, boxMax.y, boxMax.z); }
     if (debug.visualizeBVH == 1) { ++result.iter; }
     if (intersectAABB(aabbRay, boxMin, boxMax)) {
       if (debug.visualizeBVH == 1) {

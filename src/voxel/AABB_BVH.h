@@ -57,7 +57,7 @@ Tree<BVHData> createBVH(std::ranges::range auto &&models) requires(
 }
 
 namespace details {
-  void serializeBVHForGPU(const details::Node &root, std::vector<std::unique_ptr<details::GPUBVHNode>> &result);
+  void serializeBVHForGPU(const details::Node &root, std::vector<details::GPUBVHNode> &result);
 }// namespace details
 
 void saveBVHToBuffer(const Tree<BVHData> &bvh, vulkan::BufferMapping &mapping);

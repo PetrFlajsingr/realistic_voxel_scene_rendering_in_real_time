@@ -55,21 +55,21 @@ SimpleSVORenderer::~SimpleSVORenderer() {
   config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
 }
 
-void SimpleSVORenderer::init(ui::Window &window) {
-  enqueue = [&window](const std::function<void()> &fnc) { window.enqueue(fnc); };
-  closeWindow = [&window] { window.close(); };
+void SimpleSVORenderer::init(const std::shared_ptr<ui::Window> &win) {
+  window = win;
+  closeWindow = [this] { window->close(); };
   camera.setSwapLeftRight(false);
   pf::vulkan::setGlobalLoggerInstance(std::make_shared<GlobalLoggerInterface>("global_vulkan"));
   log(spdlog::level::info, APP_TAG, "Initialising Vulkan.");
 
-  createInstance(window);
-  createSurface(window);
+  createInstance();
+  createSurface();
   createDevices();
 
-  buildVulkanObjects(window);
+  buildVulkanObjects();
 
-  GLFWwindow *windowHandle = nullptr;
-  if (auto glfwWindow = dynamic_cast<ui::GlfwWindow *>(&window); glfwWindow != nullptr) {
+  GLFWwindow *windowHandle = nullptr;// FIXME
+  if (auto glfwWindow = dynamic_cast<ui::GlfwWindow *>(window.get()); glfwWindow != nullptr) {
     windowHandle = glfwWindow->getHandle();
   }
   assert(windowHandle != nullptr);
@@ -78,7 +78,7 @@ void SimpleSVORenderer::init(ui::Window &window) {
       config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
   auto imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
                                                          windowHandle, ImGuiConfigFlags{}, imguiConfig);
-  window.addKeyboardListener(events::KeyEventType::Pressed, [this](const events::KeyEvent &event) {
+  window->addKeyboardListener(events::KeyEventType::Pressed, [this](const events::KeyEvent &event) {
     if (event.key == 'H') {
       switch (ui->imgui->getVisibility()) {
         case ui::ig::Visibility::Visible: ui->imgui->setVisibility(ui::ig::Visibility::Invisible); break;
@@ -89,29 +89,29 @@ void SimpleSVORenderer::init(ui::Window &window) {
     return false;
   });
 
-  window.addTextListener([](events::TextEvent event) {
+  window->addTextListener([](events::TextEvent event) {
     logd(MAIN_TAG, event.text);
     return true;
   });
 
-  camera.setScreenWidth(window.getResolution().width);
-  camera.setScreenHeight(window.getResolution().height);
-  window.setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
-  camera.registerControls(window);
+  camera.setScreenWidth(window->getResolution().width);
+  camera.setScreenHeight(window->getResolution().height);
+  window->setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
+  camera.registerControls(*window);
 
   ui = std::make_unique<SimpleSVORenderer_UI>(std::move(imgui), camera,
                                               TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler});
 
   initUI();
-  window.setMainLoopCallback([&] { render(); });
+  window->setMainLoopCallback([&] { render(); });
 }
 
 std::unordered_set<std::string> SimpleSVORenderer::getValidationLayers() {
   return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
 }
 
-void SimpleSVORenderer::buildVulkanObjects(ui::Window &window) {
-  createSwapchain(window);
+void SimpleSVORenderer::buildVulkanObjects() {
+  createSwapchain();
   createRenderTextures();
   createDescriptorPool();
   createPipeline();
@@ -147,28 +147,25 @@ void SimpleSVORenderer::buildVulkanObjects(ui::Window &window) {
   // clang-format on
 }
 
-void SimpleSVORenderer::createInstance(ui::Window &window) {
+void SimpleSVORenderer::createInstance() {
   using namespace vulkan;
   using namespace vulkan::literals;
-  const auto windowExtensions = window.requiredVulkanExtensions();
+  const auto windowExtensions = window->requiredVulkanExtensions();
   auto validationLayers = getValidationLayers();
-  vkInstance = Instance::CreateShared(InstanceConfig{
-      .appName = "Realistic voxel rendering in real time",
-      .appVersion = "0.1.0"_v,
-      .vkVersion = "1.2.0"_v,
-      .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
-      .requiredWindowExtensions = windowExtensions,
-      .validationLayers = validationLayers,
-      .callback = [this](const DebugCallbackData &data, vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                         const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
-        return debugCallback(data, severity, type_flags);
-      }});
+  vkInstance = Instance::CreateShared(
+      InstanceConfig{.appName = "Realistic voxel rendering in real time",
+                     .appVersion = "0.1.0"_v,
+                     .vkVersion = "1.2.0"_v,
+                     .engineInfo = EngineInfo{.name = "<unnamed>", .engineVersion = "0.1.0"_v},
+                     .requiredWindowExtensions = windowExtensions,
+                     .validationLayers = validationLayers,
+                     .callback = [](const DebugCallbackData &data, vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                                    const vk::DebugUtilsMessageTypeFlagsEXT &type_flags) {
+                       return debugCallback(data, severity, type_flags);
+                     }});
 }
 
-void SimpleSVORenderer::createSurface(ui::Window &window) {
-  using namespace vulkan;
-  vkSurface = Surface::CreateShared(vkInstance, window);
-}
+void SimpleSVORenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
 
 void SimpleSVORenderer::render() {
   auto sampler = FlameGraphSampler{};
@@ -241,12 +238,13 @@ void SimpleSVORenderer::createDevices() {
                                      .queueTypes = {vk::QueueFlagBits::eCompute, vk::QueueFlagBits::eGraphics},
                                      .presentQueueEnabled = true,
                                      .requiredDeviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-                                                                  VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME},
+                                                                  VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME,
+                                                                  VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME},
                                      .validationLayers = getValidationLayers(),
                                      .surface = *vkSurface});
 }
 
-void SimpleSVORenderer::createSwapchain(ui::Window &window) {
+void SimpleSVORenderer::createSwapchain() {
   using namespace ranges;
   auto queuesView = vkLogicalDevice->getQueueIndices() | views::values;
   auto sharingQueues = std::unordered_set(queuesView.begin(), queuesView.end());
@@ -258,7 +256,7 @@ void SimpleSVORenderer::createSwapchain(ui::Window &window) {
       {.formats = {{vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear}},
        //.presentModes = {vk::PresentModeKHR::eMailbox, vk::PresentModeKHR::eFifo},
        .presentModes = {vk::PresentModeKHR::eImmediate},
-       .resolution = {window.getResolution().width, window.getResolution().height},
+       .resolution = {window->getResolution().width, window->getResolution().height},
        .imageUsage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferDst
            | vk::ImageUsageFlagBits::eColorAttachment,
        .sharingQueues = {},
@@ -725,7 +723,7 @@ void SimpleSVORenderer::initUI() {
       std::cout << MessageButtons::Ok;
       ui->imgui->createMsgDlg<MessageButtons>("Error", fmt::format("Error while loading SVO: {}", err),
                                               MessageButtons::Ok, [](auto) { return true; });
-      enqueue([modelInfo, this] { ui->activeModelList.removeItem(modelInfo); });
+      window->enqueue([modelInfo, this] { ui->activeModelList.removeItem(modelInfo); });
       return;
     }
 
@@ -733,7 +731,7 @@ void SimpleSVORenderer::initUI() {
     newModelInfo.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
     newModelInfo.updateInfoToGPU();
 
-    enqueue([modelInfo, newModelInfo, this] {
+    window->enqueue([modelInfo, newModelInfo, this] {
       ui->activeModelList.removeItem(modelInfo);
       ui->activeModelList.addItem(newModelInfo, Selected::Yes);
       rebuildAndUploadBVH();

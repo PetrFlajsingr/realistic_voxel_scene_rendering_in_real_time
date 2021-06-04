@@ -82,45 +82,44 @@ std::vector<std::unique_ptr<Node<BVHData>>> createNextLevel(std::vector<std::uni
 
 void saveBVHToBuffer(const Tree<BVHData> &bvh, vulkan::BufferMapping &mapping) {
   if (!bvh.hasRoot()) { return; }
-  auto gpuNodes = std::vector<std::unique_ptr<details::GPUBVHNode>>{};
+  auto gpuNodes = std::vector<details::GPUBVHNode>{};
 
   auto &root = bvh.getRoot();
 
-  auto &rootData = gpuNodes.emplace_back(std::make_unique<details::GPUBVHNode>(root->toGPUData()));
+  auto &rootData = gpuNodes.emplace_back(root->toGPUData());
   const auto isRootLeaf = root.childrenSize() == 0;
-  rootData->setIsLeaf(isRootLeaf);
+  rootData.setIsLeaf(isRootLeaf);
   if (isRootLeaf) {
-    rootData->setOffset(root->modelIndex);
+    rootData.setOffset(root->modelIndex);
   } else {
-    rootData->setOffset(gpuNodes.size());
+    rootData.setOffset(gpuNodes.size());
   }
   details::serializeBVHForGPU(root, gpuNodes);
-  for (auto &node : gpuNodes) { logd("BVH", "{}", *node); }
-  mapping.set(gpuNodes | std::views::transform([](const auto &dataPtr) { return *dataPtr; }) | ranges::to_vector);
+  mapping.set(gpuNodes);
 }
 
-void details::serializeBVHForGPU(const Node &root, std::vector<std::unique_ptr<details::GPUBVHNode>> &result) {
+void details::serializeBVHForGPU(const Node &root, std::vector<details::GPUBVHNode> &result) {
   if (root.childrenSize() == 0) { return; }
   auto &child1 = root.children()[0];
   const auto isChild1Leaf = child1.childrenSize() == 0;
-  auto nodeChild1 = result.emplace_back(std::make_unique<details::GPUBVHNode>()).get();
-  *nodeChild1 = child1->toGPUData();
-  nodeChild1->setIsLeaf(isChild1Leaf);
+  result.emplace_back(child1->toGPUData());
+  auto nodeChild1Idx = result.size() - 1;
+  result[nodeChild1Idx].setIsLeaf(isChild1Leaf);
   auto &child2 = root.children()[1];
   const auto isChild2Leaf = child2.childrenSize() == 0;
-  auto nodeChild2 = result.emplace_back(std::make_unique<details::GPUBVHNode>()).get();
-  *nodeChild2 = child2->toGPUData();
-  nodeChild2->setIsLeaf(isChild2Leaf);
+  result.emplace_back(child2->toGPUData());
+  auto nodeChild2Idx = result.size() - 1;
+  result[nodeChild2Idx].setIsLeaf(isChild2Leaf);
   if (isChild1Leaf) {
-    nodeChild1->setOffset(child1->modelIndex);
+    result[nodeChild1Idx].setOffset(child1->modelIndex);
   } else {
-    nodeChild1->setOffset(result.size());
+    result[nodeChild1Idx].setOffset(result.size());
     serializeBVHForGPU(child1, result);
   }
   if (isChild2Leaf) {
-    nodeChild2->setOffset(child2->modelIndex);
+    result[nodeChild2Idx].setOffset(child2->modelIndex);
   } else {
-    nodeChild2->setOffset(result.size());
+    result[nodeChild2Idx].setOffset(result.size());
     serializeBVHForGPU(child2, result);
   }
 }

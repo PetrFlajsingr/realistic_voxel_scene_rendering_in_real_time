@@ -29,7 +29,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       hideAllMenuItem(viewSubMenu.addButtonItem("hide_all_windows_menu", "Hide all")),
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
-      viewTypeComboBox(renderSettingsWindow.createChild<ComboBox<ViewType>>(
+      viewTypeComboBox(renderSettingsWindow.createChild<Combobox<ViewType>>(
           "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,
           Persistent::Yes)),
       lightingText(renderSettingsWindow.createChild<Text>("lighting_header", "Lighting:")),
@@ -92,7 +92,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           Size::Auto())),
       shaderControlsWindow(imgui->createWindow("shader_controls_window", "Shader controls")),
       debugPrintEnableCheckbox(shaderControlsWindow.createChild<Checkbox>("debug_print_enabled", "Enable debug print")),
-      bvhVisualizeCheckbox(shaderControlsWindow.createChild<Checkbox>("bvh_visualisation_enabled", "Enable BVH visualisation")),
+      bvhVisualizeCheckbox(
+          shaderControlsWindow.createChild<Checkbox>("bvh_visualisation_enabled", "Enable BVH visualisation")),
       shaderDebugValueInput(shaderControlsWindow.createChild<SpinInput<int>>("shader_int1_drag", "Shader debug val 1",
                                                                              1, 8, 1, 1, 10, Persistent::Yes)),
       shaderDebugFloatValueSlider(shaderControlsWindow.createChild<DragInput<float>>(

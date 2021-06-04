@@ -15,7 +15,7 @@
 #include <range/v3/view.hpp>
 
 namespace pf {
-struct application_settings {
+struct ApplicationSettings {
   bool debug{};
   ui::WindowSettings window_settings;
 };
@@ -23,7 +23,7 @@ struct application_settings {
 template<std::derived_from<ui::Window> Window, Renderer Renderer>
 class Application {
  public:
-  explicit Application(Renderer &&renderer, const application_settings &settings)
+  explicit Application(Renderer &&renderer, const ApplicationSettings &settings)
       : window(std::make_shared<Window>(settings.window_settings)), renderer(std::move(renderer)) {
     logi(APP_TAG, "Creating application.");
     if (settings.debug) { logd(APP_TAG, "Debug is active."); }
@@ -43,7 +43,7 @@ class Application {
       throw StackTraceException("Window creation failed: {}", init_res.value());
     }
     logi(APP_TAG, "Window initialised");
-    renderer.init(*window);
+    renderer.init(window);
     window->setMainLoopCallback([this] { renderer.render(); });
   }
 

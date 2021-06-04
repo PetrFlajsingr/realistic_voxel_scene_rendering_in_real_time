@@ -128,7 +128,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   SimpleSVORenderer &operator=(SimpleSVORenderer &&) = default;
   virtual ~SimpleSVORenderer();
 
-  void init(ui::Window &window);
+  void init(const std::shared_ptr<ui::Window> &win);
 
   void render();
   void stop();
@@ -136,14 +136,14 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
  private:
   static std::unordered_set<std::string> getValidationLayers();
 
-  void buildVulkanObjects(ui::Window &window);
+  void buildVulkanObjects();
 
-  void createInstance(ui::Window &window);
+  void createInstance();
 
-  void createSurface(ui::Window &window);
+  void createSurface();
   void createDevices();
 
-  void createSwapchain(ui::Window &window);
+  void createSwapchain();
   void createRenderTextures();
   void createDescriptorPool();
   void createPipeline();
@@ -201,13 +201,11 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::unique_ptr<chaiscript::ChaiScript> chai = std::make_unique<chaiscript::ChaiScript>();
 
-  //std::unique_ptr<vox::SparseVoxelOctree> svo = nullptr;
-
   std::vector<Subscription> subscriptions;
 
   std::function<void()> closeWindow;
 
-  std::function<void(std::function<void()>)> enqueue;// TODO: change this to window handle when changed to dynamic poly
+  std::shared_ptr<ui::Window> window;
 
   std::pair<std::size_t, std::size_t> computeLocalSize{1, 1};
 

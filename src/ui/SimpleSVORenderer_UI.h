@@ -10,7 +10,7 @@
 #include <pf_common/math/BoundingBox.h>
 #include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
-#include <pf_imgui/elements/ComboBox.h>
+#include <pf_imgui/elements/Combobox.h>
 #include <pf_imgui/elements/DragInput.h>
 #include <pf_imgui/elements/FlameGraph.h>
 #include <pf_imgui/elements/Group.h>
@@ -76,7 +76,7 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuButtonItem &hideAllMenuItem;
       ui::ig::MenuButtonItem &showAllMenuItem;
   ui::ig::Window &renderSettingsWindow;
-    ui::ig::ComboBox<ViewType> &viewTypeComboBox;
+    ui::ig::Combobox<ViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;
     ui::ig::BoxLayout &lightingLayout;
       ui::ig::Slider3D<float> &lightPosSlider;
