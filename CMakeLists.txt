@@ -183,8 +183,6 @@ CPMAddPackage(
         GIT_TAG master
 )
 
-target_compile_options(pf_imgui PRIVATE "-O3")
-target_compile_options(pf_glfw_vulkan PRIVATE "-O3")
 
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)

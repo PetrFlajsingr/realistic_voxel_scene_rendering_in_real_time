@@ -5,6 +5,7 @@
 #include "AABB_BVH.h"
 #include <fmt/ostream.h>
 #include <logging/loggers.h>
+#include <pf_common/concepts/StringConvertible.h>
 
 namespace pf::vox {
 
@@ -80,51 +81,46 @@ std::vector<std::unique_ptr<Node<BVHData>>> createNextLevel(std::vector<std::uni
 }
 
 void saveBVHToBuffer(const Tree<BVHData> &bvh, vulkan::BufferMapping &mapping) {
-  if (!bvh.hasRoot()) {
-    return;
-  }
-  auto gpuNodes = std::vector<details::GPUBVHNode>{};
+  if (!bvh.hasRoot()) { return; }
+  auto gpuNodes = std::vector<std::unique_ptr<details::GPUBVHNode>>{};
 
   auto &root = bvh.getRoot();
 
-  auto &rootData = gpuNodes.emplace_back(root->toGPUData());
+  auto &rootData = gpuNodes.emplace_back(std::make_unique<details::GPUBVHNode>(root->toGPUData()));
   const auto isRootLeaf = root.childrenSize() == 0;
-  rootData.setIsLeaf(isRootLeaf);
+  rootData->setIsLeaf(isRootLeaf);
   if (isRootLeaf) {
-    rootData.setOffset(root->modelIndex);
+    rootData->setOffset(root->modelIndex);
   } else {
-    rootData.setOffset(gpuNodes.size());
+    rootData->setOffset(gpuNodes.size());
   }
   details::serializeBVHForGPU(root, gpuNodes);
-  for (auto &node : gpuNodes) { logd("BVH", "{}", node); }
-  mapping.set(gpuNodes);
+  for (auto &node : gpuNodes) { logd("BVH", "{}", *node); }
+  mapping.set(gpuNodes | std::views::transform([](const auto &dataPtr) { return *dataPtr; }) | ranges::to_vector);
 }
 
-void details::serializeBVHForGPU(const Node &root, std::vector<details::GPUBVHNode> &result) {
-  if (root.childrenSize() == 0) {
-    return;
-  }
-  result.resize(result.size() + 2);
+void details::serializeBVHForGPU(const Node &root, std::vector<std::unique_ptr<details::GPUBVHNode>> &result) {
+  if (root.childrenSize() == 0) { return; }
   auto &child1 = root.children()[0];
   const auto isChild1Leaf = child1.childrenSize() == 0;
-  auto &nodeChild1 = result[result.size() - 2];
-  nodeChild1 = child1->toGPUData();
-  nodeChild1.setIsLeaf(isChild1Leaf);
+  auto nodeChild1 = result.emplace_back(std::make_unique<details::GPUBVHNode>()).get();
+  *nodeChild1 = child1->toGPUData();
+  nodeChild1->setIsLeaf(isChild1Leaf);
   auto &child2 = root.children()[1];
   const auto isChild2Leaf = child2.childrenSize() == 0;
-  auto &nodeChild2 = result[result.size() - 1];
-  nodeChild2 = child2->toGPUData();
-  nodeChild2.setIsLeaf(isChild2Leaf);
+  auto nodeChild2 = result.emplace_back(std::make_unique<details::GPUBVHNode>()).get();
+  *nodeChild2 = child2->toGPUData();
+  nodeChild2->setIsLeaf(isChild2Leaf);
   if (isChild1Leaf) {
-    nodeChild1.setOffset(child1->modelIndex);
+    nodeChild1->setOffset(child1->modelIndex);
   } else {
-    nodeChild1.setOffset(result.size());
+    nodeChild1->setOffset(result.size());
     serializeBVHForGPU(child1, result);
   }
   if (isChild2Leaf) {
-    nodeChild2.setOffset(child2->modelIndex);
+    nodeChild2->setOffset(child2->modelIndex);
   } else {
-    nodeChild2.setOffset(result.size());
+    nodeChild2->setOffset(result.size());
     serializeBVHForGPU(child2, result);
   }
 }

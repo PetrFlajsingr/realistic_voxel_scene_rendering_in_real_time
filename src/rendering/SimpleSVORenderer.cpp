@@ -481,7 +481,7 @@ void SimpleSVORenderer::createPipeline() {
                                                      .pBufferInfo = &modelInfoInfo};
 
   const auto bvhInfo =
-      vk::DescriptorBufferInfo{.buffer = **modelInfoBuffer, .offset = 0, .range = bvhBuffer->getSize()};
+      vk::DescriptorBufferInfo{.buffer = **bvhBuffer, .offset = 0, .range = bvhBuffer->getSize()};
   const auto bvhWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
                                                .dstBinding = 7,
                                                .dstArrayElement = {},
@@ -497,7 +497,7 @@ void SimpleSVORenderer::createPipeline() {
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
       .name = "SVO",
       .type = ShaderType::Compute,
-      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo2.comp")
+      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo_bvh.comp")
                   .string(),
       .macros = {},
       .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(computeLocalSize.first)},
@@ -775,10 +775,6 @@ void SimpleSVORenderer::initUI() {
     }
   });// TODO: change so this will load new SVO not reload
 
-  ui->activeModelList.addValueListener(
-      [this](const auto &) { debugUniformBuffer->mapping().set<uint32_t>(ui->activeModelList.getItems().size(), 5); },
-      true);
-
   ui->modelsFilterInput.addValueListener([this](auto filterVal) {
     ui->modelList.setFilter(
         [filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
@@ -856,6 +852,9 @@ void SimpleSVORenderer::initUI() {
     const auto idToRemove = ui->activeModelList.getSelectedItem()->get().id;
     ui->activeModelList.removeItemIf([idToRemove](const auto &modelInfo) { return modelInfo.id == idToRemove; });
   });
+
+  ui->debugPrintEnableCheckbox.addValueListener(
+      [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 5).set(enabled ? 1 : 0); }, true);
 
   ui->imgui->setStateFromConfig();
 }

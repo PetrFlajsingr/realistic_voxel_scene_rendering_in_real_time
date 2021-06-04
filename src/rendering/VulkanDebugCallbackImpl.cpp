@@ -28,6 +28,7 @@ bool VulkanDebugCallbackImpl::debugCallback(const pf::vulkan::DebugCallbackData 
       break;
   }
   const auto messageToPrint = makeValidationMessageReadable(data.message, 125);
+  if (messageToPrint.find("DEBUG-PRINTF") != std::string::npos) { log_level = spdlog::level::debug; }
 #ifdef STACKTRACE_VULKAN_REPORT
   if (log_level == spdlog::level::err) {
     log(log_level, VK_TAG, "Validation layer: {} message id: {}, stacktrace:\n{}", messageToPrint, data.messageId,

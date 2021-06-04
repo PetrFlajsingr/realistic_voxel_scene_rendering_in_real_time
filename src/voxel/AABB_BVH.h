@@ -14,7 +14,7 @@
 namespace pf::vox {
 
 namespace details {
-struct GPUBVHNode {
+struct alignas(16) GPUBVHNode {
   glm::vec4 aabb1;
   glm::vec4 aabb2leafNext;
   GPUBVHNode &setIsLeaf(bool isLeaf);
@@ -44,9 +44,7 @@ std::vector<std::unique_ptr<details::Node>> createNextLevel(std::vector<std::uni
 
 Tree<BVHData> createBVH(std::ranges::range auto &&models) requires(
     std::same_as<std::ranges::range_value_t<decltype(models)>, GPUModelInfo>) {
-  if (std::ranges::empty(models)) {
-    return Tree<BVHData>{};
-  }
+  if (std::ranges::empty(models)) { return Tree<BVHData>{}; }
 
   auto nodes =
       models | std::views::transform([](const auto &model) {
@@ -59,7 +57,7 @@ Tree<BVHData> createBVH(std::ranges::range auto &&models) requires(
 }
 
 namespace details {
-  void serializeBVHForGPU(const details::Node &root, std::vector<details::GPUBVHNode> &result);
+  void serializeBVHForGPU(const details::Node &root, std::vector<std::unique_ptr<details::GPUBVHNode>> &result);
 }// namespace details
 
 void saveBVHToBuffer(const Tree<BVHData> &bvh, vulkan::BufferMapping &mapping);

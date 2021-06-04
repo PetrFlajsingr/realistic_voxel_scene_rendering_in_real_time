@@ -91,6 +91,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
               static_cast<VkImageLayout>(iterTextureData.vkIterImage.getLayout())),
           Size::Auto())),
       shaderControlsWindow(imgui->createWindow("shader_controls_window", "Shader controls")),
+      debugPrintEnableCheckbox(shaderControlsWindow.createChild<Checkbox>("debug_print_enabled", "Enable debug print")),
       shaderDebugValueInput(shaderControlsWindow.createChild<SpinInput<int>>("shader_int1_drag", "Shader debug val 1",
                                                                              1, 8, 1, 1, 10, Persistent::Yes)),
       shaderDebugFloatValueSlider(shaderControlsWindow.createChild<DragInput<float>>(
