@@ -729,6 +729,7 @@ void SimpleSVORenderer::initUI() {
 
     newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
     newModelInfo.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+    newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
     newModelInfo.updateInfoToGPU();
 
     window->enqueue([modelInfo, newModelInfo, this] {
@@ -766,6 +767,9 @@ void SimpleSVORenderer::initUI() {
 
       newItem.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
       newItem.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+
+      newItem.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
+
       newItem.updateInfoToGPU();
       ui->activeModelList.addItem(newItem, Selected::Yes);
       rebuildAndUploadBVH();

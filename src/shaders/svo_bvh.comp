@@ -189,7 +189,7 @@ bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) {
   const vec3 t2 = max(tMin, tMax);
   const float tNear = max(max(t1.x, t1.y), t1.z);
   const float tFar = min(min(t2.x, t2.y), t2.z);
-  return tNear > 0.f && tNear < tFar;
+  return tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
 }
 
 #define CHILD_PTR_MASK 0xFFFE0000u
@@ -545,6 +545,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
   TraceResult bestModelResult;
   bestModelResult.hit = false;
   bestModelResult.t = INF;
+  bestModelResult.iter = 0;
   uint cnt = 0;
   while (stackTop != 0) {
     const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
