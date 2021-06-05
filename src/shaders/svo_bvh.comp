@@ -577,6 +577,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
     bestModelResult.iter = result.iter;
     return bestModelResult;
   }
+  result.normal = vec3(0, 0, 0);
   return result;
 }
 

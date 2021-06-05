@@ -49,13 +49,14 @@ SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
 SimpleSVORenderer::~SimpleSVORenderer() {
   if (vkLogicalDevice == nullptr) { return; }
   stop();
+  window->setExceptionHandler([](auto) { return false; });
   log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
   vkLogicalDevice->wait();
   log(spdlog::level::info, APP_TAG, "Saving UI to config");
   ui->imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
 }
-
+bool deleteMe = false;
 void SimpleSVORenderer::init(const std::shared_ptr<ui::Window> &win) {
   window = win;
   closeWindow = [this] { window->close(); };
@@ -169,6 +170,10 @@ void SimpleSVORenderer::createInstance() {
 void SimpleSVORenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
 
 void SimpleSVORenderer::render() {
+  if (deleteMe) {
+    deleteMe = false;
+    throw vulkan::VulkanException("hihihi");
+  }
   auto sampler = FlameGraphSampler{};
   auto mainSample = sampler.blockSampler("render loop");
 
@@ -617,6 +622,15 @@ void SimpleSVORenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
   using namespace pf::enum_operators;
+
+  window->setExceptionHandler([this](const std::exception &e) {
+    ui->imgui->createMsgDlg("Exception thrown", fmt::format("An exception has been thrown: \n{}", e.what()),
+                            Flags{MessageButtons::Ok}, [](auto) { return true; });
+    return true;
+  });
+  ui->shaderControlsWindow.createChild<Button>(uniqueId(), "Exception").addClickListener([] {
+    deleteMe = true;
+  });
 
   //auto openModelFnc = [this] {
   //  ui->imgui->openFileDialog(

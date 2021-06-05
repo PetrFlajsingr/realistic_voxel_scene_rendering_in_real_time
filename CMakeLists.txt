@@ -181,7 +181,9 @@ CPMAddPackage(
         NAME pf_glfw_vulkan
         GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
         GIT_TAG master
+        OPTIONS "PF_GLFW_EXCEPTIONS ON"
 )
+add_compile_definitions(PF_GLFW_WINDOW_EXCEPTIONS_ENABLED)
 
 
 if (chaiscript_ADDED)
