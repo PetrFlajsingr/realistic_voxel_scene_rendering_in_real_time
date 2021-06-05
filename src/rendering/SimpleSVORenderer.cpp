@@ -48,6 +48,7 @@ SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
 
 SimpleSVORenderer::~SimpleSVORenderer() {
   if (vkLogicalDevice == nullptr) { return; }
+  stop();
   log(spdlog::level::info, APP_TAG, "Destroying renderer, waiting for device");
   vkLogicalDevice->wait();
   log(spdlog::level::info, APP_TAG, "Saving UI to config");
@@ -630,11 +631,6 @@ void SimpleSVORenderer::initUI() {
   //      [] {});
   //};
 
-  auto &pb = ui->shaderControlsWindow.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
-  ui->shaderControlsWindow.createChild<Slider<float>>(uniqueId(), "gigi", 0, 100, 0).addValueListener([&pb](auto val) {
-    pb.setValue(val);
-  });
-
   ui->closeMenuItem.addClickListener(closeWindow);
   // TODO: ui->openModelMenuItem.addClickListener(openModelFnc);
 
@@ -818,6 +814,7 @@ std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesy
 }
 void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
+  subscriptions.clear();
 }
 void SimpleSVORenderer::rebuildAndUploadBVH() {
   auto bvhTree = vox::createBVH(ui->activeModelList.getItems());

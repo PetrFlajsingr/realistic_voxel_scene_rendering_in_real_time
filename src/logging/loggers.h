@@ -87,6 +87,7 @@ Subscription addLogListener(std::invocable<std::string_view> auto listener, bool
   return Subscription([id] {
     details::logListeners.erase(id);
     details::logErrListeners.erase(id);
+    initGlobalLogger(*details::settings);
   });
 }
 
