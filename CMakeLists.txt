@@ -206,6 +206,7 @@ set(SOURCES
         src/ui/SimpleSVORenderer_UI.cpp
         include/imgui/imgui_impl_glfw.cpp
         include/imgui/imgui_impl_vulkan.cpp
+        src/threading/ThreadPool.cpp
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp

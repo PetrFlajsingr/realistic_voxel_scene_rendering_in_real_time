@@ -630,6 +630,11 @@ void SimpleSVORenderer::initUI() {
   //      [] {});
   //};
 
+  auto &pb = ui->shaderControlsWindow.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
+  ui->shaderControlsWindow.createChild<Slider<float>>(uniqueId(), "gigi", 0, 100, 0).addValueListener([&pb](auto val) {
+    pb.setValue(val);
+  });
+
   ui->closeMenuItem.addClickListener(closeWindow);
   // TODO: ui->openModelMenuItem.addClickListener(openModelFnc);
 
@@ -703,78 +708,21 @@ void SimpleSVORenderer::initUI() {
   //ui->openModelButton.addClickListener(openModelFnc);
 
   ui->activeModelList.addDropListener([this, modelsPath](const auto &modelInfo) {
-    const auto selectedModelPath = modelsPath / modelInfo.path;
-    const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-    auto newModelInfo = vox::GPUModelInfo{};
-    newModelInfo.path = modelInfo.path;
-    newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
-    newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
-    newModelInfo.svoHeight = svoCreate.second.depth;
-    newModelInfo.AABB = svoCreate.second.AABB;
-    auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
-    auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
-
-    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
-    std::string err;
-    if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-    if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-    if (!err.empty()) {
-      loge(MAIN_TAG, "Error while loading SVO: {}", err);
-      std::cout << MessageButtons::Ok;
-      ui->imgui->createMsgDlg<MessageButtons>("Error", fmt::format("Error while loading SVO: {}", err),
-                                              MessageButtons::Ok, [](auto) { return true; });
-      window->enqueue([modelInfo, this] { ui->activeModelList.removeItem(modelInfo); });
-      return;
-    }
-
-    newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
-    newModelInfo.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
-    newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
-    newModelInfo.updateInfoToGPU();
-
-    window->enqueue([modelInfo, newModelInfo, this] {
-      ui->activeModelList.removeItem(modelInfo);
-      ui->activeModelList.addItem(newModelInfo, Selected::Yes);
-      rebuildAndUploadBVH();
-    });
-  });// TODO: change this to load new SVO not reload
+    loadModelFromDisk(modelInfo, modelsPath,
+                      {[this, modelInfo](auto newModelInfo) {
+                         ui->activeModelList.removeItem(modelInfo);
+                         ui->activeModelList.addItem(newModelInfo, Selected::Yes);
+                       },
+                       [this, modelInfo](auto) { ui->activeModelList.removeItem(modelInfo); }});
+  });
 
   ui->activateSelectedModelButton.addClickListener([this, modelsPath] {
     if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
-      auto newItem = item->get();
-      const auto selectedModelPath = modelsPath / newItem.path;
-      const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-      newItem.assignNewId();
-      newItem.voxelCount = svoCreate.second.initVoxelCount;
-      newItem.minimizedVoxelCount = svoCreate.second.voxelCount;
-      newItem.svoHeight = svoCreate.second.depth;
-      newItem.AABB = svoCreate.second.AABB;
-
-      auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
-      auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
-
-      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
-      std::string err;
-      if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-      if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-      if (!err.empty()) {
-        loge(MAIN_TAG, "Error while loading SVO: {}", err);
-        std::cout << MessageButtons::Ok;
-        ui->imgui->createMsgDlg<MessageButtons>("Error", fmt::format("Error while loading SVO: {}", err),
-                                                MessageButtons::Ok, [](auto) { return true; });
-        return;
-      }
-
-      newItem.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
-      newItem.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
-
-      newItem.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
-
-      newItem.updateInfoToGPU();
-      ui->activeModelList.addItem(newItem, Selected::Yes);
-      rebuildAndUploadBVH();
+      loadModelFromDisk(
+          *item, modelsPath,
+          {[this](auto newModelInfo) { ui->activeModelList.addItem(newModelInfo, Selected::Yes); }, [](auto) {}});
     }
-  });// TODO: change so this will load new SVO not reload
+  });
 
   ui->modelsFilterInput.addValueListener([this](auto filterVal) {
     ui->modelList.setFilter(
@@ -875,6 +823,60 @@ void SimpleSVORenderer::rebuildAndUploadBVH() {
   auto bvhTree = vox::createBVH(ui->activeModelList.getItems());
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree, mapping);
+}
+void SimpleSVORenderer::loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath,
+                                          ModelLoadingCallbacks callbacks) {
+  using namespace pf::ui::ig;
+  auto &loadingDialog = ui->imgui->createDialog(uniqueId(), "Loading model...", Modal::Yes);
+  loadingDialog.setSize(Size{200, 100});
+  auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
+  threadpool->template enqueue([this, modelsPath, modelInfo, &loadingProgressBar, &loadingDialog, callbacks] {
+    loadingProgressBar.setValue(0);
+    const auto selectedModelPath = modelsPath / modelInfo.path;
+    const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+    loadingProgressBar.setValue(50);
+    auto newModelInfo = vox::GPUModelInfo{};
+    newModelInfo.path = modelInfo.path;
+    newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
+    newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
+    newModelInfo.svoHeight = svoCreate.second.depth;
+    newModelInfo.AABB = svoCreate.second.AABB;
+    auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
+    auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
+    loadingProgressBar.setValue(70);
+
+    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+    loadingProgressBar.setValue(80);
+    std::string err;
+    if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!err.empty()) {
+      loge(MAIN_TAG, "Error while loading SVO: {}", err);
+      window->enqueue([err, callbacks, &loadingDialog, &loadingProgressBar] {
+        callbacks.fail(err);
+        loadingProgressBar.setValue(0);
+        loadingDialog.createChild<Text>(uniqueId(), fmt::format("Loading failed: {}", err));
+        loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
+          loadingDialog.close();
+        });
+      });
+      return;
+    }
+
+    newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
+    newModelInfo.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+    newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
+
+    loadingProgressBar.setValue(80);
+
+    window->enqueue([modelInfo, newModelInfo, this, &loadingDialog, &loadingProgressBar, callbacks]() mutable {
+      callbacks.success(newModelInfo);
+      loadingProgressBar.setValue(100);
+      newModelInfo.updateInfoToGPU();
+      rebuildAndUploadBVH();
+      loadingDialog.close();
+    });
+  });
 }
 
 }// namespace pf

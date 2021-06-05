@@ -16,14 +16,15 @@
 #include <pf_glfw_vulkan/ui/events/common.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view/map.hpp>
+#include <threading/ThreadPool.h>
 #include <toml++/toml.h>
 #include <ui/SimpleSVORenderer_UI.h>
 #include <utility>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
 #include <utils/GpuMemoryPool.h>
-#include <voxel/SparseVoxelOctree.h>
 #include <voxel/AABB_BVH.h>
+#include <voxel/SparseVoxelOctree.h>
 
 namespace pf {
 /*
@@ -158,6 +159,14 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::vector<std::string> loadModelFileNames(const std::filesystem::path &dir);
 
+  struct ModelLoadingCallbacks {
+    ModelLoadingCallbacks(std::invocable<vox::GPUModelInfo> auto &&onSuccess, std::invocable<std::string> auto &&onFail)
+        : success(onSuccess), fail(onFail) {}
+    std::function<void(vox::GPUModelInfo)> success;
+    std::function<void(std::string)> fail;
+  };
+  void loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath, ModelLoadingCallbacks callbacks);
+
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
@@ -208,6 +217,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<ui::Window> window;
 
   std::pair<std::size_t, std::size_t> computeLocalSize{1, 1};
+
+  std::unique_ptr<ThreadPool> threadpool = std::make_unique<ThreadPool>(4);
 
   std::shared_ptr<vulkan::BufferMemoryPool<4>> svoMemoryPool;
   std::shared_ptr<vulkan::BufferMemoryPool<16>> modelInfoMemoryPool;
