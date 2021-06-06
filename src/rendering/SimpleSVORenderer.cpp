@@ -812,6 +812,9 @@ void SimpleSVORenderer::initUI() {
     rebuildAndUploadBVH();
   });
 
+  ui->createInstanceSelectedActiveModelButton.addClickListener([this] { duplicateSelectedModel(false); });
+  ui->duplicateSelectedActiveModelButton.addClickListener([this] { duplicateSelectedModel(true); });
+
   ui->debugPrintEnableCheckbox.addValueListener(
       [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 5).set(enabled ? 1 : 0); }, true);
 
@@ -902,6 +905,50 @@ void SimpleSVORenderer::loadModelFromDisk(const vox::GPUModelInfo &modelInfo, co
       });
     }
   });
+}
+void SimpleSVORenderer::duplicateSelectedModel(bool deepClone) {
+  if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) {
+    vox::GPUModelInfo newItem{};
+    newItem.path = item->get().path;
+    newItem.svoHeight = item->get().svoHeight;
+    newItem.voxelCount = item->get().voxelCount;
+    newItem.minimizedVoxelCount = item->get().minimizedVoxelCount;
+    newItem.translateVec = item->get().translateVec;
+    newItem.scaleVec = item->get().scaleVec;
+    newItem.rotateVec = item->get().rotateVec;
+    newItem.AABB = item->get().AABB;
+    newItem.transformMatrix = item->get().transformMatrix;
+    auto modelBlockAllocResult = modelInfoMemoryPool->leaseMemory(item->get().modelInfoMemoryBlock->getSize());
+    auto err = std::string{};
+    if (!modelBlockAllocResult.has_value()) { err += modelBlockAllocResult.error(); }
+    if (!err.empty()) {
+      loge(MAIN_TAG, "Error while duplicating SVO: {}", err);
+      ui->imgui->createMsgDlg("Duplication failed", fmt::format("Duplication failed: {}", err),
+                              Flags{ui::ig::MessageButtons::Ok}, [](auto) { return true; });
+      return;
+    }
+
+    newItem.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelBlockAllocResult));
+    if (deepClone) {
+      auto svoBlockAllocResult = svoMemoryPool->leaseMemory(item->get().svoMemoryBlock->getSize());
+      if (!svoBlockAllocResult.has_value()) { err += svoBlockAllocResult.error(); }
+      if (!err.empty()) {
+        loge(MAIN_TAG, "Error while duplicating SVO: {}", err);
+        ui->imgui->createMsgDlg("Duplication failed", fmt::format("Duplication failed: {}", err),
+                                Flags{ui::ig::MessageButtons::Ok}, [](auto) { return true; });
+        return;
+      }
+      newItem.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockAllocResult));
+      auto data = std::vector<std::byte>(item->get().svoMemoryBlock->getSize());
+      std::ranges::copy(item->get().svoMemoryBlock->mapping().data<std::byte>(), data.begin());
+      newItem.svoMemoryBlock->mapping().set(data);
+    } else {
+      newItem.svoMemoryBlock = item->get().svoMemoryBlock;
+    }
+    newItem.updateInfoToGPU();
+    ui->activeModelList.addItem(newItem);
+    rebuildAndUploadBVH();
+  }
 }
 
 }// namespace pf

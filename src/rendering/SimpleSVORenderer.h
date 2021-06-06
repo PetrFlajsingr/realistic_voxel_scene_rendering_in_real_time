@@ -169,6 +169,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   void loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath,
                          ModelLoadingCallbacks callbacks);
 
+  void duplicateSelectedModel(bool deepClone);
+
   std::reference_wrapper<toml::table> config;
   Camera camera;
 

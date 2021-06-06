@@ -112,8 +112,14 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
                                                                        ImVec2{265, 40}, "", ButtonType::ArrowRight)),
       activeModelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>(
           "active_models_list", ImVec2{290, 10}, "Active models", Size{200, 100}, std::nullopt)),
+      activeModelsLayout(modelListsLayout.createChild<BoxLayout>("active_model_buttons_layout", ImVec2{285, 110},
+                                                                 LayoutDirection::LeftToRight, Size{250, 50})),
       removeSelectedActiveModelButton(
-          modelListsLayout.createChild<Button>("remove_selected_active_model_button", ImVec2{290, 110}, "Remove")),
+          activeModelsLayout.createChild<Button>("remove_selected_active_model_button", "Remove")),
+      createInstanceSelectedActiveModelButton(
+          activeModelsLayout.createChild<Button>("instance_selected_active_model_button", "Create instance")),
+      duplicateSelectedActiveModelButton(
+          activeModelsLayout.createChild<Button>("duplicate_selected_active_model_button", "Duplicate")),
       modelDetailTitle(modelsWindow.createChild<Text>("model_detail_title", "Detail")),
       modelDetailLayout(modelsWindow.createChild<BoxLayout>("model_detail_layout", LayoutDirection::TopToBottom,
                                                             Size{Width::Auto(), 185})),

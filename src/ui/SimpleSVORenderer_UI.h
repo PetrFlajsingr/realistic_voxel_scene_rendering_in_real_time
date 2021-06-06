@@ -126,7 +126,10 @@ class SimpleSVORenderer_UI {
       ui::ig::Button &reloadModelListButton;
       ui::ig::Button &activateSelectedModelButton;
       ui::ig::Listbox<vox::GPUModelInfo> &activeModelList;
-      ui::ig::Button &removeSelectedActiveModelButton;
+      ui::ig::BoxLayout &activeModelsLayout;
+        ui::ig::Button &removeSelectedActiveModelButton;
+        ui::ig::Button &createInstanceSelectedActiveModelButton;
+        ui::ig::Button &duplicateSelectedActiveModelButton;
     ui::ig::Text &modelDetailTitle;
     ui::ig::BoxLayout &modelDetailLayout;
       ui::ig::InputText &modelDetailPathText;
