@@ -13,7 +13,7 @@
 namespace pf::vox {
 
 using namespace ranges;
-
+/* FIXME: ESVO original version
 std::string ChildDescriptor::toString() const {
   const auto uintChildData = *reinterpret_cast<const uint32_t *>(&childData);
   return fmt::format("Child data: (raw){:32b}, valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", uintChildData,
@@ -23,6 +23,18 @@ std::string ChildDescriptor::toString() const {
 std::string ChildDescriptor::stringDraw() const {
   const auto uintChildData = *reinterpret_cast<const uint32_t *>(&childData);
   const auto validMask = uintChildData >> 8 & 0xFF;
+  auto result = std::string();
+  for (uint32_t i = 0; i < 8; ++i) {
+    result += (validMask & (1 << i)) ? '#' : 'E';
+    if (i % 2 == 1) { result += '\n'; }
+  }
+  return result;
+}*/
+std::string ChildDescriptor::toString() const {
+  return fmt::format("Child data: valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", validMask, leafMask, childPointer);
+}
+
+std::string ChildDescriptor::stringDraw() const {
   auto result = std::string();
   for (uint32_t i = 0; i < 8; ++i) {
     result += (validMask & (1 << i)) ? '#' : 'E';

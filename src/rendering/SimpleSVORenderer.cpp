@@ -24,6 +24,7 @@ namespace pf {
 using namespace vulkan;
 using namespace pf::byte_literals;
 
+// TODO: fix memo race issues
 // TODO: remove this and make it work from pf_common/enums.h
 std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
   o << magic_enum::enum_name(e);
@@ -628,9 +629,7 @@ void SimpleSVORenderer::initUI() {
                             Flags{MessageButtons::Ok}, [](auto) { return true; });
     return true;
   });
-  ui->shaderControlsWindow.createChild<Button>(uniqueId(), "Exception").addClickListener([] {
-    deleteMe = true;
-  });
+  ui->shaderControlsWindow.createChild<Button>(uniqueId(), "Exception").addClickListener([] { deleteMe = true; });
 
   //auto openModelFnc = [this] {
   //  ui->imgui->openFileDialog(
@@ -810,6 +809,7 @@ void SimpleSVORenderer::initUI() {
     if (!ui->activeModelList.getSelectedItem().has_value()) { return; }
     const auto idToRemove = ui->activeModelList.getSelectedItem()->get().id;
     ui->activeModelList.removeItemIf([idToRemove](const auto &modelInfo) { return modelInfo.id == idToRemove; });
+    rebuildAndUploadBVH();
   });
 
   ui->debugPrintEnableCheckbox.addValueListener(
@@ -842,51 +842,65 @@ void SimpleSVORenderer::loadModelFromDisk(const vox::GPUModelInfo &modelInfo, co
   loadingDialog.setSize(Size{200, 100});
   auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
   threadpool->template enqueue([this, modelsPath, modelInfo, &loadingProgressBar, &loadingDialog, callbacks] {
-    loadingProgressBar.setValue(0);
-    const auto selectedModelPath = modelsPath / modelInfo.path;
-    const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-    loadingProgressBar.setValue(50);
-    auto newModelInfo = vox::GPUModelInfo{};
-    newModelInfo.path = modelInfo.path;
-    newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
-    newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
-    newModelInfo.svoHeight = svoCreate.second.depth;
-    newModelInfo.AABB = svoCreate.second.AABB;
-    auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
-    auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
-    loadingProgressBar.setValue(70);
+    try {
+      loadingProgressBar.setValue(0);
+      const auto selectedModelPath = modelsPath / modelInfo.path;
+      const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
+      loadingProgressBar.setValue(50);
+      auto newModelInfo = vox::GPUModelInfo{};
+      newModelInfo.path = modelInfo.path;
+      newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
+      newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
+      newModelInfo.svoHeight = svoCreate.second.depth;
+      newModelInfo.AABB = svoCreate.second.AABB;
+      auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
+      auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
+      loadingProgressBar.setValue(70);
 
-    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
-    loadingProgressBar.setValue(80);
-    std::string err;
-    if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-    if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-    if (!err.empty()) {
-      loge(MAIN_TAG, "Error while loading SVO: {}", err);
-      window->enqueue([err, callbacks, &loadingDialog, &loadingProgressBar] {
-        callbacks.fail(err);
+      auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+      loadingProgressBar.setValue(80);
+      std::string err;
+      if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+      if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+      if (!err.empty()) {
+        loge(MAIN_TAG, "Error while loading SVO: {}", err);
+        window->enqueue([err, callbacks, &loadingDialog, &loadingProgressBar] {
+          callbacks.fail(err);
+          loadingProgressBar.setValue(0);
+          loadingDialog.createChild<Text>(uniqueId(), fmt::format("Loading failed: {}", err));
+          loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
+            loadingDialog.close();
+          });
+        });
+        return;
+      }
+
+      newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
+      newModelInfo.modelInfoMemoryBlock =
+          std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+      newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
+
+      loadingProgressBar.setValue(80);
+
+      window->enqueue([modelInfo, newModelInfo, this, &loadingDialog, &loadingProgressBar, callbacks]() mutable {
+        callbacks.success(newModelInfo);
+        loadingProgressBar.setValue(100);
+        newModelInfo.updateInfoToGPU();
+        rebuildAndUploadBVH();
+        loadingDialog.close();
+      });
+    } catch (const std::exception &e) {
+      const auto excMessage = e.what();
+      loge(MAIN_TAG, "Error while loading SVO: {}", excMessage);
+      window->enqueue([excMessage, callbacks, &loadingDialog, &loadingProgressBar] {
+        callbacks.fail(excMessage);
         loadingProgressBar.setValue(0);
-        loadingDialog.createChild<Text>(uniqueId(), fmt::format("Loading failed: {}", err));
+        loadingDialog.createChild<Text>(uniqueId(), fmt::format("Loading failed: {}", excMessage));
         loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
           loadingDialog.close();
         });
       });
-      return;
     }
-
-    newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
-    newModelInfo.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
-    newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
-
-    loadingProgressBar.setValue(80);
-
-    window->enqueue([modelInfo, newModelInfo, this, &loadingDialog, &loadingProgressBar, callbacks]() mutable {
-      callbacks.success(newModelInfo);
-      loadingProgressBar.setValue(100);
-      newModelInfo.updateInfoToGPU();
-      rebuildAndUploadBVH();
-      loadingDialog.close();
-    });
   });
 }
 

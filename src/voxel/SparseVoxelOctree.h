@@ -11,7 +11,7 @@
 namespace pf::vox {
 
 constexpr uint32_t PAGE_SIZE = 8192;
-
+/* FIXME: this is the ESVO paper correct version
 // tree node describing children of the given node
 // must be 64 bytes
 struct alignas(8) ChildDescriptor {
@@ -34,6 +34,26 @@ struct alignas(8) ChildDescriptor {
     uint32_t UNUSED;
   } shadingData;
 
+  [[nodiscard]] std::string toString() const;
+  [[nodiscard]] std::string stringDraw() const;
+};*/
+
+// tree node describing children of the given node
+// must be 64 bytes
+struct alignas(8) ChildDescriptor {
+
+  // each bit of these masks corresponds to 1 child
+  uint8_t leafMask; //< if 1 then the child is a leaf else it is another node
+  uint8_t validMask;//< if 1 then the child contains a voxel else it doesn't
+  // if not validMask[x] and not leafMask[x] then the space is empty
+  // if validMask[x] and not leafMask[x] then the space is represented by another ChildDescriptor
+  // if validMask[x] and leafMask[x] then the space contains a voxel and is not further represented by a ChildDescriptor
+
+
+  uint16_t UNUSED;
+
+  uint32_t
+      childPointer;//< points to memory populated by child nodes - specifically to the first one, since they are consecutive
   [[nodiscard]] std::string toString() const;
   [[nodiscard]] std::string stringDraw() const;
 };

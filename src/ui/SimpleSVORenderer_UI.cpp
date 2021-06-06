@@ -102,8 +102,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           "shader_iter_divide_drag", "Iteration view divider", 1, 1, 1024, 64, Persistent::Yes)),
       modelsWindow(imgui->createWindow("models_window", "Models")),
       modelListsLayout(modelsWindow.createChild<AbsoluteLayout>("models_layout", Size{Width::Auto(), Height(170)})),
-      modelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>("models_list", ImVec2{10, 10}, "Models",
-                                                                         Size{200, 100}, std::nullopt)),
+      modelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>(
+          "models_list", ImVec2{10, 10}, "Models", Size{200, 100}, std::nullopt, Persistent::Yes)),
       modelsFilterInput(modelListsLayout.createChild<WidthDecorator<InputText>>("models_filter", ImVec2{10, 110},
                                                                                 Width{200}, "Filter")),
       reloadModelListButton(

@@ -16,6 +16,7 @@
 #include <pf_glfw_vulkan/ui/events/common.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
 #include <range/v3/view/map.hpp>
+#include <thread>
 #include <threading/ThreadPool.h>
 #include <toml++/toml.h>
 #include <ui/SimpleSVORenderer_UI.h>
@@ -165,7 +166,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
     std::function<void(vox::GPUModelInfo)> success;
     std::function<void(std::string)> fail;
   };
-  void loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath, ModelLoadingCallbacks callbacks);
+  void loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath,
+                         ModelLoadingCallbacks callbacks);
 
   std::reference_wrapper<toml::table> config;
   Camera camera;

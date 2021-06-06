@@ -18,8 +18,8 @@ struct Ray {
 };
 
 struct ChildDescriptor {
-  uint childData;
-  uint contourData;
+  uint data1;
+  uint data2;
 };
 
 #ifndef LOCAL_SIZE_X
@@ -287,8 +287,8 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
 
     //if (child_descriptor.childData == 0)
     if (fetch) {
-      child_descriptor.childData = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
-      //child_descriptor.contourData = childDescriptors[parent + 1];
+      child_descriptor.data1 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
+      child_descriptor.data2 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + 1];
       fetch = false;
     }
 
@@ -296,7 +296,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
     float tc_max = min(t_corner);
 
     int child_shift = idx ^ octant_mask;// permute child slots based on the mirroring
-    uint child_masks = child_descriptor.childData << child_shift;
+    uint child_masks = child_descriptor.data1 << child_shift;
     if ((child_masks & 0x8000u) != 0 && t_min <= t_max) {
       // Terminate if the voxel is small enough.
       //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2) {
@@ -359,9 +359,15 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
 
         // Find child descriptor corresponding to the current voxel.
 
-        uint ptr = child_descriptor.childData >> 17u;// child pointer
-        uint validMask = (child_descriptor.childData >> 8u) & 0xFFu;
-        uint leafMask = child_descriptor.childData & 0xFFu;
+        //uint ptr = child_descriptor.data1 >> 16u;// child pointer
+        uint ptr = child_descriptor.data2;// child pointer
+
+        /* if ((child_descriptor.childData & 0x10000) != 0) { // FAR
+          ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
+        }*/
+
+        uint validMask = (child_descriptor.data1 >> 8u) & 0xFFu;
+        uint leafMask = child_descriptor.data1 & 0xFFu;
 
         child_shift = 7 - child_shift;
 
@@ -546,7 +552,6 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
   bestModelResult.hit = false;
   bestModelResult.t = INF;
   bestModelResult.iter = 0;
-  uint cnt = 0;
   while (stackTop != 0) {
     const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
     const BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
@@ -567,10 +572,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
         WRITE_BVH_STACK(bvhStack, stackTop++, offset);
         WRITE_BVH_STACK(bvhStack, stackTop++, offset + 1);
       }
-    } else {
     }
-    ++cnt;
-    if (cnt > 50) { break; }
   }
   if (bestModelResult.hit) {
     bestModelResult.color += result.color;

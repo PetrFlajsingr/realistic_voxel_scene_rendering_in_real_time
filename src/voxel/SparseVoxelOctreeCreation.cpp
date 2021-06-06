@@ -170,12 +170,12 @@ auto getValidChildren(const std::vector<const Node<TemporaryTreeNode> *> &nodes)
 
 ChildDescriptor childDescriptorForNode(const Node<TemporaryTreeNode> &node) {
   auto result = ChildDescriptor();
-  result.childData.far = 0;
-  result.childData.leafMask = 0;
-  result.childData.validMask = 0;
+  //result.childData.far = 0;
+  result.leafMask = 0;
+  result.validMask = 0;
   for (const auto &child : node.children()) {
-    result.childData.validMask |= 1u << child->idx;
-    if (child->isLeaf) { result.childData.leafMask |= 1u << child->idx; }
+    result.validMask |= 1u << child->idx;
+    if (child->isLeaf) { result.leafMask |= 1u << child->idx; }
   }
   return result;
 }
@@ -190,17 +190,18 @@ std::vector<ChildDescriptor> buildDescriptors(const std::vector<const Node<Tempo
   if (iter != end) {
     auto offset = std::distance(iter, end);
     const auto &[child, descriptor] = *iter;
-    descriptor.childData.childPointer = offset;
+    descriptor.childPointer = offset;
     ++iter;
     for (; iter != end; ++iter) {
       --offset;
       const auto &[previousChild, _] = *(iter - 1);
       const auto &[child, descriptor] = *iter;
       offset += countNonLeafChildrenForNode(*previousChild);
-      if (offset > 32767) {
-        //throw StackTraceException("Far pointers not yet implemented");
-      }
-      descriptor.childData.childPointer = offset;
+      //if (offset > 32767) {
+      //  //descriptor.childData.far = 1;
+      //  throw StackTraceException("Far pointers not yet implemented");
+      //}
+      descriptor.childPointer = offset;
     }
   }
   auto validChildren = getValidChildren(nodes) | to_vector;
@@ -301,7 +302,7 @@ std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tre
 
   const auto &root = tree.getRoot();
   auto rootDescriptor = childDescriptorForNode(root);
-  rootDescriptor.childData.childPointer = 1u;
+  rootDescriptor.childPointer = 1u;
 
   childDescriptors.emplace_back(rootDescriptor);
 
@@ -345,6 +346,7 @@ std::strong_ordering TemporaryTreeNode::operator<=>(const TemporaryTreeNode &rhs
   if (idx == rhs.idx) { return std::strong_ordering::equal; }
   return std::strong_ordering::greater;
 }
+
 }// namespace details
 
 }// namespace pf::vox
