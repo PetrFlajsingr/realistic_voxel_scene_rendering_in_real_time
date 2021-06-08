@@ -11,6 +11,15 @@
 
 namespace pf {
 using namespace ui::ig;
+ModelFileInfo::ModelFileInfo(const std::filesystem::path &path) : path(path) {}
+bool ModelFileInfo::operator==(const ModelFileInfo &rhs) const { return id == rhs.id; }
+bool ModelFileInfo::operator!=(const ModelFileInfo &rhs) const { return !(rhs == *this); }
+
+std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info) {
+  os << info.path.filename().string();
+  return os;
+}
+
 SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
                                            const Camera &camera, TextureData iterTextureData)
     : imgui(std::move(imguiInterface)), windowMenuBar(imgui->getMenuBar()),
@@ -104,15 +113,15 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           "shader_iter_divide_drag", "Iteration view divider", 1, 1, 1024, 64, Persistent::Yes)),
       modelsWindow(imgui->createWindow("models_window", "Models")),
       modelListsLayout(modelsWindow.createChild<AbsoluteLayout>("models_layout", Size{Width::Auto(), Height(170)})),
-      modelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>(
-          "models_list", ImVec2{10, 10}, "Models", Size{200, 100}, std::nullopt, Persistent::Yes)),
+      modelList(modelListsLayout.createChild<Listbox<ModelFileInfo>>("models_list", ImVec2{10, 10}, "Models",
+                                                                     Size{200, 100}, std::nullopt, Persistent::Yes)),
       modelsFilterInput(modelListsLayout.createChild<WidthDecorator<InputText>>("models_filter", ImVec2{10, 110},
                                                                                 Width{200}, "Filter")),
       reloadModelListButton(
           modelListsLayout.createChild<Button>("model_list_reload", ImVec2{10, 130}, "Reload models")),
       activateSelectedModelButton(modelListsLayout.createChild<Button>("activate_selected_model_button",
                                                                        ImVec2{265, 40}, "", ButtonType::ArrowRight)),
-      activeModelList(modelListsLayout.createChild<Listbox<vox::GPUModelInfo>>(
+      activeModelList(modelListsLayout.createChild<Listbox<ModelFileInfo>>(
           "active_models_list", ImVec2{290, 10}, "Active models", Size{200, 100}, std::nullopt)),
       activeModelsLayout(modelListsLayout.createChild<BoxLayout>("active_model_buttons_layout", ImVec2{285, 110},
                                                                  LayoutDirection::LeftToRight, Size{250, 50})),
@@ -153,42 +162,17 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelDetailVoxelCountText.setReadOnly(true);
   modelDetailMinimisedVoxelCountText.setReadOnly(true);
   modelList.setDragTooltip("Model: {}");
+
   activeModelList.addValueListener([this](const auto &modelInfo) {
-    modelDetailPathText.setText(modelInfo.path.string());
-    modelDetailSVOHeightText.setText("{}", modelInfo.svoHeight);
-    modelDetailVoxelCountText.setText("{}", modelInfo.voxelCount);
-    modelDetailMinimisedVoxelCountText.setText("{}", modelInfo.minimizedVoxelCount);
-    modelDetailTranslateDrag.setValue(modelInfo.translateVec);
-    modelDetailRotateDrag.setValue(modelInfo.rotateVec);
-    modelDetailScaleDrag.setValue(modelInfo.scaleVec);
-    if (modelInfo.svoMemoryBlock != nullptr) {
-      modelDetailBufferOffset.setText(MODEL_BUFFER_OFFSET_INFO, modelInfo.svoMemoryBlock->getOffset());
-      modelDetailBufferSize.setText(MODEL_BUFFER_SIZE_INFO, modelInfo.svoMemoryBlock->getSize());
-    }
-  });
-  modelDetailTranslateDrag.addValueListener([this](const auto &val) {
-    if (auto selectedItem = activeModelList.getSelectedItem(); selectedItem.has_value()) {
-      auto items = activeModelList.getItems();
-      for (auto &item : items) {
-        if (item == *selectedItem) { item.translateVec = val; }
-      }
-    }
-  });
-  modelDetailRotateDrag.addValueListener([this](const auto &val) {
-    if (auto selectedItem = activeModelList.getSelectedItem(); selectedItem.has_value()) {
-      auto items = activeModelList.getItems();
-      for (auto &item : items) {
-        if (item == *selectedItem) { item.rotateVec = val; }
-      }
-    }
-  });
-  modelDetailScaleDrag.addValueListener([this](const auto &val) {
-    if (auto selectedItem = activeModelList.getSelectedItem(); selectedItem.has_value()) {
-      auto items = activeModelList.getItems();
-      for (auto &item : items) {
-        if (item == *selectedItem) { item.scaleVec = val; }
-      }
-    }
+    modelDetailPathText.setText(modelInfo.modelData->path.string());
+    modelDetailSVOHeightText.setText("{}", modelInfo.modelData->svoHeight);
+    modelDetailVoxelCountText.setText("{}", modelInfo.modelData->voxelCount);
+    modelDetailMinimisedVoxelCountText.setText("{}", modelInfo.modelData->minimizedVoxelCount);
+    modelDetailTranslateDrag.setValue(modelInfo.modelData->translateVec);
+    modelDetailRotateDrag.setValue(modelInfo.modelData->rotateVec);
+    modelDetailScaleDrag.setValue(modelInfo.modelData->scaleVec);
+    modelDetailBufferOffset.setText(MODEL_BUFFER_OFFSET_INFO, modelInfo.modelData->svoMemoryBlock->getOffset());
+    modelDetailBufferSize.setText(MODEL_BUFFER_SIZE_INFO, modelInfo.modelData->svoMemoryBlock->getSize());
   });
 
   iterationImage.setTooltip("Visualisation of ray iterations");
@@ -280,7 +264,6 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   activeModelList.setDropAllowed(true);
   modelListsLayout.setDrawBorder(true);
 }
-
 void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   renderSettingsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
@@ -295,5 +278,4 @@ void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   shaderControlsMenuItem.setValue(visible);
   modelsMenuItem.setValue(visible);
 }
-
 }// namespace pf

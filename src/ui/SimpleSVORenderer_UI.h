@@ -6,6 +6,7 @@
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 
 #include <glm/glm.hpp>
+#include <ostream>
 #include <pf_common/enums.h>
 #include <pf_common/math/BoundingBox.h>
 #include <pf_imgui/elements/Checkbox.h>
@@ -50,6 +51,18 @@ struct TextureData {
   vulkan::Image &vkIterImage;
   vulkan::ImageView &vkIterImageView;
   vulkan::TextureSampler &vkIterImageSampler;
+};
+
+struct ModelFileInfo {
+  ModelFileInfo() = default;
+  ModelFileInfo(const std::filesystem::path &path);
+  static inline auto IdGenerator = iota<std::size_t>();
+  std::experimental::observer_ptr<vox::GPUModelInfo> modelData = nullptr;
+  std::size_t id = getNext(IdGenerator);
+  std::filesystem::path path{};
+  bool operator==(const ModelFileInfo &rhs) const;
+  bool operator!=(const ModelFileInfo &rhs) const;
+  friend std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info);
 };
 
 class SimpleSVORenderer_UI {
@@ -123,11 +136,11 @@ class SimpleSVORenderer_UI {
     ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
   ui::ig::Window &modelsWindow;
     ui::ig::AbsoluteLayout &modelListsLayout;
-      ui::ig::Listbox<vox::GPUModelInfo> &modelList;
+      ui::ig::Listbox<ModelFileInfo> &modelList;
       ui::ig::InputText &modelsFilterInput;
       ui::ig::Button &reloadModelListButton;
       ui::ig::Button &activateSelectedModelButton;
-      ui::ig::Listbox<vox::GPUModelInfo> &activeModelList;
+      ui::ig::Listbox<ModelFileInfo> &activeModelList;
       ui::ig::BoxLayout &activeModelsLayout;
         ui::ig::Button &removeSelectedActiveModelButton;
         ui::ig::Button &createInstanceSelectedActiveModelButton;

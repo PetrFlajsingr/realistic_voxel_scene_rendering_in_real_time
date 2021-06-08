@@ -27,6 +27,7 @@
 #include <utils/GpuMemoryPool.h>
 #include <voxel/AABB_BVH.h>
 #include <voxel/SparseVoxelOctree.h>
+#include <voxel/GPUModelManager.h>
 
 namespace pf {
 /*
@@ -160,24 +161,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   void rebuildAndUploadBVH();
 
   std::vector<std::filesystem::path> loadModelFileNames(const std::filesystem::path &dir);
-
-  struct ModelLoadingCallbacks {
-    ModelLoadingCallbacks(std::invocable<vox::GPUModelInfo> auto &&onSuccess, std::invocable<std::string> auto &&onFail,
-                          std::invocable<float> auto &&onProgress)
-        : success(onSuccess), fail(onFail), progress(onProgress) {}
-    std::function<void(vox::GPUModelInfo)> success;
-    std::function<void(std::string)> fail;
-    std::function<void(float)> progress;
-  };
-
-  std::future<void> loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const ModelLoadingCallbacks &callbacks,
-                                      bool autoscale = false);
-
   std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> createLoadingDialog();
 
-  void duplicateSelectedModel(bool deepClone);
-
-  tl::expected<vox::GPUModelInfo, std::string> duplicateModel(const vox::GPUModelInfo &original, bool deepClone);
 
   std::reference_wrapper<toml::table> config;
   Camera camera;
@@ -234,6 +219,10 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::BufferMemoryPool<4>> svoMemoryPool;
   std::shared_ptr<vulkan::BufferMemoryPool<16>> modelInfoMemoryPool;
+
+  std::unique_ptr<vox::GPUModelManager> modelManager;
+
+  vox::GPUModelManager::ModelPtr currentlySelectedModel = nullptr;
 };
 
 }// namespace pf
