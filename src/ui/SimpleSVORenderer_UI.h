@@ -63,6 +63,8 @@ class SimpleSVORenderer_UI {
   ui::ig::AppMenuBar &windowMenuBar;
     ui::ig::SubMenu &fileSubMenu;
       ui::ig::MenuButtonItem &openModelMenuItem;
+      ui::ig::MenuButtonItem &loadSceneMenuItem;
+      ui::ig::MenuButtonItem &saveSceneMenuItem;
       ui::ig::MenuSeparatorItem &fileMenuSeparator1;
       ui::ig::MenuButtonItem &closeMenuItem;
     ui::ig::SubMenu &viewSubMenu;

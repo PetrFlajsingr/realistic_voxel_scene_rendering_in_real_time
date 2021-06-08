@@ -18,6 +18,7 @@
 #include <pf_imgui/unique_id.h>
 #include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
+#include <voxel/SceneFileManager.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 
 namespace pf {
@@ -715,21 +716,60 @@ void SimpleSVORenderer::initUI() {
                          | std::views::transform([](const auto &path) { return vox::GPUModelInfo{path}; }));
 
   //ui->openModelButton.addClickListener(openModelFnc);
-
-  ui->activeModelList.addDropListener([this, modelsPath](const auto &modelInfo) {
-    loadModelFromDisk(modelInfo, modelsPath,
-                      {[this, modelInfo](auto newModelInfo) {
-                         ui->activeModelList.removeItem(modelInfo);
-                         ui->activeModelList.addItem(newModelInfo, Selected::Yes);
+  // FIXME: this is insane
+  ui->activeModelList.addDropListener([this](const auto &modelInfo) {
+    const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+    loadModelFromDisk(modelInfo,
+                      {[this, modelInfo, &loadingDialog](auto newModelInfo) {
+                         window->enqueue([this, modelInfo, newModelInfo, &loadingDialog]() mutable {
+                           ui->activeModelList.removeItem(modelInfo);
+                           ui->activeModelList.addItem(newModelInfo, Selected::Yes);
+                           newModelInfo.updateInfoToGPU();
+                           rebuildAndUploadBVH();
+                           loadingDialog.close();
+                         });
                        },
-                       [this, modelInfo](auto) { ui->activeModelList.removeItem(modelInfo); }});
+                       [this, modelInfo, &loadingDialog, &loadingText](auto message) {
+                         window->enqueue([this, modelInfo, message, &loadingDialog, &loadingText] {
+                           ui->activeModelList.removeItem(modelInfo);
+                           loadingText.setText("Loading failed: {}", message);
+                           loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
+                             loadingDialog.close();
+                           });
+                         });
+                       },
+                       [this, &loadingDialog, &loadingProgress, &loadingText](float progress) {
+                         window->enqueue(
+                             [&loadingDialog, &loadingProgress, progress] { loadingProgress.setValue(progress); });
+                       }},
+                      true);
   });
 
-  ui->activateSelectedModelButton.addClickListener([this, modelsPath] {
+  ui->activateSelectedModelButton.addClickListener([this] {
     if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
-      loadModelFromDisk(
-          *item, modelsPath,
-          {[this](auto newModelInfo) { ui->activeModelList.addItem(newModelInfo, Selected::Yes); }, [](auto) {}});
+      const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+      loadModelFromDisk(*item,
+                        {[this, &loadingDialog](auto newModelInfo) {
+                           window->enqueue([this, newModelInfo, &loadingDialog]() mutable {
+                             ui->activeModelList.addItem(newModelInfo, Selected::Yes);
+                             newModelInfo.updateInfoToGPU();
+                             rebuildAndUploadBVH();
+                             loadingDialog.close();
+                           });
+                         },
+                         [this, &loadingDialog, &loadingText](auto message) {
+                           window->enqueue([message, &loadingDialog, &loadingText] {
+                             loadingText.setText("Loading failed: {}", message);
+                             loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
+                               loadingDialog.close();
+                             });
+                           });
+                         },
+                         [this, &loadingDialog, &loadingProgress, &loadingText](float progress) {
+                           window->enqueue(
+                               [&loadingDialog, &loadingProgress, progress] { loadingProgress.setValue(progress); });
+                         }},
+                        true);
     }
   });
 
@@ -747,8 +787,9 @@ void SimpleSVORenderer::initUI() {
   ui->shaderDebugValueInput.addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); },
                                              true);
 
-  subscriptions.emplace_back(addLogListener([this](auto record) { ui->logMemo.addRecord(record); }));
-  subscriptions.emplace_back(addLogListener([this](auto record) { ui->logErrMemo.addRecord(record); }, true));
+  // FIXME
+  //subscriptions.emplace_back(addLogListener([this](auto record) { ui->logMemo.addRecord(record); }));
+  //subscriptions.emplace_back(addLogListener([this](auto record) { ui->logErrMemo.addRecord(record); }, true));
 
   ui->chaiConfirmButton.addClickListener([this] {
     const auto input = ui->chaiInputText.getText();
@@ -821,13 +862,95 @@ void SimpleSVORenderer::initUI() {
   ui->bvhVisualizeCheckbox.addValueListener(
       [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 6).set(enabled ? 1 : 0); }, true);
 
+  ui->loadSceneMenuItem.addClickListener([this] {
+    ui->imgui->openFileDialog(
+        "Select file to load scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
+        [this](const auto &selected) {
+          auto path = selected[0];
+          auto models = vox::loadSceneFromFile(path);
+          const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+          threadpool->enqueue([this, models, &loadingDialog, &loadingProgress, &loadingText] {
+            auto failed = false;
+            auto loadedItems = std::vector<vox::GPUModelInfo>{};
+            std::ranges::for_each(
+                models,
+                [this, &failed, &loadingDialog, &loadingProgress, &loadingText, &loadedItems](const auto &modelInfo) {
+                  if (auto iter = std::ranges::find_if(
+                          loadedItems, [&modelInfo](const auto &loaded) { return modelInfo.path == loaded.path; });
+                      iter != loadedItems.end()) {
+                    auto originalModel = *iter;
+                    auto duplicateResult = duplicateModel(originalModel, false);
+                    window->enqueue([this, duplicateResult, modelInfo]() mutable {
+                      if (!duplicateResult.has_value()) {
+                        loge(MAIN_TAG, "Error while duplicating SVO: {}", duplicateResult.error());
+                        ui->imgui->createMsgDlg("Duplication failed",
+                                                fmt::format("Duplication failed: {}", duplicateResult.error()),
+                                                Flags{ui::ig::MessageButtons::Ok}, [](auto) { return true; });
+                      }
+                      auto newItem = duplicateResult.value();
+                      newItem.translateVec = modelInfo.translateVec;
+                      newItem.scaleVec = modelInfo.scaleVec;
+                      newItem.rotateVec = modelInfo.rotateVec;
+                      newItem.updateInfoToGPU();
+                      ui->activeModelList.addItem(newItem);
+                    });
+                  } else {
+                    loadModelFromDisk(
+                        modelInfo,
+                        {[this, &loadingText, &loadedItems](auto newModelInfo) {
+                           loadedItems.template emplace_back(newModelInfo);
+                           window->enqueue([this, newModelInfo, &loadingText]() mutable {
+                             ui->activeModelList.addItem(newModelInfo);
+                             loadingText.setText("{}\nLoaded: {}", loadingText.getText(),
+                                                 newModelInfo.path.filename().string());
+                             newModelInfo.updateInfoToGPU();
+                           });
+                         },
+                         [this, &loadingText, &failed](auto message) {
+                           failed = true;
+                           window->enqueue([message, &loadingText] {
+                             loadingText.setText("{}\nLoading failed: {}", loadingText.getText(), message);
+                           });
+                         },
+                         [this, &loadingProgress](float progress) {
+                           window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
+                         }})
+                        .wait();
+                  }
+                });
+            rebuildAndUploadBVH();
+            if (failed) {
+              window->enqueue([&loadingDialog] {
+                loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
+                  loadingDialog.close();
+                });
+              });
+            } else {
+              window->enqueue([&loadingDialog] { loadingDialog.close(); });
+            }
+          });
+        },
+        [] {});
+  });
+
+  ui->saveSceneMenuItem.addClickListener([this] {
+    ui->imgui->openFileDialog(
+        "Select file to save scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
+        [this](const auto &selected) {
+          auto path = selected[0];
+          vox::saveSceneToFile(ui->activeModelList.getItems(), path);
+        },
+        [] {});
+  });
+
   ui->imgui->setStateFromConfig();
 }
-std::vector<std::string> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
+std::vector<std::filesystem::path> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
-  return potentialModelFiles | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
-      | ranges::views::transform([](const auto &path) { return path.filename().string(); }) | ranges::to_vector
-      | ranges::actions::sort;
+  return potentialModelFiles
+      | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
+      /*| ranges::views::transform([](const auto &path) { return path.filename().string(); })*/
+      | ranges::to_vector | ranges::actions::sort;
 }
 void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
@@ -838,117 +961,114 @@ void SimpleSVORenderer::rebuildAndUploadBVH() {
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree, mapping);
 }
-void SimpleSVORenderer::loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath,
-                                          ModelLoadingCallbacks callbacks) {
-  using namespace pf::ui::ig;
-  auto &loadingDialog = ui->imgui->createDialog(uniqueId(), "Loading model...", Modal::Yes);
-  loadingDialog.setSize(Size{200, 100});
-  auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
-  threadpool->template enqueue([this, modelsPath, modelInfo, &loadingProgressBar, &loadingDialog, callbacks] {
+
+tl::expected<vox::GPUModelInfo, std::string> SimpleSVORenderer::duplicateModel(const vox::GPUModelInfo &original,
+                                                                               bool deepClone) {
+  vox::GPUModelInfo newItem{};
+  newItem.path = original.path;
+  newItem.svoHeight = original.svoHeight;
+  newItem.voxelCount = original.voxelCount;
+  newItem.minimizedVoxelCount = original.minimizedVoxelCount;
+  newItem.translateVec = original.translateVec;
+  newItem.scaleVec = original.scaleVec;
+  newItem.rotateVec = original.rotateVec;
+  newItem.AABB = original.AABB;
+  newItem.transformMatrix = original.transformMatrix;
+  auto modelBlockAllocResult = modelInfoMemoryPool->leaseMemory(original.modelInfoMemoryBlock->getSize());
+  auto err = std::string{};
+  if (!modelBlockAllocResult.has_value()) { err += modelBlockAllocResult.error(); }
+  if (!err.empty()) { return tl::make_unexpected(err); }
+
+  newItem.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelBlockAllocResult));
+  if (deepClone) {
+    auto svoBlockAllocResult = svoMemoryPool->leaseMemory(original.svoMemoryBlock->getSize());
+    if (!svoBlockAllocResult.has_value()) { err += svoBlockAllocResult.error(); }
+    if (!err.empty()) { return tl::make_unexpected(err); }
+    newItem.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockAllocResult));
+    auto data = std::vector<std::byte>(original.svoMemoryBlock->getSize());
+    std::ranges::copy(original.svoMemoryBlock->mapping().data<std::byte>(), data.begin());
+    newItem.svoMemoryBlock->mapping().set(data);
+  } else {
+    newItem.svoMemoryBlock = original.svoMemoryBlock;
+  }
+  return newItem;
+}
+
+void SimpleSVORenderer::duplicateSelectedModel(bool deepClone) {
+  if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) {
+    auto duplicateResult = duplicateModel(*item, deepClone);
+    if (!duplicateResult.has_value()) {
+      loge(MAIN_TAG, "Error while duplicating SVO: {}", duplicateResult.error());
+      ui->imgui->createMsgDlg("Duplication failed", fmt::format("Duplication failed: {}", duplicateResult.error()),
+                              Flags{ui::ig::MessageButtons::Ok}, [](auto) { return true; });
+      return;
+    }
+    duplicateResult.value().updateInfoToGPU();
+    ui->activeModelList.addItem(duplicateResult.value());
+    rebuildAndUploadBVH();
+  }
+}
+std::future<void> SimpleSVORenderer::loadModelFromDisk(const vox::GPUModelInfo &modelInfo,
+                                                       const SimpleSVORenderer::ModelLoadingCallbacks &callbacks,
+                                                       bool autoscale) {
+  auto promise = std::make_shared<std::promise<void>>();
+  threadpool->template enqueue([this, modelInfo, callbacks, promise, autoscale] {
     try {
-      loadingProgressBar.setValue(0);
-      const auto selectedModelPath = modelsPath / modelInfo.path;
+      callbacks.progress(0);
+      const auto selectedModelPath = modelInfo.path;
       const auto svoCreate = vox::loadFileAsSVO(selectedModelPath);
-      loadingProgressBar.setValue(50);
+      callbacks.progress(50);
       auto newModelInfo = vox::GPUModelInfo{};
       newModelInfo.path = modelInfo.path;
       newModelInfo.voxelCount = svoCreate.second.initVoxelCount;
       newModelInfo.minimizedVoxelCount = svoCreate.second.voxelCount;
       newModelInfo.svoHeight = svoCreate.second.depth;
       newModelInfo.AABB = svoCreate.second.AABB;
+      newModelInfo.translateVec = modelInfo.translateVec;
+      newModelInfo.scaleVec = modelInfo.scaleVec;
+      newModelInfo.rotateVec = modelInfo.rotateVec;
+      callbacks.progress(50);
       auto svo = vox::SparseVoxelOctree{std::move(svoCreate.first)};
       auto svoBlockResult = copySvoToMemoryBlock(svo, *svoMemoryPool);
-      loadingProgressBar.setValue(70);
+      callbacks.progress(70);
 
       auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
-      loadingProgressBar.setValue(80);
       std::string err;
       if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!err.empty()) {
-        loge(MAIN_TAG, "Error while loading SVO: {}", err);
-        window->enqueue([err, callbacks, &loadingDialog, &loadingProgressBar] {
-          callbacks.fail(err);
-          loadingProgressBar.setValue(0);
-          loadingDialog.createChild<Text>(uniqueId(), fmt::format("Loading failed: {}", err));
-          loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
-            loadingDialog.close();
-          });
-        });
+        callbacks.fail(err);
+        promise->set_value();
         return;
       }
+      callbacks.progress(80);
 
       newModelInfo.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
       newModelInfo.modelInfoMemoryBlock =
           std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
-      newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
+      if (autoscale) {
+        newModelInfo.scaleVec = glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, 5))};
+      }
 
-      loadingProgressBar.setValue(80);
-
-      window->enqueue([modelInfo, newModelInfo, this, &loadingDialog, &loadingProgressBar, callbacks]() mutable {
-        callbacks.success(newModelInfo);
-        loadingProgressBar.setValue(100);
-        newModelInfo.updateInfoToGPU();
-        rebuildAndUploadBVH();
-        loadingDialog.close();
-      });
+      callbacks.progress(100);
+      callbacks.success(newModelInfo);
+      promise->set_value();
     } catch (const std::exception &e) {
       const auto excMessage = e.what();
-      loge(MAIN_TAG, "Error while loading SVO: {}", excMessage);
-      window->enqueue([excMessage, callbacks, &loadingDialog, &loadingProgressBar] {
-        callbacks.fail(excMessage);
-        loadingProgressBar.setValue(0);
-        loadingDialog.createChild<Text>(uniqueId(), fmt::format("Loading failed: {}", excMessage));
-        loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
-          loadingDialog.close();
-        });
-      });
+      callbacks.fail(excMessage);
+      promise->set_value();
     }
   });
+  return promise->get_future();
 }
-void SimpleSVORenderer::duplicateSelectedModel(bool deepClone) {
-  if (auto item = ui->activeModelList.getSelectedItem(); item.has_value()) {
-    vox::GPUModelInfo newItem{};
-    newItem.path = item->get().path;
-    newItem.svoHeight = item->get().svoHeight;
-    newItem.voxelCount = item->get().voxelCount;
-    newItem.minimizedVoxelCount = item->get().minimizedVoxelCount;
-    newItem.translateVec = item->get().translateVec;
-    newItem.scaleVec = item->get().scaleVec;
-    newItem.rotateVec = item->get().rotateVec;
-    newItem.AABB = item->get().AABB;
-    newItem.transformMatrix = item->get().transformMatrix;
-    auto modelBlockAllocResult = modelInfoMemoryPool->leaseMemory(item->get().modelInfoMemoryBlock->getSize());
-    auto err = std::string{};
-    if (!modelBlockAllocResult.has_value()) { err += modelBlockAllocResult.error(); }
-    if (!err.empty()) {
-      loge(MAIN_TAG, "Error while duplicating SVO: {}", err);
-      ui->imgui->createMsgDlg("Duplication failed", fmt::format("Duplication failed: {}", err),
-                              Flags{ui::ig::MessageButtons::Ok}, [](auto) { return true; });
-      return;
-    }
-
-    newItem.modelInfoMemoryBlock = std::make_shared<BufferMemoryPool<16>::Block>(std::move(*modelBlockAllocResult));
-    if (deepClone) {
-      auto svoBlockAllocResult = svoMemoryPool->leaseMemory(item->get().svoMemoryBlock->getSize());
-      if (!svoBlockAllocResult.has_value()) { err += svoBlockAllocResult.error(); }
-      if (!err.empty()) {
-        loge(MAIN_TAG, "Error while duplicating SVO: {}", err);
-        ui->imgui->createMsgDlg("Duplication failed", fmt::format("Duplication failed: {}", err),
-                                Flags{ui::ig::MessageButtons::Ok}, [](auto) { return true; });
-        return;
-      }
-      newItem.svoMemoryBlock = std::make_shared<BufferMemoryPool<4>::Block>(std::move(*svoBlockAllocResult));
-      auto data = std::vector<std::byte>(item->get().svoMemoryBlock->getSize());
-      std::ranges::copy(item->get().svoMemoryBlock->mapping().data<std::byte>(), data.begin());
-      newItem.svoMemoryBlock->mapping().set(data);
-    } else {
-      newItem.svoMemoryBlock = item->get().svoMemoryBlock;
-    }
-    newItem.updateInfoToGPU();
-    ui->activeModelList.addItem(newItem);
-    rebuildAndUploadBVH();
-  }
+std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> SimpleSVORenderer::createLoadingDialog() {
+  using namespace ui::ig;
+  auto &loadingDialog = ui->imgui->createDialog(uniqueId(), "Loading model...", Modal::Yes);
+  loadingDialog.setSize(Size{200, 100});
+  auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
+  auto &msgText = loadingDialog.createChild<Text>(uniqueId(), "");
+  return std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>{loadingDialog, loadingProgressBar,
+                                                                                    msgText};
 }
 
 }// namespace pf

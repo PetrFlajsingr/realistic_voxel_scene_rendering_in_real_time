@@ -3,7 +3,7 @@
 //
 
 #include "GPUModelInfo.h"
-
+#include <pf_imgui/serialization.h>
 namespace pf::vox {
 
 bool GPUModelInfo::operator==(const GPUModelInfo &rhs) const { return id == rhs.id; }
@@ -45,5 +45,19 @@ void GPUModelInfo::updateInfoToGPU() {
 std::ostream &operator<<(std::ostream &os, const GPUModelInfo &info) {
   os << info.path.filename().string();
   return os;
+}
+toml::table GPUModelInfo::toToml() const {
+  auto result = toml::table{};
+  result.insert("path", path.string());
+  result.insert("translateVec", ui::ig::serializeGlmVec(translateVec));
+  result.insert("scaleVec", ui::ig::serializeGlmVec(scaleVec));
+  result.insert("rotateVec", ui::ig::serializeGlmVec(rotateVec));
+  return result;
+}
+void GPUModelInfo::fromToml(const toml::table &src) {
+  path = *src["path"].value<std::string>();
+  translateVec = ui::ig::deserializeGlmVec<glm::vec3>(*src["translateVec"].as_array());
+  scaleVec = ui::ig::deserializeGlmVec<glm::vec3>(*src["scaleVec"].as_array());
+  rotateVec = ui::ig::deserializeGlmVec<glm::vec3>(*src["rotateVec"].as_array());
 }
 }// namespace pf::vox

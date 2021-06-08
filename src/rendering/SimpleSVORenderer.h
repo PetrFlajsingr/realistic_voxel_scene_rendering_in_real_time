@@ -15,6 +15,7 @@
 #include <pf_glfw_vulkan/ui/Window.h>
 #include <pf_glfw_vulkan/ui/events/common.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
+#include <pf_imgui/elements/ProgressBar.h>
 #include <range/v3/view/map.hpp>
 #include <thread>
 #include <threading/ThreadPool.h>
@@ -158,18 +159,25 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   void rebuildAndUploadBVH();
 
-  std::vector<std::string> loadModelFileNames(const std::filesystem::path &dir);
+  std::vector<std::filesystem::path> loadModelFileNames(const std::filesystem::path &dir);
 
   struct ModelLoadingCallbacks {
-    ModelLoadingCallbacks(std::invocable<vox::GPUModelInfo> auto &&onSuccess, std::invocable<std::string> auto &&onFail)
-        : success(onSuccess), fail(onFail) {}
+    ModelLoadingCallbacks(std::invocable<vox::GPUModelInfo> auto &&onSuccess, std::invocable<std::string> auto &&onFail,
+                          std::invocable<float> auto &&onProgress)
+        : success(onSuccess), fail(onFail), progress(onProgress) {}
     std::function<void(vox::GPUModelInfo)> success;
     std::function<void(std::string)> fail;
+    std::function<void(float)> progress;
   };
-  void loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const std::filesystem::path &modelsPath,
-                         ModelLoadingCallbacks callbacks);
+
+  std::future<void> loadModelFromDisk(const vox::GPUModelInfo &modelInfo, const ModelLoadingCallbacks &callbacks,
+                                      bool autoscale = false);
+
+  std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> createLoadingDialog();
 
   void duplicateSelectedModel(bool deepClone);
+
+  tl::expected<vox::GPUModelInfo, std::string> duplicateModel(const vox::GPUModelInfo &original, bool deepClone);
 
   std::reference_wrapper<toml::table> config;
   Camera camera;

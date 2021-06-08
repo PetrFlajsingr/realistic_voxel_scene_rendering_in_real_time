@@ -218,7 +218,8 @@ set(SOURCES
         src/voxel/SparseVoxelOctree.cpp
         src/voxel/GPUModelInfo.cpp
         src/voxel/SparseVoxelOctreeCreation.cpp
-        src/voxel/AABB_BVH.cpp)
+        src/voxel/AABB_BVH.cpp
+        )
 
 set(INCLUDES
         src/logging/loggers.h
@@ -257,6 +258,7 @@ set(INCLUDES
         src/voxel/AABB_BVH.h
         src/voxel/GPUModelInfo.h
         src/utils/GpuMemoryPool.h
+        src/voxel/SceneFileManager.h
         )
 
 set(SVO_SOURCES

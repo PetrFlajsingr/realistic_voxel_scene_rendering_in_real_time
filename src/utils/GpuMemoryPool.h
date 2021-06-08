@@ -39,7 +39,7 @@ class BufferMemoryPool : public VulkanObject,
     friend class BufferMemoryPool;
     Block(BlockId id, vk::DeviceSize offset, vk::DeviceSize size, std::shared_ptr<BufferMemoryPool> parent)
         : id(id), offset_(offset), size(size), owner(std::move(parent)) {
-      logd(MAIN_TAG, "Allocated block: {}", info());
+      //logd(MAIN_TAG, "Allocated block: {}", info());
     }
     Block(const Block &) = delete;
     Block &operator=(const Block &) = delete;
@@ -114,7 +114,7 @@ class BufferMemoryPool : public VulkanObject,
 
   void returnMemory(const Block &block) {
     if (!block.valid) { return; }
-    logd(MAIN_TAG, "Returning block: {}", block.info());
+    //logd(MAIN_TAG, "Returning block: {}", block.info());
     block.valid = false;
     Chunk chunkToAdd{block.getOffset(), block.getSize()};
     const auto followingChunkOffset = block.getOffset() + block.getSize();

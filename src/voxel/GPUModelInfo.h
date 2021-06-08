@@ -14,6 +14,7 @@
 #include <pf_common/coroutines/Sequence.h>
 #include <pf_common/math/BoundingBox.h>
 #include <string>
+#include <toml++/toml.h>
 #include <utils/GpuMemoryPool.h>
 
 namespace pf::vox {
@@ -40,6 +41,9 @@ struct GPUModelInfo {
   inline static auto IdGenerator = iota<std::uint32_t>();
 
   [[nodiscard]] std::optional<std::uint32_t> getModelIndex() const;
+
+  [[nodiscard]] toml::table toToml() const;
+  void fromToml(const toml::table &src);
 
   void updateInfoToGPU();
   void assignNewId();

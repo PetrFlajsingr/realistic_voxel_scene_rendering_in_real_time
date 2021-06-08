@@ -16,6 +16,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
     : imgui(std::move(imguiInterface)), windowMenuBar(imgui->getMenuBar()),
       fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
       openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", "Open model")),
+      loadSceneMenuItem(fileSubMenu.addButtonItem("load_scene_menu", "Load scene")),
+      saveSceneMenuItem(fileSubMenu.addButtonItem("save_scene_menu", "Save scene")),
       fileMenuSeparator1(fileSubMenu.addSeparator("fileMenuSeparator1")),
       closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", "Close")),
       viewSubMenu(windowMenuBar.addSubmenu("view_main_menu", "View")),
