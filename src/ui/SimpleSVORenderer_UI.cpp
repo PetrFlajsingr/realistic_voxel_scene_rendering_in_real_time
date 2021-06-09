@@ -86,6 +86,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       cameraGroup(infoWindow.createChild<Group>("camera_group", "Camera", Persistent::Yes, AllowCollapse::Yes)),
       cameraPosText(cameraGroup.createChild<Text>("camera_pos_text", "")),
       cameraDirText(cameraGroup.createChild<Text>("camera_dir_text", "")),
+      cameraToOriginButton(cameraGroup.createChild<Button>("camera_to_origin_button", "Move to origin")),
       cameraMoveSpeedSlider(cameraGroup.createChild<Slider<float>>("cameraMoveSpeedSlider", "Movement speed", 0.1f,
                                                                    50.f, camera.getMovementSpeed(), Persistent::Yes)),
       cameraMouseSpeedSlider(cameraGroup.createChild<Slider<float>>("cameraMouseSpeedSlider", "Mouse speed", 0.1f, 50.f,
@@ -256,6 +257,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   resetFpsButton.setTooltip("Reset FPS counters");
   vsyncCheckbox.setTooltip("Enable/disable vsync, CURRENTLY NOT WORKING");
 
+  cameraToOriginButton.setTooltip("Move camera to [0, 0, 0]");
   cameraMoveSpeedSlider.setTooltip("Camera movement speed with WASD");
   cameraMouseSpeedSlider.setTooltip("Camera pan speed with mouse");
   cameraFOVSlider.setTooltip("Camera field of view");

@@ -178,7 +178,7 @@ struct TraceResult {
   int stackPtr;
   vec3 color;
   vec3 normal;
-  bool nearEdge;
+  bool isOnlyAABB;
   uint objectId;
 };
 
@@ -275,7 +275,6 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
   }
 
   TraceResult res;
-  res.nearEdge = false;
   vec3 color = vec3(0);
   bool fetch = true;
 
@@ -541,6 +540,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
 
   TraceResult result;
   result.hit = false;
+  result.isOnlyAABB = true;
   if (debug.visualizeBVH == 1) {
     result.color = vec3(1);
   } else {
@@ -562,11 +562,15 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
       if (debug.visualizeBVH == 1) {
         result.hit = true;
         result.color -= lut[nodeToCheckIdx % 7 + 1] / 3;
+        result.isOnlyAABB = result.isOnlyAABB && true;
       }
       const uint offset = GET_BVH_NODE_OFFSET(currentNode);
       if (IS_BVH_NODE_LEAF(currentNode)) {
         TraceResult modelTraceResult = traceModel(offset, ray);
-        if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) { bestModelResult = modelTraceResult; }
+        if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) {
+          bestModelResult = modelTraceResult;
+          result.isOnlyAABB = false;
+        }
         result.iter += modelTraceResult.iter;
       } else {
         WRITE_BVH_STACK(bvhStack, stackTop++, offset);
@@ -577,6 +581,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
   if (bestModelResult.hit) {
     bestModelResult.color += result.color;
     bestModelResult.iter = result.iter;
+    bestModelResult.isOnlyAABB = result.isOnlyAABB;
     return bestModelResult;
   }
   result.normal = vec3(0, 0, 0);
@@ -631,6 +636,7 @@ void main() {
   } else if (traceResult.hit) {
     if (debug.viewType == COLOR_VIEW) {
       finalColor += calcLight(traceResult, lightDir, shadowTraceResult.hit);
+      if (debug.debugVal == traceResult.objectId && !traceResult.isOnlyAABB) { finalColor += vec3(0.5, 0, 0); }
     } else if (debug.viewType == NORMAL_VIEW) {
       finalColor += traceResult.normal * 0.5f + 0.5f;
     } else if (debug.viewType == DISTANCE_VIEW) {

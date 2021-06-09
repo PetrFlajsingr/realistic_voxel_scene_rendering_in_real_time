@@ -151,14 +151,14 @@ if (ENABLE_STACKTRACE)
     CPMAddPackage(
             NAME pf_common
             GITHUB_REPOSITORY PetrFlajsingr/pf_common
-            GIT_TAG v1.0.8
+            GIT_TAG v1.1.0
             OPTIONS "ENABLE_STACKTRACE ON"
     )
 else ()
     CPMAddPackage(
             NAME pf_common
             GITHUB_REPOSITORY PetrFlajsingr/pf_common
-            GIT_TAG v1.0.8
+            GIT_TAG v1.1.0
     )
 endif ()
 if (ENABLE_STACKTRACE)
@@ -208,7 +208,6 @@ set(SOURCES
         src/ui/SimpleSVORenderer_UI.cpp
         include/imgui/imgui_impl_glfw.cpp
         include/imgui/imgui_impl_vulkan.cpp
-        src/threading/ThreadPool.cpp
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
@@ -237,7 +236,6 @@ set(INCLUDES
         src/rendering/VulkanDebugCallbackImpl.h
         src/rendering/SimpleSVORenderer.h
         src/concepts/Renderer.h
-        src/threading/ThreadPool.h
         src/ui/ImGuiGlfwVulkan.h
         src/utils/common_enums.h
         src/logging/CallbackSink.h

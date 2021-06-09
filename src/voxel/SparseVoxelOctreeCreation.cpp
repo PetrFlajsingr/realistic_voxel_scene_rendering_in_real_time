@@ -15,7 +15,7 @@
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
 
-#define MINIMISE_TREE 1
+#define MINIMISE_TREE 0
 
 namespace pf::vox {
 using namespace ranges;

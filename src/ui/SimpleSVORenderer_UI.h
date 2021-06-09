@@ -122,6 +122,7 @@ class SimpleSVORenderer_UI {
     ui::ig::Group &cameraGroup;
       ui::ig::Text &cameraPosText;
       ui::ig::Text &cameraDirText;
+      ui::ig::Button &cameraToOriginButton;
       ui::ig::Slider<float> &cameraMoveSpeedSlider;
       ui::ig::Slider<float> &cameraMouseSpeedSlider;
       ui::ig::Slider<int> &cameraFOVSlider;

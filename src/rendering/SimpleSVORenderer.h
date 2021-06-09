@@ -18,7 +18,8 @@
 #include <pf_imgui/elements/ProgressBar.h>
 #include <range/v3/view/map.hpp>
 #include <thread>
-#include <threading/ThreadPool.h>
+//#include <threading/ThreadPool.h>
+#include <pf_common/parallel/ThreadPool.h>
 #include <toml++/toml.h>
 #include <ui/SimpleSVORenderer_UI.h>
 #include <utility>
@@ -221,8 +222,6 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::BufferMemoryPool<16>> modelInfoMemoryPool;
 
   std::unique_ptr<vox::GPUModelManager> modelManager;
-
-  vox::GPUModelManager::ModelPtr currentlySelectedModel = nullptr;
 };
 
 }// namespace pf

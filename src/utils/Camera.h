@@ -14,6 +14,7 @@
 namespace pf {
 class Camera {
  public:
+
   explicit Camera(ui::Resolution resolution, float near, float far, float movementSpeed = 2.5, float mouseSpeed = 2.5,
                   const glm::vec3 &position = {0, 0, 0}, const glm::vec3 &front = {0, 0, -1},
                   const glm::vec3 &up = {0, 1, 0}, float fieldOfView = 45, float yaw = -90, float pitch = 0,

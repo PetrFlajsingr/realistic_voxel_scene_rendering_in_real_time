@@ -40,6 +40,8 @@ using Node = Node<BVHData>;
 
 std::unique_ptr<details::Node> createNodeFrom2(std::vector<std::unique_ptr<details::Node>> &nodes);
 
+std::unique_ptr<details::Node> createNodeFromClosest2(std::vector<std::unique_ptr<details::Node>> &nodes);
+
 std::vector<std::unique_ptr<details::Node>> createNextLevel(std::vector<std::unique_ptr<details::Node>> &&nodes);
 
 Tree<BVHData> createBVH(std::ranges::range auto &&models) requires(

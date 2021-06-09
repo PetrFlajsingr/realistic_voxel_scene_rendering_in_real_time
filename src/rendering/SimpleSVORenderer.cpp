@@ -43,7 +43,7 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  */
 
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}, 0.001f, 50.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {
+    : config(tomlConfig), camera({0, 0}, 0.001f, 500.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
                                config.get()["rendering"]["compute"]["local_size_y"].value_or<std::size_t>(8)};
 }
@@ -205,7 +205,7 @@ void SimpleSVORenderer::render() {
         std::vector{glm::vec4{camera.getPosition(), 0}, glm::vec4{camera.getFront(), 0}, glm::vec4{camera.getUp(), 0}});
     cameraMapping.setRawOffset(camera.getViewMatrix(), sizeof(glm::vec4) * 3);
     cameraMapping.setRawOffset(camera.getProjectionMatrix(), sizeof(glm::vec4) * 3 + sizeof(glm::mat4));
-    const auto invProjView = glm::inverse(camera.getProjectionMatrix() * camera.getViewMatrix());
+    const auto invProjView = glm::inverse(camera.getViewMatrix()) * glm::inverse(camera.getProjectionMatrix());
     cameraMapping.setRawOffset(invProjView, sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 2);
     cameraMapping.setRawOffset(camera.getNear(), sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3);
     cameraMapping.setRawOffset(camera.getFar(), sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + sizeof(float));
@@ -500,7 +500,6 @@ void SimpleSVORenderer::createPipeline() {
                                      uniformDebugWrite, computeIterWrite,   modelInfoWrite, bvhWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
-  // TODO: change string paths to filesystem::path
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
       .name = "SVO",
       .type = ShaderType::Compute,
@@ -634,21 +633,44 @@ void SimpleSVORenderer::initUI() {
   });
   ui->shaderControlsWindow.createChild<Button>(uniqueId(), "Exception").addClickListener([] { deleteMe = true; });
 
-  //auto openModelFnc = [this] {
-  //  ui->imgui->openFileDialog(
-  //      "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
-  //      [this](const auto &selected) {
-  //        auto modelPath = selected[0];
-  //        const auto svoCreate = vox::loadFileAsSVO(modelPath);
-  //        // TODO: add model to active model list
-  //        svo = std::make_unique<vox::SparseVoxelOctree>(std::move(svoCreate.first));
-  //        isSceneLoaded = false;
-  //      },
-  //      [] {});
-  //};
+  auto openModelFnc = [this] {
+    ui->imgui->openFileDialog(
+        "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
+        [this](const auto &selected) {
+          auto modelPath = selected[0];
+          const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+          threadpool->template enqueue([this, modelPath, &loadingProgress, &loadingDialog, &loadingText] {
+            auto newModel = modelManager->loadModel(
+                modelPath, {[this, &loadingProgress](float progress) {
+                  window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
+                }},
+                true);
+            if (!newModel.has_value()) {
+              const auto message = newModel.error();
+              window->enqueue([&loadingDialog, &loadingText, message] {
+                loadingText.setText("Loading failed: {}", message);
+                loadingDialog.createChild<Button>(uniqueId(), "Ok").addClickListener([&loadingDialog] {
+                  loadingDialog.close();
+                });
+              });
+            } else {
+              auto modelPtr = newModel.value();
+              window->enqueue([this, &loadingDialog, modelPtr] {
+                auto newUIItem = ModelFileInfo{modelPtr->path};
+                newUIItem.modelData = modelPtr;
+                ui->activeModelList.addItem(newUIItem);
+                loadingDialog.close();
+                modelPtr->updateInfoToGPU();
+                rebuildAndUploadBVH();
+              });
+            }
+          });
+        },
+        [] {});
+  };
 
   ui->closeMenuItem.addClickListener(closeWindow);
-  // TODO: ui->openModelMenuItem.addClickListener(openModelFnc);
+  ui->openModelMenuItem.addClickListener(openModelFnc);
 
   ui->viewTypeComboBox.addValueListener(
       [this](const auto &viewType) {
@@ -718,6 +740,12 @@ void SimpleSVORenderer::initUI() {
   ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelFileInfo{path}; }));
 
   //ui->openModelButton.addClickListener(openModelFnc);
+  ui->activeModelList.addValueListener([this](const auto &modelInfo) {
+    const uint32_t index = modelInfo.modelData->getModelIndex().value();
+    debugUniformBuffer->mapping().template set(index, 1);
+  });
+
+  debugUniformBuffer->mapping().template set(-1, 1);
   // FIXME: this is insane
   ui->activeModelList.addDropListener([this](const auto &modelInfo) {
     const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
@@ -941,7 +969,7 @@ void SimpleSVORenderer::initUI() {
                     }
                   } else {
                     auto modelLoadResult = modelManager->loadModel(
-                        modelInfo.path, {[this, &loadingProgress]([[maybe_unused]]float progress) {
+                        modelInfo.path, {[this, &loadingProgress]([[maybe_unused]] float progress) {
                           //window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
                         }});
                     if (!modelLoadResult.has_value()) {
@@ -981,6 +1009,8 @@ void SimpleSVORenderer::initUI() {
         },
         [] {});
   });
+
+  ui->cameraToOriginButton.addClickListener([this] { camera.setPosition({0, 0, 0}); });
 
   ui->saveSceneMenuItem.addClickListener([this] {
     ui->imgui->openFileDialog(

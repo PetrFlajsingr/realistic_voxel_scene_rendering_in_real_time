@@ -22,6 +22,7 @@
 namespace pf::vulkan {
 
 // TODO: alignment
+// TODO: defrag
 template<std::size_t Align = 1>
 class BufferMemoryPool : public VulkanObject,
                          public PtrConstructible<BufferMemoryPool<Align>>,

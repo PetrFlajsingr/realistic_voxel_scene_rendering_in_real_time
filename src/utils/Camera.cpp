@@ -170,7 +170,7 @@ bool Camera::isSwapLeftRight() const { return swapLeftRight; }
 void Camera::setSwapLeftRight(bool swap) { swapLeftRight = swap; }
 glm::mat4 Camera::getViewMatrix() const { return glm::lookAt(position, position + front, up); }
 glm::mat4 Camera::getProjectionMatrix() const {
-  return glm::perspective(glm::radians(fieldOfView), static_cast<float>(screenWidth / screenHeight), nearF, farF);
+  return glm::perspective(glm::radians(fieldOfView), static_cast<float>(screenHeight / screenWidth), nearF, farF);
 }
 float Camera::getNear() const { return nearF; }
 float Camera::getFar() const { return farF; }
@@ -195,7 +195,7 @@ Camera::Camera(Camera &&other) {
   roll = other.roll;
   subscriptions = std::move(other.subscriptions);
 }
-Camera &Camera::operator=(Camera &&other) {
+Camera &Camera::operator=(Camera &&other)  {
   screenWidth = other.screenWidth;
   screenHeight = other.screenHeight;
   nearF = other.nearF;

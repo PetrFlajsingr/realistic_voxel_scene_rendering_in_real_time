@@ -6,6 +6,7 @@
 #include <fmt/ostream.h>
 #include <logging/loggers.h>
 #include <pf_common/concepts/StringConvertible.h>
+#include <pf_common/views/View2D.h>
 
 namespace pf::vox {
 
@@ -67,11 +68,50 @@ std::unique_ptr<Node<BVHData>> createNodeFrom2(std::vector<std::unique_ptr<Node<
   nodes.erase(nodes.begin() + closestIdx);
   return newNode;
 }
+// TODO: implement on gpu
+std::unique_ptr<Node<BVHData>> createNodeFromClosest2(std::vector<std::unique_ptr<Node<BVHData>>> &nodes) {
+  auto distanceMatrix = std::vector<float>(std::pow(nodes.size(), 2));
+  auto distance2DView = makeView2D(distanceMatrix, nodes.size());
+  for (std::size_t diag = 0; diag < nodes.size(); ++diag) {
+    distance2DView[diag][diag] = std::numeric_limits<float>::max();
+  }
+  std::ranges::for_each(nodes | ranges::views::enumerate, [&nodes, &distance2DView](const auto &nodeIdx1) {
+    const auto &[idx1, node1] = nodeIdx1;
+    std::ranges::for_each(nodes | ranges::views::enumerate, [idx1, &node1, &distance2DView](const auto &nodeIdx2) {
+      const auto &[idx2, node2] = nodeIdx2;
+      if (idx1 == idx2) { return; }
+      distance2DView[idx1][idx2] = node1->value().aabb.distance(node2->value().aabb);
+    });
+  });
+  auto smallestIdx = 0;
+  auto smallestDistance = std::numeric_limits<float>::max();
+  for (const auto &[idx, distance] : distanceMatrix | ranges::views::enumerate) {
+    if (distance < smallestDistance) {
+      smallestIdx = idx;
+      smallestDistance = distance;
+    }
+  }
+  const auto indexOfFirst = smallestIdx % nodes.size();
+  const auto indexOfSecond = smallestIdx / nodes.size();
+
+  auto &first = nodes[indexOfFirst];
+  auto &second = nodes[indexOfSecond];
+  auto newNode = std::make_unique<details::Node>(BVHData{first->value().aabb.combine(second->value().aabb), 0});
+  newNode->appendChild(std::move(first));
+  newNode->appendChild(std::move(second));
+  nodes.erase(nodes.begin() + indexOfFirst);
+  if (indexOfFirst < indexOfSecond) {
+    nodes.erase(nodes.begin() + indexOfSecond - 1);
+  } else {
+    nodes.erase(nodes.begin() + indexOfSecond);
+  }
+  return newNode;
+}
 
 std::vector<std::unique_ptr<Node<BVHData>>> createNextLevel(std::vector<std::unique_ptr<Node<BVHData>>> &&nodes) {
   auto result = std::vector<std::unique_ptr<details::Node>>{};
 
-  while (nodes.size() > 1) { result.emplace_back(createNodeFrom2(nodes)); }
+  while (nodes.size() > 1) { result.emplace_back(createNodeFromClosest2(nodes)); }
   if (nodes.size() == 1) {
     result.emplace_back(std::move(nodes.back()));
     nodes.pop_back();
@@ -79,7 +119,6 @@ std::vector<std::unique_ptr<Node<BVHData>>> createNextLevel(std::vector<std::uni
 
   return result;
 }
-
 void saveBVHToBuffer(const Tree<BVHData> &bvh, vulkan::BufferMapping &mapping) {
   if (!bvh.hasRoot()) { return; }
   auto gpuNodes = std::vector<details::GPUBVHNode>{};
