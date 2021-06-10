@@ -93,6 +93,11 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
                                                                     camera.getMouseSpeed(), Persistent::Yes)),
       cameraFOVSlider(cameraGroup.createChild<Slider<int>>("cameraFOVSlider", "Field of view", 1, 179,
                                                            camera.getFieldOfView(), Persistent::Yes)),
+      sceneGroup(infoWindow.createChild<Group>("scene_info_group", "Scene", Persistent::Yes, AllowCollapse::Yes)),
+      sceneModelCountText(infoWindow.createChild<Bullet<Text>>("scene_model_count_text", "")),
+      sceneVoxelCountText(infoWindow.createChild<Bullet<Text>>("voxel_count_text", "")),
+      sceneBVHNodeCountText(infoWindow.createChild<Bullet<Text>>("scene_bvh_node_count_text", "")),
+      sceneBVHDepthText(infoWindow.createChild<Bullet<Text>>("scene_bvh_depth_text", "")),
       debugImagesWindow(imgui->createWindow("debug_images_window", "Debug images")),
       imageStretchLayout(
           debugImagesWindow.createChild<StretchLayout>("iter_image_stretch_layout", Size::Auto(), Stretch::All)),
@@ -116,25 +121,22 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       modelListsLayout(modelsWindow.createChild<AbsoluteLayout>("models_layout", Size{Width::Auto(), Height(170)})),
       modelList(modelListsLayout.createChild<Listbox<ModelFileInfo>>("models_list", ImVec2{10, 10}, "Models",
                                                                      Size{200, 100}, std::nullopt, Persistent::Yes)),
-      modelsFilterInput(modelListsLayout.createChild<WidthDecorator<InputText>>("models_filter", ImVec2{10, 110},
+      modelsFilterInput(modelListsLayout.createChild<WidthDecorator<InputText>>("models_filter", ImVec2{10, 115},
                                                                                 Width{200}, "Filter")),
       reloadModelListButton(
-          modelListsLayout.createChild<Button>("model_list_reload", ImVec2{10, 130}, "Reload models")),
+          modelListsLayout.createChild<Button>("model_list_reload", ImVec2{10, 140}, "Reload models")),
       activateSelectedModelButton(modelListsLayout.createChild<Button>("activate_selected_model_button",
                                                                        ImVec2{265, 40}, "", ButtonType::ArrowRight)),
       activeModelList(modelListsLayout.createChild<Listbox<ModelFileInfo>>(
           "active_models_list", ImVec2{290, 10}, "Active models", Size{200, 100}, std::nullopt)),
-      activeModelsLayout(modelListsLayout.createChild<BoxLayout>("active_model_buttons_layout", ImVec2{285, 110},
-                                                                 LayoutDirection::LeftToRight, Size{250, 50})),
-      removeSelectedActiveModelButton(
-          activeModelsLayout.createChild<Button>("remove_selected_active_model_button", "Remove")),
-      createInstanceSelectedActiveModelButton(
-          activeModelsLayout.createChild<Button>("instance_selected_active_model_button", "Create instance")),
-      duplicateSelectedActiveModelButton(
-          activeModelsLayout.createChild<Button>("duplicate_selected_active_model_button", "Duplicate")),
+      activeModelsLayout(modelListsLayout.createChild<BoxLayout>("active_model_buttons_layout", ImVec2{285, 115},
+                                                                 LayoutDirection::LeftToRight, Size{280, 50})),
+      clearActiveModelsButton(activeModelsLayout.createChild<Button>("clear_active_model_button", "Clear")),
+      activeModelsFilterInput(activeModelsLayout.createChild<InputText>("active_models_filter", "Filter", "")),
       modelDetailTitle(modelsWindow.createChild<Text>("model_detail_title", "Detail")),
       modelDetailLayout(modelsWindow.createChild<BoxLayout>("model_detail_layout", LayoutDirection::TopToBottom,
                                                             Size{Width::Auto(), 185})),
+      modelDetailIIDText(modelDetailLayout.createChild<InputText>("model_detail_id", "Model ID", "{}")),
       modelDetailPathText(modelDetailLayout.createChild<InputText>("model_detail_path", "Path", "{}")),
       modelDetailSVOHeightText(modelDetailLayout.createChild<InputText>("model_detail_svo_height", "SVO height", "")),
       modelDetailVoxelCountText(
@@ -158,6 +160,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);
   modelDetailLayout.setScrollable(true);
+  modelDetailIIDText.setReadOnly(true);
   modelDetailPathText.setReadOnly(true);
   modelDetailSVOHeightText.setReadOnly(true);
   modelDetailVoxelCountText.setReadOnly(true);
@@ -165,6 +168,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelList.setDragTooltip("Model: {}");
 
   activeModelList.addValueListener([this](const auto &modelInfo) {
+    modelDetailIIDText.setText("{}", modelInfo.modelData->getModelIndex().value());
     modelDetailPathText.setText(modelInfo.modelData->path.string());
     modelDetailSVOHeightText.setText("{}", modelInfo.modelData->svoHeight);
     modelDetailVoxelCountText.setText("{}", modelInfo.modelData->voxelCount);
@@ -175,6 +179,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
     modelDetailBufferOffset.setText(MODEL_BUFFER_OFFSET_INFO, modelInfo.modelData->svoMemoryBlock->getOffset());
     modelDetailBufferSize.setText(MODEL_BUFFER_SIZE_INFO, modelInfo.modelData->svoMemoryBlock->getSize());
   });
+
+  clearActiveModelsButton.setTooltip("Clear all models from the scene");
 
   iterationImage.setTooltip("Visualisation of ray iterations");
 
@@ -249,8 +255,17 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelsFilterInput.setTooltip("Filter list of models");
   reloadModelListButton.setTooltip("Reload models from model folder (config file)");
   activateSelectedModelButton.setTooltip("Add selected model to scene");
-  activeModelList.setTooltip("Models in scene");
-  removeSelectedActiveModelButton.setTooltip("Remove selected model from scene");
+  activeModelList.setTooltip("Models in scene - right click for more options");
+  activeModelsFilterInput.setTooltip("Filter list of active models");
+
+  modelsFilterInput.addValueListener([this](auto filterVal) {
+    modelList.setFilter([filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
+  });
+
+  activeModelsFilterInput.addValueListener([this](auto filterVal) {
+    activeModelList.setFilter(
+        [filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
+  });
 
   logTab.setTooltip("Program logs");
   chaiscriptTab.setTooltip("Chaiscript interface");

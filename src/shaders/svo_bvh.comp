@@ -564,6 +564,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
         result.color -= lut[nodeToCheckIdx % 7 + 1] / 3;
         result.isOnlyAABB = result.isOnlyAABB && true;
       }
+      // TODO: if distance to BVH is further away than sucessful hit don't do SVO intersection
       const uint offset = GET_BVH_NODE_OFFSET(currentNode);
       if (IS_BVH_NODE_LEAF(currentNode)) {
         TraceResult modelTraceResult = traceModel(offset, ray);

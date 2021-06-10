@@ -7,6 +7,7 @@
 #include <logging/loggers.h>
 #include <pf_common/concepts/StringConvertible.h>
 #include <pf_common/views/View2D.h>
+#include <range/v3/view/enumerate.hpp>
 
 namespace pf::vox {
 

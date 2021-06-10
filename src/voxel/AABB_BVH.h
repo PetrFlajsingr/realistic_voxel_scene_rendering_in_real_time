@@ -8,6 +8,7 @@
 #include <ostream>
 #include <pf_common/Tree.h>
 #include <pf_common/math/BoundingBox.h>
+#include <range/v3/range/conversion.hpp>
 #include <ranges>
 #include <voxel/GPUModelInfo.h>
 
@@ -38,15 +39,22 @@ namespace details {
 using Node = Node<BVHData>;
 }
 
+struct BVHCreateInfo {
+  Tree<BVHData> data;
+  std::size_t depth = 0;
+  std::size_t nodeCount = 0;
+};
+
 std::unique_ptr<details::Node> createNodeFrom2(std::vector<std::unique_ptr<details::Node>> &nodes);
 
 std::unique_ptr<details::Node> createNodeFromClosest2(std::vector<std::unique_ptr<details::Node>> &nodes);
 
 std::vector<std::unique_ptr<details::Node>> createNextLevel(std::vector<std::unique_ptr<details::Node>> &&nodes);
 
-Tree<BVHData> createBVH(std::ranges::range auto &&models) requires(
-    std::same_as<std::ranges::range_value_t<decltype(models)>, GPUModelInfo>) {
-  if (std::ranges::empty(models)) { return Tree<BVHData>{}; }
+BVHCreateInfo
+createBVH(std::ranges::range auto &&models,
+          bool createStats) requires(std::same_as<std::ranges::range_value_t<decltype(models)>, GPUModelInfo>) {
+  if (std::ranges::empty(models)) { return BVHCreateInfo{{}, 0, 0}; }
 
   auto nodes =
       models | std::views::transform([](const auto &model) {
@@ -55,7 +63,16 @@ Tree<BVHData> createBVH(std::ranges::range auto &&models) requires(
       | ranges::to_vector;
 
   while (nodes.size() > 1) { nodes = createNextLevel(std::move(nodes)); }
-  return Tree<BVHData>{std::move(nodes.back())};
+  auto result = BVHCreateInfo{};
+  result.data = Tree<BVHData>{std::move(nodes.back())};
+  if (createStats) {
+    std::ranges::for_each(result.data.iterDepthFirst(), [&result](auto) { ++result.nodeCount; });
+    auto totalModelCount = std::ranges::size(models);
+    result.depth = 1;
+    while ((totalModelCount = totalModelCount / 2 + totalModelCount % 2) > 2) { ++result.depth; }
+    result.depth += totalModelCount;
+  }
+  return result;
 }
 
 namespace details {

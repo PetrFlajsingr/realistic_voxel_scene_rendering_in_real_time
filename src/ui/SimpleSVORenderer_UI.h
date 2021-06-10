@@ -126,6 +126,11 @@ class SimpleSVORenderer_UI {
       ui::ig::Slider<float> &cameraMoveSpeedSlider;
       ui::ig::Slider<float> &cameraMouseSpeedSlider;
       ui::ig::Slider<int> &cameraFOVSlider;
+  ui::ig::Group &sceneGroup;
+    ui::ig::Text &sceneModelCountText;
+    ui::ig::Text &sceneVoxelCountText;
+    ui::ig::Text &sceneBVHNodeCountText;
+    ui::ig::Text &sceneBVHDepthText;
   ui::ig::Window &debugImagesWindow;
     ui::ig::StretchLayout &imageStretchLayout;
       ui::ig::Image &iterationImage;
@@ -143,11 +148,11 @@ class SimpleSVORenderer_UI {
       ui::ig::Button &activateSelectedModelButton;
       ui::ig::Listbox<ModelFileInfo> &activeModelList;
       ui::ig::BoxLayout &activeModelsLayout;
-        ui::ig::Button &removeSelectedActiveModelButton;
-        ui::ig::Button &createInstanceSelectedActiveModelButton;
-        ui::ig::Button &duplicateSelectedActiveModelButton;
+        ui::ig::Button &clearActiveModelsButton;
+        ui::ig::InputText &activeModelsFilterInput;
     ui::ig::Text &modelDetailTitle;
     ui::ig::BoxLayout &modelDetailLayout;
+      ui::ig::InputText &modelDetailIIDText;
       ui::ig::InputText &modelDetailPathText;
       ui::ig::InputText &modelDetailSVOHeightText;
       ui::ig::InputText &modelDetailVoxelCountText;
@@ -166,6 +171,10 @@ class SimpleSVORenderer_UI {
 
   constexpr static auto MODEL_BUFFER_OFFSET_INFO = "Offset: {} B";
   constexpr static auto MODEL_BUFFER_SIZE_INFO = "Size: {} B";
+  constexpr static auto SCENE_VOXEL_COUNT_INFO = "Voxel count: {} voxels";
+  constexpr static auto SCENE_MODEL_COUNT_INFO = "Model count: {} models";
+  constexpr static auto SCENE_BVH_NODE_COUNT_INFO = "BVH node count: {} node";
+  constexpr static auto SCENE_BVH_DEPTH_INFO = "BVH depth: {} levels";
 
  private:
 };

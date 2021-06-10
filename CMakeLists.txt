@@ -256,7 +256,6 @@ set(INCLUDES
         src/voxel/SparseVoxelOctreeCreation.h
         src/voxel/AABB_BVH.h
         src/voxel/GPUModelInfo.h
-        src/utils/GpuMemoryPool.h
         src/voxel/SceneFileManager.h
         src/voxel/GPUModelManager.h
         )

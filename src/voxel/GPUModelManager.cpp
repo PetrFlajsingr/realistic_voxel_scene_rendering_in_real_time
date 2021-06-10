@@ -6,11 +6,12 @@
 #include "SVO_utils.h"
 #include "SparseVoxelOctreeCreation.h"
 #include <algorithm>
+#include <mutex>
 
 namespace pf::vox {
 
-GPUModelManager::GPUModelManager(const std::shared_ptr<vulkan::BufferMemoryPool<4>> &svoMemoryPool,
-                                 const std::shared_ptr<vulkan::BufferMemoryPool<16>> &modelInfoMemoryPool,
+GPUModelManager::GPUModelManager(const std::shared_ptr<vulkan::BufferMemoryPool> &svoMemoryPool,
+                                 const std::shared_ptr<vulkan::BufferMemoryPool> &modelInfoMemoryPool,
                                  std::size_t defaultSvoHeightSize)
     : defaultSVOHeightSize(defaultSvoHeightSize), svoMemoryPool(svoMemoryPool),
       modelInfoMemoryPool(modelInfoMemoryPool) {}
@@ -43,9 +44,9 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
     if (!err.empty()) { return tl::make_unexpected(err); }
     callbacks.progress(80);
 
-    newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool<4>::Block>(std::move(*svoBlockResult));
+    newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));
     newModelInfo->modelInfoMemoryBlock =
-        std::make_shared<vulkan::BufferMemoryPool<16>::Block>(std::move(*modelInfoBlockResult));
+        std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelInfoBlockResult));
     if (autoScale) {
       newModelInfo->scaleVec =
           glm::vec3{static_cast<float>(std::pow(2, svoCreate.second.depth) / std::pow(2, defaultSVOHeightSize))};
@@ -79,7 +80,7 @@ tl::expected<GPUModelManager::ModelPtr, std::string> GPUModelManager::duplicateM
 
   auto svoBlockAllocResult = svoMemoryPool->leaseMemory(model->svoMemoryBlock->getSize());
   if (!svoBlockAllocResult.has_value()) { return tl::make_unexpected(svoBlockAllocResult.error()); }
-  newItem->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool<4>::Block>(std::move(*svoBlockAllocResult));
+  newItem->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockAllocResult));
   auto data = std::vector<std::byte>(model->svoMemoryBlock->getSize());
   std::ranges::copy(model->svoMemoryBlock->mapping().data<std::byte>(), data.begin());
   newItem->svoMemoryBlock->mapping().set(data);
@@ -105,12 +106,11 @@ GPUModelManager::prepareDuplicate(GPUModelManager::ModelPtr original) {
   if (!modelBlockAllocResult.has_value()) { err += modelBlockAllocResult.error(); }
   if (!err.empty()) { return tl::make_unexpected(err); }
 
-  newItem->modelInfoMemoryBlock =
-      std::make_shared<vulkan::BufferMemoryPool<16>::Block>(std::move(*modelBlockAllocResult));
+  newItem->modelInfoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelBlockAllocResult));
   return newItem;
 }
 void GPUModelManager::removeModel(GPUModelManager::ModelPtr toRemove) {
   models.erase(std::ranges::find_if(models, [toRemove](const auto &model) { return model.get() == toRemove.get(); }));
 }
-Tree<BVHData> GPUModelManager::buildBVH() { return vox::createBVH(getModels()); }
+BVHCreateInfo GPUModelManager::buildBVH(bool createStats) { return vox::createBVH(getModels(), createStats); }
 }// namespace pf::vox

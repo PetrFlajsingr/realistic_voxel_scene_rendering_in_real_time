@@ -20,15 +20,15 @@
 #include <thread>
 //#include <threading/ThreadPool.h>
 #include <pf_common/parallel/ThreadPool.h>
+#include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <toml++/toml.h>
 #include <ui/SimpleSVORenderer_UI.h>
 #include <utility>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
-#include <utils/GpuMemoryPool.h>
 #include <voxel/AABB_BVH.h>
-#include <voxel/SparseVoxelOctree.h>
 #include <voxel/GPUModelManager.h>
+#include <voxel/SparseVoxelOctree.h>
 
 namespace pf {
 /*
@@ -162,8 +162,14 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   void rebuildAndUploadBVH();
 
   std::vector<std::filesystem::path> loadModelFileNames(const std::filesystem::path &dir);
-  std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> createLoadingDialog();
+  std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> createLoadingDialog();
 
+  void addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
+                               vox::GPUModelManager::ModelPtr modelPtr);
+  std::function<void()> popupClickActiveModel(std::size_t modelId, vox::GPUModelManager::ModelPtr modelPtr);
+
+  void duplicateModel(vox::GPUModelManager::ModelPtr original);
+  void instantiateModel(vox::GPUModelManager::ModelPtr original);
 
   std::reference_wrapper<toml::table> config;
   Camera camera;
@@ -218,8 +224,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   std::unique_ptr<ThreadPool> threadpool = std::make_unique<ThreadPool>(4);
 
-  std::shared_ptr<vulkan::BufferMemoryPool<4>> svoMemoryPool;
-  std::shared_ptr<vulkan::BufferMemoryPool<16>> modelInfoMemoryPool;
+  std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool;
+  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool;
 
   std::unique_ptr<vox::GPUModelManager> modelManager;
 };

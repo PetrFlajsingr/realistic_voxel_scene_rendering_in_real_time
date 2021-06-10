@@ -24,6 +24,7 @@
 namespace pf {
 using namespace vulkan;
 using namespace pf::byte_literals;
+using namespace ui::ig;
 
 // TODO: fix memo race issues
 // TODO: remove this and make it work from pf_common/enums.h
@@ -58,7 +59,6 @@ SimpleSVORenderer::~SimpleSVORenderer() {
   ui->imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
 }
-bool deleteMe = false;
 void SimpleSVORenderer::init(const std::shared_ptr<ui::Window> &win) {
   window = win;
   closeWindow = [this] { window->close(); };
@@ -174,10 +174,6 @@ void SimpleSVORenderer::createInstance() {
 void SimpleSVORenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
 
 void SimpleSVORenderer::render() {
-  if (deleteMe) {
-    deleteMe = false;
-    throw vulkan::VulkanException("hihihi");
-  }
   auto sampler = FlameGraphSampler{};
   auto mainSample = sampler.blockSampler("render loop");
 
@@ -403,14 +399,14 @@ void SimpleSVORenderer::createPipeline() {
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
-  svoMemoryPool = BufferMemoryPool<4>::CreateShared(svoBuffer);
+  svoMemoryPool = BufferMemoryPool::CreateShared(svoBuffer, 4);
   // TODO: size
   modelInfoBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
                                                    .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                                    .sharingMode = vk::SharingMode::eExclusive,
                                                    .queueFamilyIndices = {}});
 
-  modelInfoMemoryPool = BufferMemoryPool<16>::CreateShared(modelInfoBuffer);
+  modelInfoMemoryPool = BufferMemoryPool::CreateShared(modelInfoBuffer, 16);
   // TODO: size
   bvhBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
@@ -631,9 +627,9 @@ void SimpleSVORenderer::initUI() {
                             Flags{MessageButtons::Ok}, [](auto) { return true; });
     return true;
   });
-  ui->shaderControlsWindow.createChild<Button>(uniqueId(), "Exception").addClickListener([] { deleteMe = true; });
 
-  auto openModelFnc = [this] {
+  //FIXME
+  ui->openModelMenuItem.addClickListener([this] {
     ui->imgui->openFileDialog(
         "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
@@ -658,7 +654,8 @@ void SimpleSVORenderer::initUI() {
               window->enqueue([this, &loadingDialog, modelPtr] {
                 auto newUIItem = ModelFileInfo{modelPtr->path};
                 newUIItem.modelData = modelPtr;
-                ui->activeModelList.addItem(newUIItem);
+                auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+                addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
                 loadingDialog.close();
                 modelPtr->updateInfoToGPU();
                 rebuildAndUploadBVH();
@@ -667,10 +664,9 @@ void SimpleSVORenderer::initUI() {
           });
         },
         [] {});
-  };
+  });
 
   ui->closeMenuItem.addClickListener(closeWindow);
-  ui->openModelMenuItem.addClickListener(openModelFnc);
 
   ui->viewTypeComboBox.addValueListener(
       [this](const auto &viewType) {
@@ -739,14 +735,12 @@ void SimpleSVORenderer::initUI() {
   const auto modelFileNames = loadModelFileNames(modelsPath);
   ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelFileInfo{path}; }));
 
-  //ui->openModelButton.addClickListener(openModelFnc);
   ui->activeModelList.addValueListener([this](const auto &modelInfo) {
     const uint32_t index = modelInfo.modelData->getModelIndex().value();
     debugUniformBuffer->mapping().template set(index, 1);
   });
 
   debugUniformBuffer->mapping().template set(-1, 1);
-  // FIXME: this is insane
   ui->activeModelList.addDropListener([this](const auto &modelInfo) {
     const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
     threadpool->template enqueue([this, modelInfo, &loadingProgress, &loadingDialog, &loadingText] {
@@ -770,7 +764,9 @@ void SimpleSVORenderer::initUI() {
           ui->activeModelList.removeItem(modelInfo);
           auto newUIItem = ModelFileInfo{modelPtr->path};
           newUIItem.modelData = modelPtr;
-          ui->activeModelList.addItem(newUIItem);
+          const auto itemId = newUIItem.id;
+          auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+          addActiveModelPopupMenu(itemSelectable, itemId, modelPtr);
           loadingDialog.close();
           modelPtr->updateInfoToGPU();
           rebuildAndUploadBVH();
@@ -801,7 +797,8 @@ void SimpleSVORenderer::initUI() {
           window->enqueue([this, &loadingDialog, modelPtr] {
             auto newUIItem = ModelFileInfo{modelPtr->path};
             newUIItem.modelData = modelPtr;
-            ui->activeModelList.addItem(newUIItem);
+            auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+            addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
             loadingDialog.close();
             modelPtr->updateInfoToGPU();
             rebuildAndUploadBVH();
@@ -809,11 +806,6 @@ void SimpleSVORenderer::initUI() {
         }
       });
     }
-  });
-
-  ui->modelsFilterInput.addValueListener([this](auto filterVal) {
-    ui->modelList.setFilter(
-        [filterVal](const auto &item) { return toString(item).find(filterVal) != std::string::npos; });
   });
 
   ui->reloadModelListButton.addClickListener([modelsPath, this] {
@@ -857,18 +849,6 @@ void SimpleSVORenderer::initUI() {
   ui->cameraMouseSpeedSlider.addValueListener([this](auto value) { camera.setMouseSpeed(value); }, true);
   ui->cameraFOVSlider.addValueListener([this](auto value) { camera.setFieldOfView(value); }, true);
 
-  //auto &debugImagesWindow = imgui->createWindow("debug_images_window", "Debug images");
-  //renderSettingsWindow
-  //    .createChild<ComboBox>(
-  //        "view_choice_texture", "View type", "Select view type",
-  //        std::vector<std::string>{"Color", "Normals", "Iterations", "Distance", "Child index", "Tree level"},
-  //        Persistent::Yes)
-  //    .addValueListener(
-  //        [](const auto &) {
-  //          logd(MAIN_TAG, "TODO: view_choice_texture");
-  //        },
-  //        true);
-
   fpsCounter.setOnNewFrame([this, cameraDirTemplate, cameraPosTemplate, fpsMsgTemplate](const FPSCounter &counter) {
     static auto cntSinceLast = 0;
     if (cntSinceLast > counter.currentFPS() / 10) {
@@ -884,45 +864,11 @@ void SimpleSVORenderer::initUI() {
     ui->cameraDirText.setText(fmt::format(cameraDirTemplate, camDir.x, camDir.y, camDir.z));
   });
 
-  ui->removeSelectedActiveModelButton.addClickListener([this] {
-    if (auto selectedItem = ui->activeModelList.getSelectedItem(); selectedItem.has_value()) {
-      const auto idToRemove = selectedItem->get().id;
-      auto modelPtrToRemove = selectedItem->get().modelData;
-      modelManager->removeModel(modelPtrToRemove);
-      ui->activeModelList.removeItemIf([idToRemove](const auto &modelInfo) { return modelInfo.id == idToRemove; });
-      rebuildAndUploadBVH();
-    }
-  });
-
-  ui->createInstanceSelectedActiveModelButton.addClickListener([this] {
-    if (auto selectedItem = ui->activeModelList.getSelectedItem(); selectedItem.has_value()) {
-      auto newInstancePtr = modelManager->createModelInstance(selectedItem->get().modelData);
-      if (!newInstancePtr.has_value()) {
-        const auto message = newInstancePtr.error();
-        ui->imgui->createMsgDlg("Error while creating an instance", "Instance could not be created: {}",
-                                Flags{MessageButtons::Ok}, [](auto) { return true; });
-      } else {
-        auto modelPtr = newInstancePtr.value();
-        auto newUIItem = ModelFileInfo{modelPtr->path};
-        newUIItem.modelData = modelPtr;
-        ui->activeModelList.addItem(newUIItem);
-      }
-    }
-  });
-  ui->duplicateSelectedActiveModelButton.addClickListener([this] {
-    if (auto selectedItem = ui->activeModelList.getSelectedItem(); selectedItem.has_value()) {
-      auto newInstancePtr = modelManager->duplicateModel(selectedItem->get().modelData);
-      if (!newInstancePtr.has_value()) {
-        const auto message = newInstancePtr.error();
-        ui->imgui->createMsgDlg("Error while duplicating a model", "Duplicate could not be created: {}",
-                                Flags{MessageButtons::Ok}, [](auto) { return true; });
-      } else {
-        auto modelPtr = newInstancePtr.value();
-        auto newUIItem = ModelFileInfo{modelPtr->path};
-        newUIItem.modelData = modelPtr;
-        ui->activeModelList.addItem(newUIItem);
-      }
-    }
+  ui->clearActiveModelsButton.addClickListener([this] {
+    std::ranges::for_each(ui->activeModelList.getItems(),
+                          [this](const auto &item) { modelManager->removeModel(item.modelData); });
+    ui->activeModelList.setItems<std::vector<ModelFileInfo>>({});
+    rebuildAndUploadBVH();
   });
 
   ui->debugPrintEnableCheckbox.addValueListener(
@@ -931,6 +877,7 @@ void SimpleSVORenderer::initUI() {
   ui->bvhVisualizeCheckbox.addValueListener(
       [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 6).set(enabled ? 1 : 0); }, true);
 
+  // FIXME
   ui->loadSceneMenuItem.addClickListener([this] {
     ui->imgui->openFileDialog(
         "Select file to load scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
@@ -941,9 +888,13 @@ void SimpleSVORenderer::initUI() {
           threadpool->enqueue([this, models, &loadingDialog, &loadingProgress, &loadingText] {
             auto failed = false;
             auto loadedItems = std::vector<ModelFileInfo>{};
+            auto currentModel = 0;
+            const auto modelCount = static_cast<float>(models.size());
             std::ranges::for_each(
                 models,
-                [this, &failed, &loadingDialog, &loadingProgress, &loadingText, &loadedItems](const auto &modelInfo) {
+                [this, &currentModel, modelCount, &failed, &loadingDialog, &loadingProgress, &loadingText,
+                 &loadedItems](const auto &modelInfo) {
+                  ++currentModel;
                   if (auto iter = std::ranges::find_if(
                           loadedItems, [&modelInfo](const auto &loaded) { return modelInfo.path == loaded.path; });
                       iter != loadedItems.end()) {
@@ -961,16 +912,24 @@ void SimpleSVORenderer::initUI() {
                       auto modelPtr = duplicateResult.value();
                       auto newUIItem = ModelFileInfo{modelPtr->path};
                       newUIItem.modelData = modelPtr;
-                      ui->activeModelList.addItem(newUIItem);
                       modelPtr->translateVec = modelInfo.translateVec;
                       modelPtr->scaleVec = modelInfo.scaleVec;
                       modelPtr->rotateVec = modelInfo.rotateVec;
                       modelPtr->updateInfoToGPU();
+                      const auto fileName = newUIItem.path.filename().string();
+                      window->enqueue(
+                          [this, currentModel, modelCount, fileName, &loadingProgress, newUIItem, modelPtr]() {
+                            auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+                            addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+                            loadingProgress.setValue(currentModel / modelCount * 100);
+                          });
                     }
                   } else {
                     auto modelLoadResult = modelManager->loadModel(
-                        modelInfo.path, {[this, &loadingProgress]([[maybe_unused]] float progress) {
-                          //window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
+                        modelInfo.path, {[this, &loadingProgress, currentModel, modelCount](float progress) {
+                          window->enqueue([&loadingProgress, currentModel, modelCount, progress] {
+                            loadingProgress.setValue(progress * (currentModel / modelCount));
+                          });
                         }});
                     if (!modelLoadResult.has_value()) {
                       failed = true;
@@ -982,14 +941,15 @@ void SimpleSVORenderer::initUI() {
                       auto modelPtr = modelLoadResult.value();
                       auto newUIItem = ModelFileInfo{modelPtr->path};
                       newUIItem.modelData = modelPtr;
-                      ui->activeModelList.addItem(newUIItem);
                       modelPtr->translateVec = modelInfo.translateVec;
                       modelPtr->scaleVec = modelInfo.scaleVec;
                       modelPtr->rotateVec = modelInfo.rotateVec;
                       modelPtr->updateInfoToGPU();
                       loadedItems.template emplace_back(newUIItem);
                       const auto fileName = newUIItem.path.filename().string();
-                      window->enqueue([this, fileName, &loadingText]() mutable {
+                      window->enqueue([this, fileName, &loadingText, newUIItem, modelPtr]() {
+                        auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+                        addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
                         loadingText.setText("{}\nLoaded: {}", loadingText.getText(), fileName);
                       });
                     }
@@ -1026,29 +986,109 @@ void SimpleSVORenderer::initUI() {
 }
 std::vector<std::filesystem::path> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
-  return potentialModelFiles
-      | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
-      /*| ranges::views::transform([](const auto &path) { return path.filename().string(); })*/
+  return potentialModelFiles | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
       | ranges::to_vector | ranges::actions::sort;
 }
+
 void SimpleSVORenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
   subscriptions.clear();
 }
+
 void SimpleSVORenderer::rebuildAndUploadBVH() {
-  auto bvhTree = modelManager->buildBVH();
+  auto totalModels = std::size_t{};
+  auto totalVoxels = std::size_t{};
+  std::ranges::for_each(modelManager->getModels(), [&totalModels, &totalVoxels](const auto &model) {
+    ++totalModels;
+    totalVoxels += model.minimizedVoxelCount;
+  });
+
+  auto bvhTree = modelManager->buildBVH(true);
+
+  const auto nodeCount = bvhTree.nodeCount;
+  const auto depth = bvhTree.depth;
+  ui->sceneVoxelCountText.setText(SimpleSVORenderer_UI::SCENE_VOXEL_COUNT_INFO, totalVoxels);
+  ui->sceneModelCountText.setText(SimpleSVORenderer_UI::SCENE_MODEL_COUNT_INFO, totalModels);
+  ui->sceneBVHNodeCountText.setText(SimpleSVORenderer_UI::SCENE_BVH_NODE_COUNT_INFO, nodeCount);
+  ui->sceneBVHDepthText.setText(SimpleSVORenderer_UI::SCENE_BVH_DEPTH_INFO, depth);
+
   auto mapping = bvhBuffer->mapping();
-  vox::saveBVHToBuffer(bvhTree, mapping);
+  vox::saveBVHToBuffer(bvhTree.data, mapping);
 }
 
-std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> SimpleSVORenderer::createLoadingDialog() {
+std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>
+SimpleSVORenderer::createLoadingDialog() {
   using namespace ui::ig;
-  auto &loadingDialog = ui->imgui->createDialog(uniqueId(), "Loading model...", Modal::Yes);
+  auto &loadingDialog = ui->imgui->createDialog(uniqueId(), "Loading model...");
   loadingDialog.setSize(Size{200, 100});
   auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
   auto &msgText = loadingDialog.createChild<Text>(uniqueId(), "");
-  return std::tuple<ui::ig::Dialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>{loadingDialog, loadingProgressBar,
-                                                                                    msgText};
+  return std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>{loadingDialog,
+                                                                                         loadingProgressBar, msgText};
+}
+std::function<void()> SimpleSVORenderer::popupClickActiveModel(std::size_t itemId,
+                                                               vox::GPUModelManager::ModelPtr modelPtr) {
+  return [=, this] {
+    window->enqueue([this, itemId, modelPtr] {
+      const auto idToRemove = itemId;
+      auto modelPtrToRemove = modelPtr;
+      modelManager->removeModel(modelPtrToRemove);
+      ui->activeModelList.removeItemIf([idToRemove](const auto &modelInfo) { return modelInfo.id == idToRemove; });
+      rebuildAndUploadBVH();
+    });
+  };
+}
+void SimpleSVORenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
+                                                vox::GPUModelManager::ModelPtr modelPtr) {
+  auto &itemPopupMenu = element.createPopupMenu();
+  itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Remove").addClickListener(popupClickActiveModel(itemId, modelPtr));
+  itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Duplicate").addClickListener([modelPtr, this] {
+    duplicateModel(modelPtr);
+  });
+  itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Create instance").addClickListener([modelPtr, this] {
+    instantiateModel(modelPtr);
+  });
+}
+
+void SimpleSVORenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
+  threadpool->enqueue([this, original] {
+    auto newInstancePtr = modelManager->duplicateModel(original);
+    if (!newInstancePtr.has_value()) {
+      const auto message = newInstancePtr.error();
+      window->enqueue([message, this] {
+        ui->imgui->createMsgDlg("Error while duplicating a model", "Duplicate could not be created: {}",
+                                Flags{MessageButtons::Ok}, [](auto) { return true; });
+      });
+    } else {
+      auto modelPtr = newInstancePtr.value();
+      window->enqueue([this, modelPtr] {
+        auto newUIItem = ModelFileInfo{modelPtr->path};
+        newUIItem.modelData = modelPtr;
+        auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+        addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+      });
+    }
+  });
+}
+void SimpleSVORenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
+  threadpool->enqueue([this, original] {
+    auto newInstancePtr = modelManager->createModelInstance(original);
+    if (!newInstancePtr.has_value()) {
+      const auto message = newInstancePtr.error();
+      window->enqueue([message, this] {
+        ui->imgui->createMsgDlg("Error while creating an instance", "Instance could not be created: {}",
+                                Flags{MessageButtons::Ok}, [](auto) { return true; });
+      });
+    } else {
+      auto modelPtr = newInstancePtr.value();
+      window->enqueue([modelPtr, this] {
+        auto newUIItem = ModelFileInfo{modelPtr->path};
+        newUIItem.modelData = modelPtr;
+        auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+        addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+      });
+    }
+  });
 }
 
 }// namespace pf

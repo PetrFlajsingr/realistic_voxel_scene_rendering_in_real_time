@@ -23,9 +23,9 @@ inline void copySvoToBuffer(const SparseVoxelOctree &svo, vulkan::BufferMapping 
       + sizeof(AttachmentLookupEntry) * lookups.size();
   mapping.setRawOffset(attachments, attachmentsOffset);
 }
-inline tl::expected<vulkan::BufferMemoryPool<4>::Block, std::string>
+inline tl::expected<vulkan::BufferMemoryPool::Block, std::string>
 copySvoToMemoryBlock([[maybe_unused]] const SparseVoxelOctree &svo,
-                     [[maybe_unused]] vulkan::BufferMemoryPool<4> &memoryPool) {
+                     [[maybe_unused]] vulkan::BufferMemoryPool &memoryPool) {
   auto data = toBytes(svo.getBlocks()[0].pages[0].header);
   auto addData([&data](const auto &newData) { std::ranges::copy(newData, std::back_inserter(data)); });
 

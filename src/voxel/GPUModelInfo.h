@@ -13,9 +13,9 @@
 #include <optional>
 #include <pf_common/coroutines/Sequence.h>
 #include <pf_common/math/BoundingBox.h>
+#include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <string>
 #include <toml++/toml.h>
-#include <utils/GpuMemoryPool.h>
 
 namespace pf::vox {
 
@@ -30,8 +30,8 @@ struct GPUModelInfo {
   glm::vec3 scaleVec{1, 1, 1};
   glm::vec3 rotateVec{0, 0, 0};
   math::BoundingBox<3> AABB{};
-  std::shared_ptr<vulkan::BufferMemoryPool<4>::Block> svoMemoryBlock = nullptr;// TODO change this into unique_ptr
-  std::shared_ptr<vulkan::BufferMemoryPool<16>::Block> modelInfoMemoryBlock = nullptr;
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> svoMemoryBlock = nullptr;// TODO change this into unique_ptr
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> modelInfoMemoryBlock = nullptr;
   std::uint32_t id = getNext(IdGenerator);
   glm::mat4 transformMatrix{};
 
