@@ -204,18 +204,6 @@ const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
                             vec3(1, 1, 1) // 7
 );
 
-uint c_popc8LUT[] = {
-    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 1, 2, 2, 3, 2,
-    3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3,
-    3, 4, 3, 4, 4, 5, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5,
-    6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5, 2, 3, 3, 4,
-    3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4,
-    5, 5, 6, 5, 6, 6, 7, 2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6,
-    6, 7, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
-};
-
-uint popc8(uint mask) { return c_popc8LUT[mask & 0xFFu]; }
-
 #define MAX_RAYCAST_ITERATIONS 10000
 
 TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
@@ -374,9 +362,6 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
         leafMask = leafMask << (8 - child_shift) & 0xFFu;
 
         uint ofs = bitCount(validMask) - bitCount(leafMask);
-
-        //uint ofs = popc8(child_masks & 0x7Fu);
-        //ofs = child_masks & 0x7FFFu;
 
         //color = lut[ofs] * 0.5 + 0.3;
         uint offsetFromParent = ptr + ofs;
