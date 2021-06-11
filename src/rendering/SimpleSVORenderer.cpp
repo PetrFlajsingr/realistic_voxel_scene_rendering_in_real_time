@@ -43,6 +43,9 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  *      mat4 inverse object matrix
  */
 
+ // TODO: teardown map file loading
+ // TODO: conversion app for binary svos
+ // TODO: read raw svos from disk
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
