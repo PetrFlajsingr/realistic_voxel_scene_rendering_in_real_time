@@ -169,7 +169,9 @@ struct Sphere {
 
 struct TraceResult {
   float distance;
+  float distanceInWorldSpace;
   vec3 pos;
+  vec3 posInWorldSpace;
   uint node;
   uint childIdx;
   bool hit;
@@ -591,6 +593,9 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
     bestModelResult.color += result.color;
     bestModelResult.iter = result.iter;
     bestModelResult.isOnlyAABB = result.isOnlyAABB;
+    bestModelResult.posInWorldSpace =
+        (modelInfos.infos[bestModelResult.objectId].objectMatrix * vec4(bestModelResult.pos - vec3(1, 1, 1), 1)).xyz;
+    bestModelResult.distanceInWorldSpace = distance(ray.origin, bestModelResult.posInWorldSpace);
     return bestModelResult;
   }
   result.normal = vec3(0, 0, 0);
@@ -652,11 +657,15 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   bestModelResult.hit = false;
   bestModelResult.t = INF;
   bestModelResult.iter = 0;
+  bestModelResult.distanceInWorldSpace = INF;
   for (int i = 0; i < hitArrayPos; ++i) {
-    if (bvhHitArray[i].distance > bestModelResult.t) { break; }
+    if (bvhHitArray[i].distance > bestModelResult.distanceInWorldSpace) { break; }
     TraceResult modelTraceResult = traceModel(bvhHitArray[i].modelId, ray);
     if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) {
       bestModelResult = modelTraceResult;
+      bestModelResult.posInWorldSpace =
+          (modelInfos.infos[bestModelResult.objectId].objectMatrix * vec4(bestModelResult.pos - vec3(1, 1, 1), 1)).xyz;
+      bestModelResult.distanceInWorldSpace = distance(ray.origin, bestModelResult.posInWorldSpace);
       result.isOnlyAABB = false;
     }
     result.iter += modelTraceResult.iter;
@@ -701,8 +710,7 @@ void main() {
   shadowTraceResult.hit = false;
   //const vec3 hitPointInCameraSpace =
   //    ray.origin + ray.direction * modelInfos.infos[traceResult.objectId].scaleAndSvoBufferOffset.xyz * traceResult.t;
-  const vec3 hitPointInCameraSpace =
-      (modelInfos.infos[traceResult.objectId].objectMatrix * vec4(traceResult.pos - vec3(1, 1, 1), 1)).xyz;
+  const vec3 hitPointInCameraSpace = shadowTraceResult.posInWorldSpace;
   const vec3 lightDir = normalize(light.pos.xyz - hitPointInCameraSpace);
   if (debug.shadows == 1 && traceResult.hit) {
     Ray shadowRay;
