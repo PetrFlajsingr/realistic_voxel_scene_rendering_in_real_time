@@ -182,6 +182,9 @@ struct TraceResult {
   uint objectId;
 };
 
+/**
+  * Check for intersection with AABB.
+  */
 bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) {
   const vec3 tMin = (boxMin - ray.origin) / ray.direction;
   const vec3 tMax = (boxMax - ray.origin) / ray.direction;
@@ -196,6 +199,9 @@ struct AABBIntersection {
   bool hit;
   float distance;
 };
+/**
+  * Check for intersection with AABB and get distance.
+  */
 AABBIntersection intersectAABBDistance(Ray ray, vec3 boxMin, vec3 boxMax) {
   const vec3 tMin = (boxMin - ray.origin) / ray.direction;
   const vec3 tMax = (boxMax - ray.origin) / ray.direction;
@@ -532,8 +538,8 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 #define GET_BVH_MIN_AABB(node) node.AABB1.xyz
 #define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
 //TODO: change bvh visualisation
+
 TraceResult traceBVH(Ray ray, uint idx, uint idy) {
-  bool isPrintId = idx == 0 && idy == 0;
   uint stackTop = 0;
   WRITE_BVH_STACK(bvhStack, stackTop++, 0);
 
@@ -591,6 +597,80 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
   return result;
 }
 
+struct BVHDistanceInfo {
+  uint modelId;
+  float distance;
+};
+
+BVHDistanceInfo bvhHitArray[50];
+TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
+  uint stackTop = 0;
+  WRITE_BVH_STACK(bvhStack, stackTop++, 0);
+
+  Ray aabbRay = ray;
+  aabbRay.direction = normalize(aabbRay.direction);
+
+  int hitArrayPos = 0;
+  while (stackTop != 0) {
+    const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
+    const BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
+    const vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
+    const vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
+    AABBIntersection aabbIntersection = intersectAABBDistance(aabbRay, boxMin, boxMax);
+    if (aabbIntersection.hit) {
+      const uint offset = GET_BVH_NODE_OFFSET(currentNode);
+      if (IS_BVH_NODE_LEAF(currentNode)) {
+        bvhHitArray[hitArrayPos].modelId = offset;
+        bvhHitArray[hitArrayPos].distance = aabbIntersection.distance;
+        ++hitArrayPos;
+      } else {
+        WRITE_BVH_STACK(bvhStack, stackTop++, offset);
+        WRITE_BVH_STACK(bvhStack, stackTop++, offset + 1);
+      }
+    }
+  }
+
+  BVHDistanceInfo tmp;
+  for (int j = 0; j < hitArrayPos - 1; ++j) {
+    int swap = j;
+    for (int i = j + 1; i < hitArrayPos; ++i) {
+      if (bvhHitArray[swap].distance > bvhHitArray[i].distance) { swap = i; }
+    }
+    tmp = bvhHitArray[swap];
+    bvhHitArray[swap] = bvhHitArray[j];
+    bvhHitArray[j] = tmp;
+  }
+
+  TraceResult result;
+  result.hit = false;
+  result.isOnlyAABB = true;
+  result.iter = 0;
+  result.normal = vec3(0);
+
+  TraceResult bestModelResult;
+  bestModelResult.hit = false;
+  bestModelResult.t = INF;
+  bestModelResult.iter = 0;
+  for (int i = 0; i < hitArrayPos; ++i) {
+    if (bvhHitArray[i].distance > bestModelResult.t) { break; }
+    TraceResult modelTraceResult = traceModel(bvhHitArray[i].modelId, ray);
+    if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) {
+      bestModelResult = modelTraceResult;
+      result.isOnlyAABB = false;
+    }
+    result.iter += modelTraceResult.iter;
+  }
+
+  if (bestModelResult.hit) {
+    bestModelResult.color += result.color;
+    bestModelResult.iter = result.iter;
+    bestModelResult.isOnlyAABB = result.isOnlyAABB;
+    return bestModelResult;
+  }
+  result.normal = vec3(0, 0, 0);
+  return result;
+}
+
 void main() {
   uint idx = gl_GlobalInvocationID.x;
   uint idy = gl_GlobalInvocationID.y;
@@ -614,7 +694,8 @@ void main() {
   traceResult.t = INF;
   traceResult.iter = 0;
 
-  traceResult = traceBVH(ray, idx, idy);
+  //traceResult = traceBVH(ray, idx, idy);
+  traceResult = traceBVHImproved(ray, idx, idy);
 
   TraceResult shadowTraceResult;
   shadowTraceResult.hit = false;
