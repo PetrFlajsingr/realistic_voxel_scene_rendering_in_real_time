@@ -30,7 +30,7 @@ struct GPUModelInfo {
   glm::vec3 scaleVec{1, 1, 1};
   glm::vec3 rotateVec{0, 0, 0};
   math::BoundingBox<3> AABB{};
-  std::shared_ptr<vulkan::BufferMemoryPool::Block> svoMemoryBlock = nullptr;// TODO change this into unique_ptr
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> svoMemoryBlock = nullptr;
   std::shared_ptr<vulkan::BufferMemoryPool::Block> modelInfoMemoryBlock = nullptr;
   std::uint32_t id = getNext(IdGenerator);
   glm::mat4 transformMatrix{};

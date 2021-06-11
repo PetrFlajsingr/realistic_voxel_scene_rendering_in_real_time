@@ -15,7 +15,7 @@
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/zip.hpp>
 
-#define MINIMISE_TREE 0
+#define MINIMISE_TREE 1
 
 namespace pf::vox {
 using namespace ranges;
@@ -369,7 +369,7 @@ std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tre
   minimisedCount = leafCount;
   //logd("VOX", "Minimised tree, remaining leaf voxels: {}", leafCount);
 #endif
-  // TODO: pages - now pointer get messed up due to size limit
+
   auto childDescriptors = std::vector<ChildDescriptor>();
 
   auto attLookups = std::vector<AttachmentLookupEntry>();

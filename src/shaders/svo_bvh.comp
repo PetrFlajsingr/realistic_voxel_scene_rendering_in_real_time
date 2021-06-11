@@ -661,11 +661,11 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   for (int i = 0; i < hitArrayPos; ++i) {
     if (bvhHitArray[i].distance > bestModelResult.distanceInWorldSpace) { break; }
     TraceResult modelTraceResult = traceModel(bvhHitArray[i].modelId, ray);
-    if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) {
+    modelTraceResult.posInWorldSpace =
+        (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1)).xyz;
+    modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
+    if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
       bestModelResult = modelTraceResult;
-      bestModelResult.posInWorldSpace =
-          (modelInfos.infos[bestModelResult.objectId].objectMatrix * vec4(bestModelResult.pos - vec3(1, 1, 1), 1)).xyz;
-      bestModelResult.distanceInWorldSpace = distance(ray.origin, bestModelResult.posInWorldSpace);
       result.isOnlyAABB = false;
     }
     result.iter += modelTraceResult.iter;
@@ -677,7 +677,6 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     bestModelResult.isOnlyAABB = result.isOnlyAABB;
     return bestModelResult;
   }
-  result.normal = vec3(0, 0, 0);
   return result;
 }
 
@@ -708,17 +707,15 @@ void main() {
 
   TraceResult shadowTraceResult;
   shadowTraceResult.hit = false;
-  //const vec3 hitPointInCameraSpace =
-  //    ray.origin + ray.direction * modelInfos.infos[traceResult.objectId].scaleAndSvoBufferOffset.xyz * traceResult.t;
-  const vec3 hitPointInCameraSpace = shadowTraceResult.posInWorldSpace;
+  const vec3 hitPointInCameraSpace = traceResult.posInWorldSpace;
   const vec3 lightDir = normalize(light.pos.xyz - hitPointInCameraSpace);
   if (debug.shadows == 1 && traceResult.hit) {
     Ray shadowRay;
-    shadowRay.direction = lightDir * 5;// TODO: figure out why this needs to be done
+    shadowRay.direction = lightDir * 50;// TODO: figure out why this needs to be done
     shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
     shadowRay.originSize = 0.02;
     shadowRay.directionSize = 0;
-    shadowTraceResult = traceBVH(shadowRay, idx, idy);
+    shadowTraceResult = traceBVHImproved(shadowRay, idx, idy);
     traceResult.iter += shadowTraceResult.iter;
   }
 
@@ -732,16 +729,14 @@ void main() {
     } else if (debug.viewType == NORMAL_VIEW) {
       finalColor += traceResult.normal * 0.5f + 0.5f;
     } else if (debug.viewType == DISTANCE_VIEW) {
-      /*const vec3 pos = cameraSpaceOrigin
-          + cameraSpaceDirection * modelInfos.infos[debug.modelCount - 1].scaleAndSvoBufferOffset.xyz * traceResult.t;
-      const float dist = distance(cameraSpaceOrigin, pos);
+      const float dist = traceResult.distanceInWorldSpace;
       const float z = (camera.far + camera.near) / (camera.far - camera.near)
           + 1.f / dist * ((-2 * camera.far * camera.near) / (camera.far - camera.near));
-      finalColor += vec3(1.f - z);*/
+      finalColor += vec3(z);
     } else if (debug.viewType == CHILD_INDEX_VIEW) {
       finalColor += lut[traceResult.childIdx];
     } else if (debug.viewType == TREE_LEVEL_VIEW) {
-      finalColor += lut[SVO_STACK_SIZE - traceResult.stackPtr];
+      finalColor += lut[traceResult.stackPtr % 8];
     }
   } else {
     if (debug.viewType == DISTANCE_VIEW) {
