@@ -602,7 +602,7 @@ struct BVHDistanceInfo {
   float distance;
 };
 
-BVHDistanceInfo bvhHitArray[50];
+BVHDistanceInfo bvhHitArray[50];// TODO: this size is wrong
 TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   uint stackTop = 0;
   WRITE_BVH_STACK(bvhStack, stackTop++, 0);
@@ -646,6 +646,7 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   result.isOnlyAABB = true;
   result.iter = 0;
   result.normal = vec3(0);
+  result.color = vec3(0);
 
   TraceResult bestModelResult;
   bestModelResult.hit = false;
@@ -694,7 +695,6 @@ void main() {
   traceResult.t = INF;
   traceResult.iter = 0;
 
-  //traceResult = traceBVH(ray, idx, idy);
   traceResult = traceBVHImproved(ray, idx, idy);
 
   TraceResult shadowTraceResult;
