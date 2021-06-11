@@ -54,8 +54,9 @@ struct TextureData {
 };
 
 struct ModelFileInfo {
+  // TODO: group id and group controls
   ModelFileInfo() = default;
-  ModelFileInfo(const std::filesystem::path &path);
+  ModelFileInfo(std::filesystem::path path);
   static inline auto IdGenerator = iota<std::size_t>();
   std::experimental::observer_ptr<vox::GPUModelInfo> modelData = nullptr;
   std::size_t id = getNext(IdGenerator);
@@ -141,6 +142,9 @@ class SimpleSVORenderer_UI {
     ui::ig::DragInput<float> &shaderDebugFloatValueSlider;
     ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
   ui::ig::Window &modelsWindow;
+    ui::ig::Text &modelLoadingSettingsTitle;
+    ui::ig::BoxLayout &modelLoadingSettings;
+      ui::ig::Checkbox &modelLoadingSeparateModelsCheckbox;
     ui::ig::AbsoluteLayout &modelListsLayout;
       ui::ig::Listbox<ModelFileInfo> &modelList;
       ui::ig::InputText &modelsFilterInput;

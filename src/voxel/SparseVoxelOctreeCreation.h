@@ -31,6 +31,8 @@ SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene);
 
 std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &scene, bool sceneAsOneSVO);
 
+SparseVoxelOctreeCreateInfo convertModelToSVO(const RawVoxelModel &model);
+
 namespace details {
 struct TemporaryTreeNode {
   bool isLeaf;
@@ -45,7 +47,9 @@ struct TemporaryTreeNode {
 
 std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istream, bool sceneAsOneSVO);
 
-math::BoundingBox<3> findBB(const RawVoxelScene &scene);
+math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene);
+
+math::BoundingBox<3> findModelBB(const RawVoxelModel &model);
 
 math::BoundingBox<3> bbToOctreeBB(math::BoundingBox<3> bb, uint32_t levels);
 

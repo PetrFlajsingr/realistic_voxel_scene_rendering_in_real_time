@@ -9,14 +9,17 @@
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 
+#include <utility>
+
 namespace pf {
 using namespace ui::ig;
-ModelFileInfo::ModelFileInfo(const std::filesystem::path &path) : path(path) {}
+ModelFileInfo::ModelFileInfo(std::filesystem::path path) : path(std::move(path)) {}
 bool ModelFileInfo::operator==(const ModelFileInfo &rhs) const { return id == rhs.id; }
 bool ModelFileInfo::operator!=(const ModelFileInfo &rhs) const { return !(rhs == *this); }
 
 std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info) {
   os << info.path.filename().string();
+  if (info.modelData != nullptr) { os << std::to_string(info.id); }
   return os;
 }
 
@@ -118,6 +121,11 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       shaderDebugIterDivideDrag(shaderControlsWindow.createChild<DragInput<float>>(
           "shader_iter_divide_drag", "Iteration view divider", 1, 1, 1024, 64, Persistent::Yes)),
       modelsWindow(imgui->createWindow("models_window", "Models")),
+      modelLoadingSettingsTitle(modelsWindow.createChild<Text>("loading_settings_title", "Loading settings:")),
+      modelLoadingSettings(
+          modelsWindow.createChild<BoxLayout>("loading_settings_layout", LayoutDirection::LeftToRight, Size{280, 20})),
+      modelLoadingSeparateModelsCheckbox(modelLoadingSettings.createChild<Checkbox>(
+          "loading_separate_models_checkbox", "Separate", false, Persistent::Yes)),
       modelListsLayout(modelsWindow.createChild<AbsoluteLayout>("models_layout", Size{Width::Auto(), Height(170)})),
       modelList(modelListsLayout.createChild<Listbox<ModelFileInfo>>("models_list", ImVec2{10, 10}, "Models",
                                                                      Size{200, 100}, std::nullopt, Persistent::Yes)),
@@ -166,6 +174,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelDetailVoxelCountText.setReadOnly(true);
   modelDetailMinimisedVoxelCountText.setReadOnly(true);
   modelList.setDragTooltip("Model: {}");
+
+  modelLoadingSeparateModelsCheckbox.setTooltip("Load models in model file as separate SVOs");
 
   activeModelList.addValueListener([this](const auto &modelInfo) {
     modelDetailIIDText.setText("{}", modelInfo.modelData->getModelIndex().value());

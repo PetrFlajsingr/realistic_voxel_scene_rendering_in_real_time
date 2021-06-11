@@ -39,7 +39,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::pa
 }
 
 SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene) {
-  auto bb = details::findBB(scene);
+  auto bb = details::findSceneBB(scene);
   //logd("VOX", "Found BB");
   const auto octreeLevels = details::calcOctreeLevelCount(bb);
   //logd("VOX", "Octree level count: {}", octreeLevels);
@@ -64,14 +64,43 @@ SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene) {
   return createInfo;
 }
 
-std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &scene,
-                                                           [[maybe_unused]] bool sceneAsOneSVO) {
-  auto bb = details::findBB(scene);
+std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &scene, bool sceneAsOneSVO) {
+  if (sceneAsOneSVO) {
+    auto bb = details::findSceneBB(scene);
+    //logd("VOX", "Found BB");
+    const auto octreeLevels = details::calcOctreeLevelCount(bb);
+    //logd("VOX", "Octree level count: {}", octreeLevels);
+    auto voxels = scene.getModels()
+        | views::transform([](const auto &model) { return model->getVoxels() | views::all; }) | views::join | to_vector
+        | actions::sort([](const auto &a, const auto &b) {
+                    return a.position.x < b.position.x && a.position.y < b.position.y && a.position.z < b.position.z;
+                  });
+    //logd("VOX", "Voxel count: {}", voxels.size());
+
+    auto tree = Tree<details::TemporaryTreeNode>();
+
+    std::ranges::for_each(
+        voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
+    //logd("VOX", "Built intermediate tree");
+    const auto octreeSizeLength = std::pow(2, octreeLevels);
+    const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
+    bb.p2 = bb.p1 + bbDiff;
+    auto resultTree = rawTreeToSVO(tree);
+    auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
+                                                  std::move(resultTree.first)};
+    createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
+    return {createInfo};
+  } else {
+    return scene.getModels() | views::transform([](const auto &model) { return convertModelToSVO(*model); })
+        | ranges::to_vector;
+  }
+}
+SparseVoxelOctreeCreateInfo convertModelToSVO(const RawVoxelModel &model) {
+  auto bb = details::findModelBB(model);
   //logd("VOX", "Found BB");
   const auto octreeLevels = details::calcOctreeLevelCount(bb);
   //logd("VOX", "Octree level count: {}", octreeLevels);
-  auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
-      | views::join | to_vector | actions::sort([](const auto &a, const auto &b) {
+  auto voxels = model.getVoxels() | to_vector | actions::sort([](const auto &a, const auto &b) {
                   return a.position.x < b.position.x && a.position.y < b.position.y && a.position.z < b.position.z;
                 });
   //logd("VOX", "Voxel count: {}", voxels.size());
@@ -88,7 +117,7 @@ std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &
   auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
                                                 std::move(resultTree.first)};
   createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
-  return {createInfo};
+  return createInfo;
 }
 
 namespace details {
@@ -98,7 +127,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istrea
   return convertSceneToSVO(scene, sceneAsOneSVO);
 }
 
-math::BoundingBox<3> findBB(const RawVoxelScene &scene) {
+math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene) {
   //constexpr auto MAX = std::numeric_limits<float>::max();
   constexpr auto MIN = std::numeric_limits<float>::lowest();
 
@@ -107,6 +136,24 @@ math::BoundingBox<3> findBB(const RawVoxelScene &scene) {
   auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
       | views::join;
   std::ranges::for_each(voxels, ([&result](const auto &voxel) {
+                          result.p1.x = std::min(voxel.position.x, result.p1.x);
+                          result.p1.y = std::min(voxel.position.y, result.p1.y);
+                          result.p1.z = std::min(voxel.position.z, result.p1.z);
+
+                          result.p2.x = std::max(voxel.position.x + 1, result.p2.x);
+                          result.p2.y = std::max(voxel.position.y + 1, result.p2.y);
+                          result.p2.z = std::max(voxel.position.z + 1, result.p2.z);
+                        }));
+
+  return result;
+}
+
+math::BoundingBox<3> findModelBB(const RawVoxelModel &model) {
+  constexpr auto MIN = std::numeric_limits<float>::lowest();
+
+  auto result = math::BoundingBox<3>(glm::vec3{0}, glm::vec3{MIN});
+
+  std::ranges::for_each(model.getVoxels(), ([&result](const auto &voxel) {
                           result.p1.x = std::min(voxel.position.x, result.p1.x);
                           result.p1.y = std::min(voxel.position.y, result.p1.y);
                           result.p1.z = std::min(voxel.position.z, result.p1.z);

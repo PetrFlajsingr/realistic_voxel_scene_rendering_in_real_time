@@ -20,7 +20,6 @@ GPUModelManager::GPUModelManager(std::shared_ptr<vulkan::BufferMemoryPool> svoMe
 tl::expected<std::vector<GPUModelManager::ModelPtr>, std::string>
 GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &callbacks, bool sceneAsOneSVO,
                            bool autoScale) {
-
   try {
     callbacks.progress(0);
     const auto svoCreate = loadFileAsSVO(path, sceneAsOneSVO);
@@ -56,12 +55,12 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
             glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
       }
 
-      auto lock = std::unique_lock{mutex};
+      callbacks.progress(50 + cnt / svoCreate.size() * 100);
+      resultModels.emplace_back(std::experimental::make_observer(newModelInfo.get()));
       newModels.emplace_back(std::move(newModelInfo));
 
-      resultModels.emplace_back(std::experimental::make_observer(newModelInfo.get()));
-      callbacks.progress(50 + cnt / svoCreate.size() * 100);
     }
+    auto lock = std::unique_lock{mutex};
     for (auto &newModel : newModels) { models.emplace_back(std::move(newModel)); }
     callbacks.progress(100);
     return resultModels;

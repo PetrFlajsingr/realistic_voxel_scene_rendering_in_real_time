@@ -640,7 +640,7 @@ void SimpleSVORenderer::initUI() {
                 modelPath, {[this, &loadingProgress](float progress) {
                   window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
                 }},
-                true);
+                !ui->modelLoadingSeparateModelsCheckbox.getValue(), true);
             if (!newModel.has_value()) {
               const auto message = newModel.error();
               window->enqueue([&loadingDialog, &loadingText, message] {
@@ -750,7 +750,7 @@ void SimpleSVORenderer::initUI() {
           modelInfo.path, {[this, &loadingProgress](float progress) {
             window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
           }},
-          true);
+          !ui->modelLoadingSeparateModelsCheckbox.getValue(), true);
       if (!newModel.has_value()) {
         const auto message = newModel.error();
         window->enqueue([this, modelInfo, &loadingDialog, &loadingText, message] {
@@ -787,7 +787,7 @@ void SimpleSVORenderer::initUI() {
             item->get().path, {[this, &loadingProgress](float progress) {
               window->enqueue([&loadingProgress, progress] { loadingProgress.setValue(progress); });
             }},
-            true);
+            !ui->modelLoadingSeparateModelsCheckbox.getValue(), true);
         if (!newModel.has_value()) {
           const auto message = newModel.error();
           window->enqueue([&loadingDialog, &loadingText, message] {
@@ -871,10 +871,17 @@ void SimpleSVORenderer::initUI() {
   });
 
   ui->clearActiveModelsButton.addClickListener([this] {
-    std::ranges::for_each(ui->activeModelList.getItems(),
-                          [this](const auto &item) { modelManager->removeModel(item.modelData); });
-    ui->activeModelList.setItems<std::vector<ModelFileInfo>>({});
-    rebuildAndUploadBVH();
+    ui->imgui->createMsgDlg("Clear all models", "Do you really want to remove all models?",
+                            MessageButtons::Yes | MessageButtons::No, [this](auto btn) {
+                              if (btn == MessageButtons::Yes) {
+                                std::ranges::for_each(ui->activeModelList.getItems(), [this](const auto &item) {
+                                  modelManager->removeModel(item.modelData);
+                                });
+                                ui->activeModelList.setItems<std::vector<ModelFileInfo>>({});
+                                rebuildAndUploadBVH();
+                              }
+                              return true;
+                            });
   });
 
   ui->debugPrintEnableCheckbox.addValueListener(
@@ -936,7 +943,8 @@ void SimpleSVORenderer::initUI() {
                           window->enqueue([&loadingProgress, currentModel, modelCount, progress] {
                             loadingProgress.setValue(progress * (currentModel / modelCount));
                           });
-                        }});
+                        }},
+                        !ui->modelLoadingSeparateModelsCheckbox.getValue());
                     if (!modelLoadResult.has_value()) {
                       failed = true;
                       const auto message = modelLoadResult.error();
@@ -944,20 +952,22 @@ void SimpleSVORenderer::initUI() {
                         loadingText.setText("{}\nLoading failed: {}", loadingText.getText(), message);
                       });
                     } else {
-                      auto modelPtr = modelLoadResult.value();
-                      auto newUIItem = ModelFileInfo{modelPtr->path};
-                      newUIItem.modelData = modelPtr;
-                      modelPtr->translateVec = modelInfo.translateVec;
-                      modelPtr->scaleVec = modelInfo.scaleVec;
-                      modelPtr->rotateVec = modelInfo.rotateVec;
-                      modelPtr->updateInfoToGPU();
-                      loadedItems.template emplace_back(newUIItem);
-                      const auto fileName = newUIItem.path.filename().string();
-                      window->enqueue([this, fileName, &loadingText, newUIItem, modelPtr]() {
-                        auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-                        addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
-                        loadingText.setText("{}\nLoaded: {}", loadingText.getText(), fileName);
-                      });
+                      auto modelPtrs = modelLoadResult.value();
+                      for (auto modelPtr : modelPtrs) {
+                        auto newUIItem = ModelFileInfo{modelPtr->path};
+                        newUIItem.modelData = modelPtr;
+                        modelPtr->translateVec = modelInfo.translateVec;
+                        modelPtr->scaleVec = modelInfo.scaleVec;
+                        modelPtr->rotateVec = modelInfo.rotateVec;
+                        modelPtr->updateInfoToGPU();
+                        loadedItems.template emplace_back(newUIItem);
+                        const auto fileName = newUIItem.path.filename().string();
+                        window->enqueue([this, fileName, &loadingText, newUIItem, modelPtr]() {
+                          auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+                          addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+                          loadingText.setText("{}\nLoaded: {}", loadingText.getText(), fileName);
+                        });
+                      }
                     }
                   }
                 });
