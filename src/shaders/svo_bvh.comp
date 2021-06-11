@@ -192,6 +192,23 @@ bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) {
   return tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
 }
 
+struct AABBIntersection {
+  bool hit;
+  float distance;
+};
+AABBIntersection intersectAABBDistance(Ray ray, vec3 boxMin, vec3 boxMax) {
+  const vec3 tMin = (boxMin - ray.origin) / ray.direction;
+  const vec3 tMax = (boxMax - ray.origin) / ray.direction;
+  const vec3 t1 = min(tMin, tMax);
+  const vec3 t2 = max(tMin, tMax);
+  const float tNear = max(max(t1.x, t1.y), t1.z);
+  const float tFar = min(min(t2.x, t2.y), t2.z);
+  AABBIntersection result;
+  result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
+  result.distance = tNear;
+  return result;
+}
+
 #define CHILD_PTR_MASK 0xFFFE0000u
 
 const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
