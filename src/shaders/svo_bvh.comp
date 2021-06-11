@@ -529,7 +529,7 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 #define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
 #define GET_BVH_MIN_AABB(node) node.AABB1.xyz
 #define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
-
+//TODO: change bvh visualisation
 TraceResult traceBVH(Ray ray, uint idx, uint idy) {
   bool isPrintId = idx == 0 && idy == 0;
   uint stackTop = 0;
@@ -561,7 +561,7 @@ TraceResult traceBVH(Ray ray, uint idx, uint idy) {
     if (intersectAABB(aabbRay, boxMin, boxMax)) {
       if (debug.visualizeBVH == 1) {
         result.hit = true;
-        result.color -= lut[nodeToCheckIdx % 7 + 1] / 10;
+        result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
         result.isOnlyAABB = result.isOnlyAABB && true;
       }
       // TODO: if distance to BVH is further away than sucessful hit don't do SVO intersection
