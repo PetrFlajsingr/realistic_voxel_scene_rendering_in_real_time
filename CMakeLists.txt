@@ -198,9 +198,6 @@ set(SOURCES
         src/args/ValidPathCheckAction.cpp
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
-        #src/rendering/TriangleRenderer.cpp
-        #src/rendering/RTSimpleRenderer.cpp
-        #src/rendering/NaiveVoxelRenderer.cpp
         src/rendering/SimpleSVORenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
@@ -230,9 +227,6 @@ set(INCLUDES
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
         src/ui/SimpleSVORenderer_UI.h
-        src/rendering/TriangleRenderer.h
-        #src/rendering/RTSimpleRenderer.h
-        #src/rendering/NaiveVoxelRenderer.h
         src/rendering/VulkanDebugCallbackImpl.h
         src/rendering/SimpleSVORenderer.h
         src/concepts/Renderer.h
