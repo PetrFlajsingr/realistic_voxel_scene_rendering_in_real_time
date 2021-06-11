@@ -208,9 +208,9 @@ set(SOURCES
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
-        src/voxel/Model.cpp
+        src/voxel/RawVoxelModel.cpp
         src/voxel/ModelLoading.cpp
-        src/voxel/Scene.cpp
+        src/voxel/RawVoxelScene.cpp
         src/voxel/SparseVoxelOctree.cpp
         src/voxel/GPUModelInfo.cpp
         src/voxel/SparseVoxelOctreeCreation.cpp
@@ -243,9 +243,9 @@ set(INCLUDES
         src/utils/interface/Serializable.h
         ../pf_common/include/pf_common/bits.h
         ../pf_common/include/pf_common/bin.h
-        src/voxel/Model.h
+        src/voxel/RawVoxelModel.h
         src/voxel/ModelLoading.h
-        src/voxel/Scene.h
+        src/voxel/RawVoxelScene.h
         src/voxel/SparseVoxelOctree.h
         src/voxel/SparseVoxelOctreeCreation.h
         src/voxel/AABB_BVH.h
@@ -258,9 +258,9 @@ set(SVO_SOURCES
         src/main_svo.cpp
         src/logging/loggers.cpp
         src/logging/CallbackSink.cpp
-        src/voxel/Model.cpp
+        src/voxel/RawVoxelModel.cpp
         src/voxel/ModelLoading.cpp
-        src/voxel/Scene.cpp
+        src/voxel/RawVoxelScene.cpp
         src/voxel/SparseVoxelOctree.cpp
         src/voxel/SparseVoxelOctreeCreation.cpp
         )

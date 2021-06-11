@@ -650,14 +650,16 @@ void SimpleSVORenderer::initUI() {
                 });
               });
             } else {
-              auto modelPtr = newModel.value();
-              window->enqueue([this, &loadingDialog, modelPtr] {
-                auto newUIItem = ModelFileInfo{modelPtr->path};
-                newUIItem.modelData = modelPtr;
-                auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-                addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+              auto modelPtrs = newModel.value();
+              window->enqueue([this, &loadingDialog, modelPtrs] {
+                for (auto modelPtr : modelPtrs) {
+                  auto newUIItem = ModelFileInfo{modelPtr->path};
+                  newUIItem.modelData = modelPtr;
+                  auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+                  addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+                  modelPtr->updateInfoToGPU();
+                }
                 loadingDialog.close();
-                modelPtr->updateInfoToGPU();
                 rebuildAndUploadBVH();
               });
             }
@@ -759,16 +761,18 @@ void SimpleSVORenderer::initUI() {
           ui->activeModelList.removeItem(modelInfo);
         });
       } else {
-        auto modelPtr = newModel.value();
-        window->enqueue([this, modelInfo, &loadingDialog, modelPtr] {
-          ui->activeModelList.removeItem(modelInfo);
-          auto newUIItem = ModelFileInfo{modelPtr->path};
-          newUIItem.modelData = modelPtr;
-          const auto itemId = newUIItem.id;
-          auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-          addActiveModelPopupMenu(itemSelectable, itemId, modelPtr);
+        auto modelPtrs = newModel.value();
+        window->enqueue([this, &loadingDialog, modelInfo, modelPtrs] {
+          for (auto modelPtr : modelPtrs) {
+            ui->activeModelList.removeItem(modelInfo);
+            auto newUIItem = ModelFileInfo{modelPtr->path};
+            newUIItem.modelData = modelPtr;
+            const auto itemId = newUIItem.id;
+            auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+            addActiveModelPopupMenu(itemSelectable, itemId, modelPtr);
+            modelPtr->updateInfoToGPU();
+          }
           loadingDialog.close();
-          modelPtr->updateInfoToGPU();
           rebuildAndUploadBVH();
         });
       }
@@ -793,14 +797,16 @@ void SimpleSVORenderer::initUI() {
             });
           });
         } else {
-          auto modelPtr = newModel.value();
-          window->enqueue([this, &loadingDialog, modelPtr] {
-            auto newUIItem = ModelFileInfo{modelPtr->path};
-            newUIItem.modelData = modelPtr;
-            auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-            addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+          auto modelPtrs = newModel.value();
+          window->enqueue([this, &loadingDialog, modelPtrs] {
+            for (auto modelPtr : modelPtrs) {
+              auto newUIItem = ModelFileInfo{modelPtr->path};
+              newUIItem.modelData = modelPtr;
+              auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
+              addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
+              modelPtr->updateInfoToGPU();
+            }
             loadingDialog.close();
-            modelPtr->updateInfoToGPU();
             rebuildAndUploadBVH();
           });
         }

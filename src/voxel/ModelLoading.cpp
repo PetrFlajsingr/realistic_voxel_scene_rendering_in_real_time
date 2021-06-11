@@ -20,7 +20,7 @@
 
 namespace pf::vox {
 
-Scene loadScene(const std::filesystem::path &srcFile, FileType fileType) {
+RawVoxelScene loadScene(const std::filesystem::path &srcFile, FileType fileType) {
   if (fileType == FileType::Unknown) {
     const auto detectedFileType = details::detectFileType(srcFile);
     if (!detectedFileType.has_value()) { throw LoadException("Could not detect file type for '{}'", srcFile.string()); }
@@ -41,7 +41,7 @@ std::optional<FileType> details::detectFileType(const std::filesystem::path &src
   return std::nullopt;
 }
 
-Scene details::loadVoxScene(std::ifstream &&istream) {
+RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
   const auto fileData = std::vector<uint8_t>(std::istreambuf_iterator(istream), {});
   const auto ogtScene = ogt_vox_read_scene(fileData.data(), fileData.size());
   const auto freeScene = RAII{[&] { ogt_vox_destroy_scene(ogtScene); }};
@@ -97,7 +97,7 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
   //  modelInfo.translate.x += height;
   //});
 
-  auto models = std::vector<std::unique_ptr<Model>>();
+  auto models = std::vector<std::unique_ptr<RawVoxelModel>>();
   models.reserve(ogtScene->num_models);
 
   for (const auto [idx, ogtModel] : ranges::views::enumerate(ogtModelsWithTransform)) {
@@ -118,7 +118,7 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
       }
     };
 
-    auto voxels = std::vector<Voxel>{};
+    auto voxels = std::vector<VoxelInfo>{};
     voxels.reserve(volSize);
     for (const auto ogtVoxel : ogtVoxels) {
       if (ogtVoxel != 0) {
@@ -131,7 +131,7 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
       movePos();
     }
     voxels.shrink_to_fit();
-    models.emplace_back(std::make_unique<Model>(std::to_string(idx), std::move(voxels)));
+    models.emplace_back(std::make_unique<RawVoxelModel>(std::to_string(idx), std::move(voxels)));
   }
 
  /* code for exports from FileToVox
@@ -220,6 +220,6 @@ Scene details::loadVoxScene(std::ifstream &&istream) {
     models.emplace_back(std::make_unique<Model>(std::to_string(idx), std::move(voxels)));
   }*/
 
-  return Scene("vox scene", std::move(models));
+  return RawVoxelScene("vox scene", std::move(models));
 }
 }// namespace pf::vox

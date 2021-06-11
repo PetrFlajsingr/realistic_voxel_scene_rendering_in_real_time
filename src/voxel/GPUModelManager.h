@@ -17,8 +17,8 @@ namespace pf::vox {
 
 class GPUModelManager {
  public:
-  GPUModelManager(const std::shared_ptr<vulkan::BufferMemoryPool> &svoMemoryPool,
-                  const std::shared_ptr<vulkan::BufferMemoryPool> &modelInfoMemoryPool,
+  GPUModelManager(std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool,
+                  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool,
                   std::size_t defaultSvoHeightSize);
   using ModelPtr = std::experimental::observer_ptr<GPUModelInfo>;
 
@@ -27,8 +27,8 @@ class GPUModelManager {
     std::function<void(float)> progress;
   };
 
-  tl::expected<ModelPtr, std::string> loadModel(const std::filesystem::path &path, const Callbacks &callbacks,
-                                                bool autoScale = false);
+  tl::expected<std::vector<ModelPtr>, std::string> loadModel(const std::filesystem::path &path,
+                                                             const Callbacks &callbacks, bool sceneAsOneSVO, bool autoScale = false);
   tl::expected<ModelPtr, std::string> createModelInstance(ModelPtr model);
   tl::expected<ModelPtr, std::string> duplicateModel(ModelPtr model);
 
