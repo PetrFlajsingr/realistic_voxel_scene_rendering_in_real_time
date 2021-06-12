@@ -7,6 +7,7 @@
 #include <fstream>
 #include <logging/loggers.h>
 #include <magic_enum.hpp>
+#include <pf_common/bin.h>
 #include <pf_common/bits.h>
 #include <range/v3/action/sort.hpp>
 #include <range/v3/view/filter.hpp>
@@ -32,6 +33,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::pa
   if (!ifstream.is_open()) { throw LoadException("Could not open file '{}'", srcFile.string()); }
   switch (fileType) {
     case FileType::Vox: return details::loadVoxFileAsSVO(std::move(ifstream), sceneAsOneSVO); break;
+    case FileType::PfVox: return details::loadPfVoxFileAsSVO(std::move(ifstream)); break;
     default:
       throw LoadException("Could not load model '{}', unsupported format: {}", srcFile.string(),
                           magic_enum::enum_name(fileType));
@@ -125,6 +127,19 @@ std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istrea
   const auto scene = loadVoxScene(std::move(istream));
   //logd("VOX", "Loaded scene");
   return convertSceneToSVO(scene, sceneAsOneSVO);
+}
+
+std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istream) {
+  auto data = std::vector<char>((std::istreambuf_iterator<char>(istream)), std::istreambuf_iterator<char>());
+  auto dataView = std::span{reinterpret_cast<const std::byte *>(data.data()), data.size()};
+  const auto svoVoxelCount = fromBytes<uint32_t>(dataView.first(sizeof(uint32_t)));
+  const auto svoDepth = fromBytes<uint32_t>(dataView.subspan(sizeof(uint32_t), sizeof(uint32_t)));
+  const auto aabb =
+      fromBytes<math::BoundingBox<3>>(dataView.subspan(sizeof(uint32_t) * 2, sizeof(math::BoundingBox<3>)));
+  const auto svo = SparseVoxelOctree::Deserialize(
+      dataView.subspan(sizeof(uint32_t) * 2 + sizeof(math::BoundingBox<3>),
+                       dataView.size() - (sizeof(uint32_t) * 2) + sizeof(math::BoundingBox<3>)));
+  return {SparseVoxelOctreeCreateInfo{svoDepth, svoVoxelCount, svoVoxelCount, aabb, std::move(svo)}};
 }
 
 math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene) {
@@ -298,7 +313,6 @@ AttachmentLookupEntry attLookupEntryForNode(const Node<TemporaryTreeNode> &node)
   }
   return result;
 }
-
 PhongAttachment attachmentForNode(const Node<TemporaryTreeNode> &node) {
   constexpr auto COLOR_MULTIPLIER = 255.f;
   return PhongAttachment{.color = {.alpha = static_cast<uint8_t>(node->color.a * COLOR_MULTIPLIER),
@@ -306,6 +320,7 @@ PhongAttachment attachmentForNode(const Node<TemporaryTreeNode> &node) {
                                    .green = static_cast<uint8_t>(node->color.g * COLOR_MULTIPLIER),
                                    .red = static_cast<uint8_t>(node->color.r * COLOR_MULTIPLIER)}};
 }
+
 std::pair<AttachmentLookupEntry, std::vector<PhongAttachment>> attDataForNode(const Node<TemporaryTreeNode> &node) {
   auto lookupEntry = attLookupEntryForNode(node);
   auto attachments =
@@ -356,7 +371,6 @@ void setFilledNodesToLeaf(Node<TemporaryTreeNode> &node) {
     std::ranges::for_each(node.children(), setFilledNodesToLeaf);
   }
 }
-
 std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tree) {
   if (!tree.hasRoot()) { return {SparseVoxelOctree(), 0}; }
   std::ranges::for_each(tree.iterNodesBreadthFirst(), [](auto &node) { node.sortChildren(std::less<>()); });

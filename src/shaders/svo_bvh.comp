@@ -96,8 +96,12 @@ layout(binding = 4, std140) uniform Debug {
   float iterDivide;
   uint printEnabled;
   uint visualizeBVH;
+  uint visualizeProbes;
 }
 debug;
+
+layout(std430, binding = 8) buffer LightFieldProbes { vec4 probes[]; }
+lfp;
 
 float max(vec2 v) { return max(v.x, v.y); }
 float max(vec3 v) { return max(max(v.x, v.y), v.z); }
@@ -166,6 +170,25 @@ struct Sphere {
   vec3 position;
   float radius;
 };
+
+Sphere LFP_SPHERE = Sphere(vec3(0, 0, 0), 0.01);
+
+float SphereIntersection(Ray ray, Sphere sphere) {
+  vec3 delta = ray.origin - sphere.position;
+  float b = dot((delta * 2), ray.direction);
+  float c = dot(delta, delta) - (sphere.radius * sphere.radius);
+
+  float disc = b * b - 4 * c;
+  if (disc < 0) return 0;
+  else
+    disc = sqrt(disc);
+
+  // Always 2 solutions when pulling the square root.
+  float result1 = -b + disc;
+  float result2 = -b - disc;
+
+  return (result2 > EPSILON) ? result2 / 2 : ((result1 > EPSILON) ? result1 / 2 : 0);
+}
 
 struct TraceResult {
   float distance;
@@ -717,6 +740,20 @@ void main() {
     shadowRay.directionSize = 0;
     shadowTraceResult = traceBVHImproved(shadowRay, idx, idy);
     traceResult.iter += shadowTraceResult.iter;
+  }
+
+  if (debug.visualizeProbes == 1) {
+    int probeCount = int(lfp.probes[0].w);
+    ray.direction = normalize(ray.direction);
+    for (int i = 0; i < probeCount; ++i) {
+      Sphere sphere = LFP_SPHERE;
+      sphere.radius = 0.01f;
+      sphere.position = lfp.probes[i].xyz;
+      if (SphereIntersection(ray, sphere) > 0) {
+        traceResult.hit = true;
+        traceResult.color = vec3(0, 1, 0);
+      }
+    }
   }
 
   iterColor += vec3(traceResult.iter / debug.iterDivide);

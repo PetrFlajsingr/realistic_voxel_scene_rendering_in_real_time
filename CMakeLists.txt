@@ -216,7 +216,8 @@ set(SOURCES
         src/voxel/SparseVoxelOctreeCreation.cpp
         src/voxel/AABB_BVH.cpp
         src/voxel/GPUModelManager.cpp
-        )
+        src/rendering/light_field_probes/GridProbeGenerator.cpp
+        src/rendering/light_field_probes/GridProbeGenerator.cpp src/rendering/light_field_probes/GridProbeGenerator.h)
 
 set(INCLUDES
         src/logging/loggers.h
@@ -250,7 +251,8 @@ set(INCLUDES
         src/voxel/GPUModelInfo.h
         src/voxel/SceneFileManager.h
         src/voxel/GPUModelManager.h
-        src/ui/SVOConvertDialog.h
+        src/rendering/light_field_probes/ProbeGenerator.h
+        src/rendering/light_field_probes/GridProbeGenerator.h
         )
 
 set(SVO_SOURCES

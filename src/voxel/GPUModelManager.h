@@ -18,8 +18,7 @@ namespace pf::vox {
 class GPUModelManager {
  public:
   GPUModelManager(std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool,
-                  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool,
-                  std::size_t defaultSvoHeightSize);
+                  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool, std::size_t defaultSvoHeightSize);
   using ModelPtr = std::experimental::observer_ptr<GPUModelInfo>;
 
   struct Callbacks {
@@ -27,12 +26,13 @@ class GPUModelManager {
     std::function<void(float)> progress;
   };
 
-  tl::expected<std::vector<ModelPtr>, std::string> loadModel(const std::filesystem::path &path,
-                                                             const Callbacks &callbacks, bool sceneAsOneSVO, bool autoScale = false);
+  tl::expected<std::vector<ModelPtr>, std::string>
+  loadModel(const std::filesystem::path &path, const Callbacks &callbacks, bool sceneAsOneSVO, bool autoScale = false);
   tl::expected<ModelPtr, std::string> createModelInstance(ModelPtr model);
   tl::expected<ModelPtr, std::string> duplicateModel(ModelPtr model);
 
-  [[nodiscard]] BVHCreateInfo buildBVH(bool createStats);
+  [[nodiscard]] const BVHCreateInfo &rebuildBVH(bool createStats);
+  [[nodiscard]] const BVHCreateInfo &getBvh() const;
 
   void removeModel(ModelPtr toRemove);
 
@@ -47,6 +47,7 @@ class GPUModelManager {
   std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool;
   std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool;
   std::mutex mutex;
+  BVHCreateInfo bvh;
 };
 }// namespace pf::vox
 #endif//REALISTIC_VOXEL_RENDERING_SRC_VOXEL_GPUMODELMANAGER_H

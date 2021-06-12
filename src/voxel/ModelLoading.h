@@ -16,7 +16,7 @@ class LoadException : public StackTraceException {
   explicit LoadException(std::string_view fmt, auto &&...args) : StackTraceException(fmt::format(fmt, args...)) {}
 };
 
-enum class FileType { Vox, Unknown };
+enum class FileType { Vox, PfVox, Unknown };
 
 RawVoxelScene loadScene(const std::filesystem::path &srcFile, FileType fileType = FileType::Unknown);
 

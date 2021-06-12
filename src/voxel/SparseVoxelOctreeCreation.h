@@ -46,6 +46,7 @@ struct TemporaryTreeNode {
 };
 
 std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istream, bool sceneAsOneSVO);
+std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istream);
 
 math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene);
 

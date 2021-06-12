@@ -31,7 +31,8 @@ std::string ChildDescriptor::stringDraw() const {
   return result;
 }*/
 std::string ChildDescriptor::toString() const {
-  return fmt::format("Child data: valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", validMask, leafMask, childPointer);
+  return fmt::format("Child data: valid mask: {:8b}, leaf mask: {:8b}, child pointer: {}", validMask, leafMask,
+                     childPointer);
 }
 
 std::string ChildDescriptor::stringDraw() const {
@@ -64,12 +65,12 @@ std::vector<std::byte> Page::serialize() const {
   const auto rawPageHeader = toBytes(header);
   const auto rawPageDescriptors = std::span(reinterpret_cast<const std::byte *>(childDescriptors.data()),
                                             childDescriptors.size() * sizeof(ChildDescriptor));
-  const auto descriptorsSize = static_cast<uint32_t>(rawPageDescriptors.size());
+  const auto descriptorsSize = static_cast<uint64_t>(rawPageDescriptors.size());
   const auto rawFarPointers =
       std::span(reinterpret_cast<const std::byte *>(farPointers.data()), farPointers.size() * sizeof(uint32_t));
-  const auto farPointersSize = static_cast<uint32_t>(rawFarPointers.size());
+  const auto farPointersSize = static_cast<uint64_t>(rawFarPointers.size());
 
-  const auto size = static_cast<uint32_t>(rawPageHeader.size() + sizeof(descriptorsSize) + descriptorsSize
+  const auto size = static_cast<uint64_t>(rawPageHeader.size() + sizeof(descriptorsSize) + descriptorsSize
                                           + sizeof(farPointersSize) + farPointersSize);
   const auto rawSize = toBytes(size);
   const auto rawDescriptorsSize = toBytes(descriptorsSize);
@@ -79,13 +80,13 @@ std::vector<std::byte> Page::serialize() const {
       | to_vector;
 }
 Page Page::Deserialize(std::span<const std::byte> data) {
-  [[maybe_unused]] const auto pageSize = fromBytes<uint32_t>(data.first(4));
+  [[maybe_unused]] const auto pageSize = fromBytes<uint64_t>(data.first(8));
   auto result = Page();
   auto offset = sizeof(pageSize);
-  result.header = fromBytes<PageHeader>(data.subspan(offset, 4));
+  result.header = fromBytes<PageHeader>(data.subspan(offset, 8));
   offset += sizeof(result.header);
 
-  const auto childDescriptorsSize = fromBytes<uint32_t>(data.subspan(offset, 4));
+  const auto childDescriptorsSize = fromBytes<uint64_t>(data.subspan(offset, 8));
   offset += sizeof(childDescriptorsSize);
   const auto childDescriptorCount = childDescriptorsSize / sizeof(ChildDescriptor);
   result.childDescriptors.resize(childDescriptorCount);
@@ -94,12 +95,12 @@ Page Page::Deserialize(std::span<const std::byte> data) {
   std::ranges::copy(rawDescriptors, result.childDescriptors.begin());
   offset += sizeof(childDescriptorsSize);
 
-  const auto farPointersSize = fromBytes<uint32_t>(data.subspan(offset, 4));
-  offset += sizeof(farPointersSize);
-  const auto farPointersCount = farPointersSize / sizeof(uint32_t);
-  result.farPointers.resize(farPointersCount);
-  const auto rawFarPointers = std::span(reinterpret_cast<const uint32_t *>(data.data() + offset), farPointersCount);
-  std::ranges::copy(rawFarPointers, result.farPointers.begin());
+  //const auto farPointersSize = fromBytes<uint64_t>(data.subspan(offset, 8));
+  //offset += sizeof(farPointersSize);
+  //const auto farPointersCount = farPointersSize / sizeof(uint32_t);
+  //result.farPointers.resize(farPointersCount);
+  //const auto rawFarPointers = std::span(reinterpret_cast<const uint32_t *>(data.data() + offset), farPointersCount);
+  //std::ranges::copy(rawFarPointers, result.farPointers.begin());
 
   return result;
 }
@@ -113,35 +114,55 @@ Page Page::Deserialize(std::span<const std::byte> data) {
 
 std::vector<std::byte> Block::serialize() const {
   const auto rawPages = pages | views::transform([](const auto &page) { return page.serialize(); }) | to_vector;
-  const auto rawInfoSection = std::span(reinterpret_cast<const std::byte *>(infoSection.attachments.attachments.data()),
-                                        infoSection.attachments.attachments.size() * sizeof(PhongAttachment));
-  const auto pagesSize = static_cast<uint32_t>(
+  const auto rawInfoSectionAttachments =
+      std::span(reinterpret_cast<const std::byte *>(infoSection.attachments.attachments.data()),
+                infoSection.attachments.attachments.size() * sizeof(PhongAttachment));
+  const auto rawInfoSectionLookupEntries =
+      std::span(reinterpret_cast<const std::byte *>(infoSection.attachments.lookupEntries.data()),
+                infoSection.attachments.lookupEntries.size() * sizeof(AttachmentLookupEntry));
+  const auto pagesSize = static_cast<uint64_t>(
       accumulate(rawPages | views::transform([](const auto &rawPage) { return rawPage.size(); }), 0));
-  const auto infoSectionSize = static_cast<uint32_t>(rawInfoSection.size());
-  const auto rawInfoSectionSize = toBytes(infoSectionSize);
+  const auto infoSectionAttachmentsSize = static_cast<uint64_t>(rawInfoSectionAttachments.size());
+  const auto rawInfoSectionAttachmentsSize = toBytes(infoSectionAttachmentsSize);
+  const auto lookupEntriesSize = static_cast<uint64_t>(rawInfoSectionLookupEntries.size());
+  const auto rawInfoSectionLookupEntriesSize = toBytes(lookupEntriesSize);
 
-  const auto rawSize = toBytes(pagesSize + infoSectionSize);
+  const auto rawSize = toBytes(pagesSize + infoSectionAttachmentsSize + lookupEntriesSize + 2 * sizeof(uint64_t));
 
-  return views::concat(rawSize, rawInfoSectionSize, rawInfoSection, rawPages | views::join) | to_vector;
+  return views::concat(rawSize, rawInfoSectionAttachmentsSize, rawInfoSectionAttachments,
+                       rawInfoSectionLookupEntriesSize, rawInfoSectionLookupEntries, rawPages | views::join)
+      | to_vector;
 }
 
 Block Block::Deserialize(std::span<const std::byte> data) {
-  const auto blockSize = fromBytes<uint32_t>(data.first(4));
+  const auto blockSize = fromBytes<uint64_t>(data.first(8));
   auto result = Block();
   auto offset = sizeof(blockSize);
-  const auto infoSectionSize = fromBytes<uint32_t>(data.subspan(offset, 4));
-  offset += 4;
+  const auto infoSectionAttachmentsSize = fromBytes<uint64_t>(data.subspan(offset, 8));
+  offset += 8;
 
-  const auto attachmentCount = infoSectionSize / sizeof(PhongAttachment);
+  const auto attachmentCount = infoSectionAttachmentsSize / sizeof(PhongAttachment);
   result.infoSection.attachments.attachments.resize(attachmentCount);
-  auto infoSectionSpan = std::span(reinterpret_cast<const PhongAttachment *>(data.data()) + offset, attachmentCount);
-  std::ranges::copy(infoSectionSpan, result.infoSection.attachments.attachments.begin());
+  auto infoSectionAttachmentsSpan =
+      std::span(reinterpret_cast<const PhongAttachment *>(data.data() + offset), attachmentCount);
+  std::ranges::copy(infoSectionAttachmentsSpan, result.infoSection.attachments.attachments.begin());
 
-  offset += infoSectionSize;
+  offset += infoSectionAttachmentsSize;
+
+  const auto infoSectionLookupEntriesSize = fromBytes<uint64_t>(data.subspan(offset, 8));
+  offset += 8;
+
+  const auto lookupEntryCount = infoSectionLookupEntriesSize / sizeof(AttachmentLookupEntry);
+  result.infoSection.attachments.lookupEntries.resize(lookupEntryCount);
+  auto infoSectionLookupEntrySpan =
+      std::span(reinterpret_cast<const AttachmentLookupEntry *>(data.data() + offset), lookupEntryCount);
+  std::ranges::copy(infoSectionLookupEntrySpan, result.infoSection.attachments.lookupEntries.begin());
+
+  offset += infoSectionLookupEntriesSize;
 
   while (offset < blockSize + sizeof(blockSize)) {
     const auto pageSpan = data.subspan(offset);
-    const auto pageSize = fromBytes<uint32_t>(pageSpan.first(4));
+    const auto pageSize = fromBytes<uint64_t>(pageSpan.first(8));
     result.pages.emplace_back(Page::Deserialize(pageSpan));
     [[maybe_unused]] const auto oldOffset = offset;
     offset += sizeof(pageSize) + pageSize;
@@ -156,19 +177,19 @@ void SparseVoxelOctree::addBlock(Block &&block) { blocks.emplace_back(std::move(
 
 std::vector<std::byte> SparseVoxelOctree::serialize() const {
   const auto rawBlocks = blocks | views::transform([](const auto &block) { return block.serialize(); }) | to_vector;
-  const auto totalSize = static_cast<uint32_t>(
+  const auto totalSize = static_cast<uint64_t>(
       accumulate(rawBlocks | views::transform([](const auto &rawBlock) { return rawBlock.size(); }), 0));
   const auto rawSize = toBytes(totalSize);
 
   return views::concat(rawSize, rawBlocks | views::join) | to_vector;
 }
 SparseVoxelOctree SparseVoxelOctree::Deserialize(std::span<const std::byte> data) {
-  const auto totalSize = fromBytes<uint32_t>(data.first(4));
+  const auto totalSize = fromBytes<uint64_t>(data.first(8));
   auto result = SparseVoxelOctree();
   auto offset = sizeof(totalSize);
   while (offset < totalSize + sizeof(totalSize)) {
     const auto blockSpan = data.subspan(offset);
-    const auto blockSize = fromBytes<uint32_t>(blockSpan.first(4));
+    const auto blockSize = fromBytes<uint64_t>(blockSpan.first(8));
     result.blocks.emplace_back(Block::Deserialize(blockSpan));
     [[maybe_unused]] const auto oldOffset = offset;
     offset += sizeof(blockSize) + blockSize;

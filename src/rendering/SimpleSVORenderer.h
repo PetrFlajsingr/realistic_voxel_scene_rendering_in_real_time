@@ -162,7 +162,6 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   void rebuildAndUploadBVH();
 
   std::vector<std::filesystem::path> loadModelFileNames(const std::filesystem::path &dir);
-  std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> createLoadingDialog();
 
   void addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
                                vox::GPUModelManager::ModelPtr modelPtr);
@@ -170,6 +169,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
 
   void duplicateModel(vox::GPUModelManager::ModelPtr original);
   void instantiateModel(vox::GPUModelManager::ModelPtr original);
+
+  void convertAndSaveSVO(const std::filesystem::path &src, const std::filesystem::path &dir);
 
   std::reference_wrapper<toml::table> config;
   Camera camera;
@@ -200,6 +201,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
+  std::shared_ptr<vulkan::Buffer> probePosBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 

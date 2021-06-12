@@ -58,7 +58,6 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
       callbacks.progress(50 + cnt / svoCreate.size() * 100);
       resultModels.emplace_back(std::experimental::make_observer(newModelInfo.get()));
       newModels.emplace_back(std::move(newModelInfo));
-
     }
     auto lock = std::unique_lock{mutex};
     for (auto &newModel : newModels) { models.emplace_back(std::move(newModel)); }
@@ -120,5 +119,9 @@ GPUModelManager::prepareDuplicate(GPUModelManager::ModelPtr original) {
 void GPUModelManager::removeModel(GPUModelManager::ModelPtr toRemove) {
   models.erase(std::ranges::find_if(models, [toRemove](const auto &model) { return model.get() == toRemove.get(); }));
 }
-BVHCreateInfo GPUModelManager::buildBVH(bool createStats) { return vox::createBVH(getModels(), createStats); }
+const BVHCreateInfo &GPUModelManager::rebuildBVH(bool createStats) {
+  bvh = vox::createBVH(getModels(), createStats);
+  return bvh;
+}
+const BVHCreateInfo &GPUModelManager::getBvh() const { return bvh; }
 }// namespace pf::vox

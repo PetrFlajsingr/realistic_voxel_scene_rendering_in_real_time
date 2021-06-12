@@ -117,6 +117,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       debugPrintEnableCheckbox(shaderControlsWindow.createChild<Checkbox>("debug_print_enabled", "Enable debug print")),
       bvhVisualizeCheckbox(
           shaderControlsWindow.createChild<Checkbox>("bvh_visualisation_enabled", "Enable BVH visualisation")),
+      visualizeProbesCheckbox(
+          shaderControlsWindow.createChild<Checkbox>("probe_visualisation_enabled", "Enable LF probe visualisation")),
       shaderDebugValueInput(shaderControlsWindow.createChild<SpinInput<int>>("shader_int1_drag", "Shader debug val 1",
                                                                              1, 8, 1, 1, 10, Persistent::Yes)),
       shaderDebugFloatValueSlider(shaderControlsWindow.createChild<DragInput<float>>(
@@ -307,5 +309,15 @@ void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   debugImagesMenuItem.setValue(visible);
   shaderControlsMenuItem.setValue(visible);
   modelsMenuItem.setValue(visible);
+}
+
+std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>
+SimpleSVORenderer_UI::createLoadingDialog() {
+  auto &loadingDialog = imgui->createDialog(uniqueId(), "Loading model...");
+  loadingDialog.setSize(Size{200, 100});
+  auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
+  auto &msgText = loadingDialog.createChild<Text>(uniqueId(), "");
+  return std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>{loadingDialog,
+                                                                                         loadingProgressBar, msgText};
 }
 }// namespace pf

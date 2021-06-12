@@ -38,9 +38,10 @@ RawVoxelScene loadScene(const std::filesystem::path &srcFile, FileType fileType)
 
 std::optional<FileType> details::detectFileType(const std::filesystem::path &srcFile) {
   if (srcFile.extension().string() == ".vox") { return FileType::Vox; }
+  if (srcFile.extension().string() == ".pf_vox") { return FileType::PfVox; }
   return std::nullopt;
 }
-
+// TODO: load it normally and then just flip y axis for each voxel AND chunk
 RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
   const auto fileData = std::vector<uint8_t>(std::istreambuf_iterator(istream), {});
   const auto ogtScene = ogt_vox_read_scene(fileData.data(), fileData.size());

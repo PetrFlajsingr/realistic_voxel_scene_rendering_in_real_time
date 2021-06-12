@@ -3,6 +3,7 @@
 //
 
 #include "SimpleSVORenderer.h"
+#include "light_field_probes/GridProbeGenerator.h"
 #include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>
@@ -16,7 +17,6 @@
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 #include <pf_imgui/unique_id.h>
-#include <ui/SVOConvertDialog.h>
 #include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SceneFileManager.h>
@@ -341,41 +341,45 @@ void SimpleSVORenderer::createDescriptorPool() {
 void SimpleSVORenderer::createPipeline() {
   // TODO: compute pipeline builder
   // TODO: descriptor sets
-  vkComputeDescSetLayout =
-      vkLogicalDevice->createDescriptorSetLayout({.bindings = {
-                                                      {.binding = 0,
-                                                       .type = vk::DescriptorType::eStorageImage,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
-                                                      {.binding = 1,
-                                                       .type = vk::DescriptorType::eUniformBuffer,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},//camera
-                                                      {.binding = 2,
-                                                       .type = vk::DescriptorType::eUniformBuffer,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
-                                                      {.binding = 3,
-                                                       .type = vk::DescriptorType::eStorageBuffer,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// svo
-                                                      {.binding = 4,
-                                                       .type = vk::DescriptorType::eUniformBuffer,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug
-                                                      {.binding = 5,
-                                                       .type = vk::DescriptorType::eStorageImage,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
-                                                      {.binding = 6,
-                                                       .type = vk::DescriptorType::eStorageBuffer,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// model infos
-                                                      {.binding = 7,
-                                                       .type = vk::DescriptorType::eStorageBuffer,
-                                                       .count = 1,
-                                                       .stageFlags = vk::ShaderStageFlagBits::eCompute},// bvh
-                                                  }});
+  vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
+      {.bindings = {
+           {.binding = 0,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
+           {.binding = 1,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},//camera
+           {.binding = 2,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
+           {.binding = 3,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// svo
+           {.binding = 4,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug
+           {.binding = 5,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
+           {.binding = 6,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// model infos
+           {.binding = 7,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// bvh
+           {.binding = 8,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe positions
+       }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
   const auto pipelineLayoutInfo =
@@ -416,12 +420,19 @@ void SimpleSVORenderer::createPipeline() {
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
+  // TODO: size
+  probePosBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
+                                                  .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
+                                                  .sharingMode = vk::SharingMode::eExclusive,
+                                                  .queueFamilyIndices = {}});
+  probePosBuffer->mapping().set(glm::vec4{0, 0, 0, 0});
 
-  debugUniformBuffer = vkLogicalDevice->createBuffer(
-      {.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float) + sizeof(std::uint32_t) + sizeof(std::uint32_t),
-       .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-       .sharingMode = vk::SharingMode::eExclusive,
-       .queueFamilyIndices = {}});
+  debugUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float)
+                                         + sizeof(std::uint32_t) + sizeof(std::uint32_t) + sizeof(uint32_t),
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -496,8 +507,18 @@ void SimpleSVORenderer::createPipeline() {
                                                .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                .pBufferInfo = &bvhInfo};
 
-  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite,  svoWrite,
-                                     uniformDebugWrite, computeIterWrite,   modelInfoWrite, bvhWrite};
+  const auto probePosInfo =
+      vk::DescriptorBufferInfo{.buffer = **probePosBuffer, .offset = 0, .range = probePosBuffer->getSize()};
+  const auto probePosWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                    .dstBinding = 8,
+                                                    .dstArrayElement = {},
+                                                    .descriptorCount = 1,
+                                                    .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                    .pBufferInfo = &probePosInfo};
+
+  const auto writeSets =
+      std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,     uniformDebugWrite,
+                  computeIterWrite,  modelInfoWrite,     bvhWrite,      probePosWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -635,10 +656,10 @@ void SimpleSVORenderer::initUI() {
   //FIXME
   ui->openModelMenuItem.addClickListener([this] {
     ui->imgui->openFileDialog(
-        "Select model", {FileExtensionSettings{{"vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
+        "Select model", {FileExtensionSettings{{"vox", "pf_vox"}, "Vox model", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
           auto modelPath = selected[0];
-          const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+          const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
           threadpool->template enqueue([this, modelPath, &loadingProgress, &loadingDialog, &loadingText] {
             auto newModel = modelManager->loadModel(
                 modelPath, {[this, &loadingProgress](float progress) {
@@ -669,7 +690,7 @@ void SimpleSVORenderer::initUI() {
             }
           });
         },
-        [] {});
+        [] {}, Size{500, 400}, std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>()));
   });
 
   ui->closeMenuItem.addClickListener(closeWindow);
@@ -748,7 +769,7 @@ void SimpleSVORenderer::initUI() {
 
   debugUniformBuffer->mapping().template set(-1, 1);
   ui->activeModelList.addDropListener([this](const auto &modelInfo) {
-    const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+    const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
     threadpool->template enqueue([this, modelInfo, &loadingProgress, &loadingDialog, &loadingText] {
       auto newModel = modelManager->loadModel(
           modelInfo.path, {[this, &loadingProgress](float progress) {
@@ -785,7 +806,7 @@ void SimpleSVORenderer::initUI() {
 
   ui->activateSelectedModelButton.addClickListener([this] {
     if (auto item = ui->modelList.getSelectedItem(); item.has_value()) {
-      const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+      const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
       threadpool->template enqueue([this, item, &loadingProgress, &loadingDialog, &loadingText] {
         auto newModel = modelManager->loadModel(
             item->get().path, {[this, &loadingProgress](float progress) {
@@ -893,6 +914,8 @@ void SimpleSVORenderer::initUI() {
 
   ui->bvhVisualizeCheckbox.addValueListener(
       [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 6).set(enabled ? 1 : 0); }, true);
+  ui->visualizeProbesCheckbox.addValueListener(
+      [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 7).set(enabled ? 1 : 0); }, true);
 
   // FIXME
   ui->loadSceneMenuItem.addClickListener([this] {
@@ -901,7 +924,7 @@ void SimpleSVORenderer::initUI() {
         [this](const auto &selected) {
           auto path = selected[0];
           auto models = vox::loadSceneFromFile(path);
-          const auto &[loadingDialog, loadingProgress, loadingText] = createLoadingDialog();
+          const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
           threadpool->enqueue([this, models, &loadingDialog, &loadingProgress, &loadingText] {
             auto failed = false;
             auto loadedItems = std::vector<ModelFileInfo>{};
@@ -1002,13 +1025,19 @@ void SimpleSVORenderer::initUI() {
         [] {});
   });
 
-  ui->svoConverterMenuItem.addClickListener([this] { ui->createConvertWindow(*threadpool, [](auto) {}); });
+  ui->svoConverterMenuItem.addClickListener([this] {
+    ui->createConvertWindow(*threadpool,
+                            std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>()),
+                            [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
+  });
 
   ui->imgui->setStateFromConfig();
 }
 std::vector<std::filesystem::path> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
-  return potentialModelFiles | ranges::views::filter([](const auto &path) { return path.extension() == ".vox"; })
+  return potentialModelFiles | ranges::views::filter([](const auto &path) {
+           return isIn(path.extension(), std::vector{".vox", ".pf_vox"});
+         })
       | ranges::to_vector | ranges::actions::sort;
 }
 
@@ -1025,7 +1054,7 @@ void SimpleSVORenderer::rebuildAndUploadBVH() {
     totalVoxels += model.minimizedVoxelCount;
   });
 
-  auto bvhTree = modelManager->buildBVH(true);
+  const auto &bvhTree = modelManager->rebuildBVH(true);
 
   const auto nodeCount = bvhTree.nodeCount;
   const auto depth = bvhTree.depth;
@@ -1036,18 +1065,15 @@ void SimpleSVORenderer::rebuildAndUploadBVH() {
 
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree.data, mapping);
+  lfp::GridProbeGenerator generator{.5f};
+  //const auto probes = generator.generateLightFieldProbes(*modelManager);
+  //std::ranges::for_each(probes | ranges::views::enumerate, [this, &probes](auto idxProbe) {
+  //  const auto &[idx, probe] = idxProbe;
+  //  logd("PROBES", "{}", probe);
+  //  probePosBuffer->mapping().set(glm::vec4{probe.position, probes.size()}, idx);
+  //});
 }
 
-std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>
-SimpleSVORenderer::createLoadingDialog() {
-  using namespace ui::ig;
-  auto &loadingDialog = ui->imgui->createDialog(uniqueId(), "Loading model...");
-  loadingDialog.setSize(Size{200, 100});
-  auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);
-  auto &msgText = loadingDialog.createChild<Text>(uniqueId(), "");
-  return std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>{loadingDialog,
-                                                                                         loadingProgressBar, msgText};
-}
 std::function<void()> SimpleSVORenderer::popupClickActiveModel(std::size_t itemId,
                                                                vox::GPUModelManager::ModelPtr modelPtr) {
   return [=, this] {
@@ -1111,6 +1137,23 @@ void SimpleSVORenderer::instantiateModel(vox::GPUModelManager::ModelPtr original
       });
     }
   });
+}
+
+#include <fstream>
+void SimpleSVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std::filesystem::path &dir) {
+  const auto dst = (dir / src.filename()).replace_extension(".pf_vox");
+  logd("CONVERT", "Converting: {} to: {}", src.string(), dst.string());
+  const auto svoCreate = vox::loadFileAsSVO(src, true);
+  logd("CONVERT", "Voxel count for: {} is: {}", src.string(), svoCreate[0].voxelCount);
+  const auto svoBinData = svoCreate[0].data.serialize();
+  logd("CONVERT", "Binary size for: {} is: {} bytes", src.string(), svoBinData.size());
+
+  auto ostream = std::ofstream{dst, std::ios::binary};
+  ostream.write(reinterpret_cast<const char *>(&svoCreate[0].voxelCount), sizeof(uint32_t));
+  ostream.write(reinterpret_cast<const char *>(&svoCreate[0].depth), sizeof(uint32_t));
+  const auto aabbData = toBytes(svoCreate[0].AABB);
+  ostream.write(reinterpret_cast<const char *>(aabbData.data()), aabbData.size());
+  ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
 }
 
 }// namespace pf
