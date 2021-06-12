@@ -5,10 +5,12 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 
+#include "SVOConvertDialog.h"
 #include <glm/glm.hpp>
 #include <ostream>
 #include <pf_common/enums.h>
 #include <pf_common/math/BoundingBox.h>
+#include <pf_common/parallel/ThreadPool.h>
 #include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/Combobox.h>
@@ -68,10 +70,12 @@ struct ModelFileInfo {
 
 class SimpleSVORenderer_UI {
  public:
-  explicit SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface, const Camera &camera,
+  explicit SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
+                                std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
                                 TextureData iterTextureData);
 
   std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
+  std::shared_ptr<ui::Window> window;
 
   // clang-format off
   ui::ig::AppMenuBar &windowMenuBar;
@@ -91,6 +95,8 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuSeparatorItem &separatorMenu1;
       ui::ig::MenuButtonItem &hideAllMenuItem;
       ui::ig::MenuButtonItem &showAllMenuItem;
+    ui::ig::SubMenu &toolsSubMenu;
+      ui::ig::MenuButtonItem &svoConverterMenuItem;
   ui::ig::Window &renderSettingsWindow;
     ui::ig::Combobox<ViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;
@@ -172,6 +178,10 @@ class SimpleSVORenderer_UI {
   // clang-format on
 
   void setWindowsVisible(bool visible);
+
+  void createConvertWindow(ThreadPool &threadPool, std::invocable<std::vector<std::filesystem::path>> auto &&conversion) {
+    createSVOConvertWindow(*imgui, *window, threadPool, conversion);
+  }
 
   constexpr static auto MODEL_BUFFER_OFFSET_INFO = "Offset: {} B";
   constexpr static auto MODEL_BUFFER_SIZE_INFO = "Size: {} B";

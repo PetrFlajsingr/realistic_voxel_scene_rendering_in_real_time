@@ -24,8 +24,9 @@ std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info) {
 }
 
 SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
-                                           const Camera &camera, TextureData iterTextureData)
-    : imgui(std::move(imguiInterface)), windowMenuBar(imgui->getMenuBar()),
+                                           std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
+                                           TextureData iterTextureData)
+    : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
       fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
       openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", "Open model")),
       loadSceneMenuItem(fileSubMenu.addButtonItem("load_scene_menu", "Load scene")),
@@ -42,6 +43,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       separatorMenu1(viewSubMenu.addSeparator("separator_menu_1")),
       hideAllMenuItem(viewSubMenu.addButtonItem("hide_all_windows_menu", "Hide all")),
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
+      toolsSubMenu(windowMenuBar.addSubmenu("tools_main_menu", "Tools")),
+      svoConverterMenuItem(toolsSubMenu.addButtonItem("svo_converter_menu", "SVO converter")),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
       viewTypeComboBox(renderSettingsWindow.createChild<Combobox<ViewType>>(
           "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,

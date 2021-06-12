@@ -16,6 +16,7 @@
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 #include <pf_imgui/unique_id.h>
+#include <ui/SVOConvertDialog.h>
 #include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SceneFileManager.h>
@@ -43,9 +44,9 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  *      mat4 inverse object matrix
  */
 
- // TODO: teardown map file loading
- // TODO: conversion app for binary svos
- // TODO: read raw svos from disk
+// TODO: teardown map file loading
+// TODO: conversion app for binary svos
+// TODO: read raw svos from disk
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
@@ -106,7 +107,7 @@ void SimpleSVORenderer::init(const std::shared_ptr<ui::Window> &win) {
   window->setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
   camera.registerControls(*window);
 
-  ui = std::make_unique<SimpleSVORenderer_UI>(std::move(imgui), camera,
+  ui = std::make_unique<SimpleSVORenderer_UI>(std::move(imgui), window, camera,
                                               TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler});
 
   modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, 5);
@@ -994,12 +995,14 @@ void SimpleSVORenderer::initUI() {
   ui->saveSceneMenuItem.addClickListener([this] {
     ui->imgui->openFileDialog(
         "Select file to save scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
-        [this]([[maybe_unused]] const auto &selected) {
+        [this](const auto &selected) {
           auto path = selected[0];
           vox::saveSceneToFile(modelManager->getModels(), path);
         },
         [] {});
   });
+
+  ui->svoConverterMenuItem.addClickListener([this] { ui->createConvertWindow(*threadpool, [](auto) {}); });
 
   ui->imgui->setStateFromConfig();
 }

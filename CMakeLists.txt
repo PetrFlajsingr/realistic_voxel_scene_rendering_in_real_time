@@ -241,8 +241,6 @@ set(INCLUDES
         src/utils/FPSCounter.h
         src/utils/FlameGraphSampler.h
         src/utils/interface/Serializable.h
-        ../pf_common/include/pf_common/bits.h
-        ../pf_common/include/pf_common/bin.h
         src/voxel/RawVoxelModel.h
         src/voxel/ModelLoading.h
         src/voxel/RawVoxelScene.h
@@ -252,6 +250,7 @@ set(INCLUDES
         src/voxel/GPUModelInfo.h
         src/voxel/SceneFileManager.h
         src/voxel/GPUModelManager.h
+        src/ui/SVOConvertDialog.h
         )
 
 set(SVO_SOURCES
