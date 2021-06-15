@@ -13,10 +13,6 @@
 #include <pf_common/enums.h>
 #include <pf_common/files.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
-#include <pf_imgui/elements.h>
-#include <pf_imgui/interface/decorators/WidthDecorator.h>
-#include <pf_imgui/styles/dark.h>
-#include <pf_imgui/unique_id.h>
 #include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SceneFileManager.h>
@@ -486,12 +482,12 @@ void SimpleSVORenderer::createPipeline() {
                                                   .queueFamilyIndices = {}});
   probePosBuffer->mapping().set(glm::vec4{0, 0, 0, 0});
 
-  debugUniformBuffer =
-      vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float)
-                                         + sizeof(std::uint32_t) + sizeof(std::uint32_t) + sizeof(uint32_t),
-                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                     .sharingMode = vk::SharingMode::eExclusive,
-                                     .queueFamilyIndices = {}});
+  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float)
+                                                          + sizeof(std::uint32_t) + sizeof(std::uint32_t)
+                                                          + sizeof(uint32_t) + sizeof(uint32_t),
+                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      .sharingMode = vk::SharingMode::eExclusive,
+                                                      .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -1117,6 +1113,15 @@ void SimpleSVORenderer::initUI() {
                             [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
   });
 
+  ui->probePositionDrag.addValueListener(
+      [this](const auto probePos) {
+        probePosBuffer->mapping().set(glm::vec4{probePos, 1});
+      },
+      true);
+
+  ui->probeTextureCombobox.addValueListener(
+      [this](const auto type) { debugUniformBuffer->mapping().set(static_cast<uint32_t>(type), 8); });
+
   ui->imgui->setStateFromConfig();
 }
 std::vector<std::filesystem::path> SimpleSVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
@@ -1151,13 +1156,6 @@ void SimpleSVORenderer::rebuildAndUploadBVH() {
 
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree.data, mapping);
-  lfp::GridProbeGenerator generator{.5f};
-  //const auto probes = generator.generateLightFieldProbes(*modelManager);
-  //std::ranges::for_each(probes | ranges::views::enumerate, [this, &probes](auto idxProbe) {
-  //  const auto &[idx, probe] = idxProbe;
-  //  logd("PROBES", "{}", probe);
-  //  probePosBuffer->mapping().set(glm::vec4{probe.position, probes.size()}, idx);
-  //});
 }
 
 std::function<void()> SimpleSVORenderer::popupClickActiveModel(std::size_t itemId,

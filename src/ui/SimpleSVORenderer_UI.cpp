@@ -168,9 +168,16 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       modelDetailScaleDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_scale_drag", "Scale", 0.01,
                                                                                0.01, 10, glm::vec3{1, 1, 1})),
       probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes debug")),
+      probePositionDrag(probesDebugWindow.createChild<DragInput<glm::vec3>>("probe_pos_drag", "Probe position", 0.01,
+                                                                            -100.f, 100.f, glm::vec3{0})),
       probesTabBar(probesDebugWindow.createChild<TabBar>("probe_debug_tabbar")),
       probesTexturesTab(probesTabBar.addTab("probes_debug_textures_tab", "Textures")),
-      probesColorImage(probesTexturesTab.createChild<Image>(
+      probeTextureCombobox(probesTexturesTab.createChild<Combobox<ProbeVisualisation>>(
+          "probe_texture_type_combobox", "Data type", "Select data type", magic_enum::enum_values<ProbeVisualisation>(),
+          ComboBoxCount::Items8, Persistent::Yes)),
+      probeTextureLayout(
+          probesTexturesTab.createChild<StretchLayout>("probe_image_stretch_layout", Size::Auto(), Stretch::All)),
+      probesColorImage(probeTextureLayout.createChild<Image>(
           "probes_color_texture",
           (ImTextureID) ImGui_ImplVulkan_AddTexture(
               *probesColorTextureData.vkImageSampler, *probesColorTextureData.vkImageView,
@@ -189,6 +196,10 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelDetailVoxelCountText.setReadOnly(true);
   modelDetailMinimisedVoxelCountText.setReadOnly(true);
   modelList.setDragTooltip("Model: {}");
+
+  probesDebugWindow.setCollapsible(true);
+
+  probePositionDrag.setTooltip("Position of debug probe in the scene");
 
   modelLoadingSeparateModelsCheckbox.setTooltip("Load models in model file as separate SVOs");
 

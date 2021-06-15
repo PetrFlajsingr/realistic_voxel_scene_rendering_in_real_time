@@ -5,6 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
 
+#include "enums.h"
 #include <glm/glm.hpp>
 #include <ostream>
 #include <pf_common/enums.h>
@@ -41,14 +42,7 @@
 
 namespace pf {
 
-// TODO: move to separate header
-enum class ViewType : int { Color = 0, Normals, Iterations, Distance, ChildIndex, TreeLevel };
-
-// TODO: figure out why PF_ENUM_OUT doesn't work
-inline std::ostream &operator<<(std::ostream &o, ViewType viewType) {
-  o << magic_enum::enum_name(viewType);
-  return o;
-}
+//template class ui::ig::ComboBox<ProbeVisualisation>;
 
 // TODO: terminal interface in pf_imgui
 
@@ -179,9 +173,12 @@ class SimpleSVORenderer_UI {
       ui::ig::DragInput<glm::vec3> &modelDetailRotateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
   ui::ig::Window &probesDebugWindow;
+    ui::ig::DragInput<glm::vec3> &probePositionDrag;
     ui::ig::TabBar &probesTabBar;
       ui::ig::Tab &probesTexturesTab;
-        ui::ig::Image &probesColorImage;
+        ui::ig::Combobox<ProbeVisualisation> &probeTextureCombobox;
+        ui::ig::StretchLayout &probeTextureLayout;
+          ui::ig::Image &probesColorImage;
 
   // clang-format on
 

@@ -6,6 +6,7 @@
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SIMPLESVORENDERER_H
 
 #include "VulkanDebugCallbackImpl.h"
+#include "enums.h"
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
