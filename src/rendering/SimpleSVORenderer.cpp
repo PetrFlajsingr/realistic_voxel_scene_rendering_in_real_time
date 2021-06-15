@@ -27,6 +27,8 @@ using namespace vulkan;
 using namespace pf::byte_literals;
 using namespace ui::ig;
 
+constexpr auto PROBES_IMG_ARRAY_LAYERS = 10;
+
 // TODO: fix memo race issues
 // TODO: remove this and make it work from pf_common/enums.h
 std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
@@ -107,8 +109,9 @@ void SimpleSVORenderer::init(const std::shared_ptr<ui::Window> &win) {
   window->setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
   camera.registerControls(*window);
 
-  ui = std::make_unique<SimpleSVORenderer_UI>(std::move(imgui), window, camera,
-                                              TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler});
+  ui = std::make_unique<SimpleSVORenderer_UI>(
+      std::move(imgui), window, camera, TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler},
+      TextureData{*vkProbesDebugImage, *vkProbesDebugImageView, *vkProbesDebugImageSampler});
 
   modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, 5);
 
@@ -122,7 +125,7 @@ std::unordered_set<std::string> SimpleSVORenderer::getValidationLayers() {
 
 void SimpleSVORenderer::buildVulkanObjects() {
   createSwapchain();
-  createRenderTextures();
+  createTextures();
   createDescriptorPool();
   createPipeline();
 
@@ -276,7 +279,7 @@ void SimpleSVORenderer::createSwapchain() {
        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
 }
 
-void SimpleSVORenderer::createRenderTextures() {
+void SimpleSVORenderer::createTextures() {
   vkRenderImage = vkLogicalDevice->createImage(
       {.imageType = vk::ImageType::e2D,
        .format = vkSwapChain->getFormat(),
@@ -322,6 +325,50 @@ void SimpleSVORenderer::createRenderTextures() {
                            .unnormalizedCoordinates = false,
                            .compareOp = std::nullopt,
                            .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
+
+  vkProbesDebugImage =
+      vkLogicalDevice->createImage({.imageType = vk::ImageType::e2D,
+                                    .format = vk::Format::eB8G8R8A8Unorm,
+                                    .extent = vk::Extent3D{.width = 1024, .height = 1024, .depth = 1},
+                                    .mipLevels = 1,
+                                    .arrayLayers = 1,
+                                    .sampleCount = vk::SampleCountFlagBits::e1,
+                                    .tiling = vk::ImageTiling::eOptimal,
+                                    .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+                                        | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+                                    .sharingQueues = {},
+                                    .layout = vk::ImageLayout::eUndefined});
+  vkProbesDebugImageView =
+      vkProbesDebugImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
+                                          vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+  vkProbesDebugImageSampler = TextureSampler::CreateShared(
+      vkLogicalDevice,
+      TextureSamplerConfig{.magFilter = vk::Filter::eLinear,
+                           .minFilter = vk::Filter::eLinear,
+                           .addressMode = {.u = vk::SamplerAddressMode::eClampToBorder,
+                                           .v = vk::SamplerAddressMode::eClampToBorder,
+                                           .w = vk::SamplerAddressMode::eClampToBorder},
+                           .maxAnisotropy = std::nullopt,
+                           .borderColor = vk::BorderColor::eFloatOpaqueBlack,
+                           .unnormalizedCoordinates = false,
+                           .compareOp = std::nullopt,
+                           .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
+
+  vkProbesImage =
+      vkLogicalDevice->createImage({.imageType = vk::ImageType::e2D,
+                                    .format = vk::Format::eR32G32Sfloat,
+                                    .extent = vk::Extent3D{.width = 1024, .height = 1024, .depth = 1},
+                                    .mipLevels = 1,
+                                    .arrayLayers = PROBES_IMG_ARRAY_LAYERS,
+                                    .sampleCount = vk::SampleCountFlagBits::e1,
+                                    .tiling = vk::ImageTiling::eOptimal,
+                                    .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+                                        | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+                                    .sharingQueues = {},
+                                    .layout = vk::ImageLayout::eUndefined});
+  vkProbesImageView = vkProbesImage->createImageView(
+      vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2DArray,
+      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, PROBES_IMG_ARRAY_LAYERS});
 }
 
 void SimpleSVORenderer::createDescriptorPool() {
@@ -334,7 +381,11 @@ void SimpleSVORenderer::createDescriptorPool() {
                                                           {vk::DescriptorType::eStorageBuffer, 1},// svo
                                                           {vk::DescriptorType::eUniformBuffer, 1},// view type
                                                           {vk::DescriptorType::eStorageImage, 1}, // iterations
-                                                          {vk::DescriptorType::eUniformBuffer, 1},// matrices
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// model infos
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// bvh
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// probes
+                                                          {vk::DescriptorType::eStorageImage, 1}, // probe debug
+                                                          {vk::DescriptorType::eStorageImage, 1}, // probe array
                                                       }});
 }
 
@@ -379,6 +430,14 @@ void SimpleSVORenderer::createPipeline() {
             .type = vk::DescriptorType::eStorageBuffer,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe positions
+           {.binding = 9,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug probe texture
+           {.binding = 10,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe textures
        }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -516,9 +575,31 @@ void SimpleSVORenderer::createPipeline() {
                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                     .pBufferInfo = &probePosInfo};
 
-  const auto writeSets =
-      std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,     uniformDebugWrite,
-                  computeIterWrite,  modelInfoWrite,     bvhWrite,      probePosWrite};
+  const auto computeDebugProbesInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                              .imageView = **vkProbesDebugImageView,
+                                                              .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeDebugProbesWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                              .dstBinding = 9,
+                                                              .dstArrayElement = {},
+                                                              .descriptorCount = 1,
+                                                              .descriptorType = vk::DescriptorType::eStorageImage,
+                                                              .pImageInfo = &computeDebugProbesInfo};
+
+  const auto computeProbesInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                         .imageView = **vkProbesImageView,
+                                                         .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeProbesWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                         .dstBinding = 10,
+                                                         .dstArrayElement = {},
+                                                         .descriptorCount = 1,
+                                                         .descriptorType = vk::DescriptorType::eStorageImage,
+                                                         .pImageInfo = &computeProbesInfo};
+
+  const auto writeSets = std::vector{computeColorWrite, uniformCameraWrite,      lightPosWrite,     svoWrite,
+                                     uniformDebugWrite, computeIterWrite,        modelInfoWrite,    bvhWrite,
+                                     probePosWrite,     computeDebugProbesWrite, computeProbesWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -545,6 +626,11 @@ void SimpleSVORenderer::createCommands() {
                                   vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
   vkIterImage->transitionLayout(*vkCommandPool, vk::ImageLayout::eGeneral,
                                 vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+  vkProbesDebugImage->transitionLayout(*vkCommandPool, vk::ImageLayout::eGeneral,
+                                       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+  vkProbesImage->transitionLayout(
+      *vkCommandPool, vk::ImageLayout::eGeneral,
+      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, PROBES_IMG_ARRAY_LAYERS});
 
   vkCommandBuffers = vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 3});
 

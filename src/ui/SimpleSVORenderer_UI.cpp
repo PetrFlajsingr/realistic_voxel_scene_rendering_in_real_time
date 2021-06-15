@@ -8,7 +8,7 @@
 #include <pf_imgui/elements/Slider2D.h>
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
-
+#include <string>
 #include <utility>
 
 namespace pf {
@@ -25,14 +25,14 @@ std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info) {
 
 SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
                                            std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
-                                           TextureData iterTextureData)
+                                           TextureData iterTextureData, TextureData probesColorTextureData)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
       fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
-      openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", "Open model")),
-      loadSceneMenuItem(fileSubMenu.addButtonItem("load_scene_menu", "Load scene")),
-      saveSceneMenuItem(fileSubMenu.addButtonItem("save_scene_menu", "Save scene")),
+      openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", ICON_FA_FILE_ALT "  Open model")),
+      loadSceneMenuItem(fileSubMenu.addButtonItem("load_scene_menu", ICON_FA_FILE_ALT "  Load scene")),
+      saveSceneMenuItem(fileSubMenu.addButtonItem("save_scene_menu", ICON_FA_SAVE "  Save scene")),
       fileMenuSeparator1(fileSubMenu.addSeparator("fileMenuSeparator1")),
-      closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", "Close")),
+      closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", ICON_FA_WINDOW_CLOSE "  Close")),
       viewSubMenu(windowMenuBar.addSubmenu("view_main_menu", "View")),
       infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true)),
       renderSettingsMenuItem(viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true)),
@@ -109,9 +109,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           debugImagesWindow.createChild<StretchLayout>("iter_image_stretch_layout", Size::Auto(), Stretch::All)),
       iterationImage(imageStretchLayout.createChild<pf::ui::ig::Image>(
           "iter_image",
-          (ImTextureID) ImGui_ImplVulkan_AddTexture(
-              *iterTextureData.vkIterImageSampler, *iterTextureData.vkIterImageView,
-              static_cast<VkImageLayout>(iterTextureData.vkIterImage.getLayout())),
+          (ImTextureID) ImGui_ImplVulkan_AddTexture(*iterTextureData.vkImageSampler, *iterTextureData.vkImageView,
+                                                    static_cast<VkImageLayout>(iterTextureData.vkImage.getLayout())),
           Size::Auto())),
       shaderControlsWindow(imgui->createWindow("shader_controls_window", "Shader controls")),
       debugPrintEnableCheckbox(shaderControlsWindow.createChild<Checkbox>("debug_print_enabled", "Enable debug print")),
@@ -167,9 +166,20 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       modelDetailRotateDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_rotate_drag", "Rotate",
                                                                                 0.01, -180, 180, glm::vec3{0})),
       modelDetailScaleDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_scale_drag", "Scale", 0.01,
-                                                                               0.01, 10, glm::vec3{1, 1, 1}))
+                                                                               0.01, 10, glm::vec3{1, 1, 1})),
+      probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes debug")),
+      probesTabBar(probesDebugWindow.createChild<TabBar>("probe_debug_tabbar")),
+      probesTexturesTab(probesTabBar.addTab("probes_debug_textures_tab", "Textures")),
+      probesColorImage(probesTexturesTab.createChild<Image>(
+          "probes_color_texture",
+          (ImTextureID) ImGui_ImplVulkan_AddTexture(
+              *probesColorTextureData.vkImageSampler, *probesColorTextureData.vkImageView,
+              static_cast<VkImageLayout>(probesColorTextureData.vkImage.getLayout())),
+          Size{400, 400}))
 
 {
+  //auto &w = imgui->createWindow(uniqueId(), "Window");
+  //w.createChild<Bullet<Button>>(uniqueId(), "Click me");
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);
   modelDetailLayout.setScrollable(true);

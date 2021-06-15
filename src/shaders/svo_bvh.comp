@@ -31,8 +31,20 @@ struct ChildDescriptor {
 
 layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
 
+struct ModelInfo {
+  vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
+  mat4 objectMatrix;
+  mat4 inverseObjectMatrix;
+  vec4 AABB1;// xyz is p1.xyz, w is p2.x
+  vec4 AABB2;// xy is p2.yz
+};
+
+struct BVHNode {
+  vec4 AABB1;        // p1.xyz, p2.x
+  vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
+};
+
 layout(binding = 0, rgba8) uniform image2D computeImage;
-layout(binding = 5, r32f) uniform image2D iterImage;
 
 layout(binding = 1) uniform UniformCamera {
   vec4 pos;
@@ -61,33 +73,6 @@ layout(std430, binding = 3) buffer VoxelSVO_SSBO {
   uint data[];// uint infosectionPtr, uint attachmentsPtr, childDescriptors[]
 }
 svo;
-#define SVO_HEADER_SIZE 2
-
-struct ModelInfo {
-  vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
-  mat4 objectMatrix;
-  mat4 inverseObjectMatrix;
-  vec4 AABB1;// xyz is p1.xyz, w is p2.x
-  vec4 AABB2;// xy is p2.yz
-};
-layout(std430, binding = 6) buffer SVOModelInfos { ModelInfo infos[]; }
-modelInfos;
-
-struct BVHNode {
-  vec4 AABB1;        // p1.xyz, p2.x
-  vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
-};
-const uint BVH_OFFSET_MASK = 0x7FFFFFFF;
-const uint BVH_LEAF_NODE_MASK = ~BVH_OFFSET_MASK;
-layout(std430, binding = 7) buffer BVHModelAABBs { BVHNode nodes[]; }
-bvh;
-
-#define COLOR_VIEW 0
-#define NORMAL_VIEW 1
-#define ITER_VIEW 2
-#define DISTANCE_VIEW 3
-#define CHILD_INDEX_VIEW 4
-#define TREE_LEVEL_VIEW 5
 layout(binding = 4, std140) uniform Debug {
   int viewType;
   int debugVal;
@@ -99,9 +84,27 @@ layout(binding = 4, std140) uniform Debug {
   uint visualizeProbes;
 }
 debug;
-
+layout(binding = 5, r32f) uniform image2D iterImage;
+layout(std430, binding = 6) buffer SVOModelInfos { ModelInfo infos[]; }
+modelInfos;
+layout(std430, binding = 7) buffer BVHModelAABBs { BVHNode nodes[]; }
+bvh;
 layout(std430, binding = 8) buffer LightFieldProbes { vec4 probes[]; }
 lfp;
+layout(binding = 9, rgba8) uniform image2D debugProbeImage;
+layout(binding = 10, rg32f) uniform image2DArray probeImages;
+
+#define SVO_HEADER_SIZE 2
+
+const uint BVH_OFFSET_MASK = 0x7FFFFFFF;
+const uint BVH_LEAF_NODE_MASK = ~BVH_OFFSET_MASK;
+
+#define COLOR_VIEW 0
+#define NORMAL_VIEW 1
+#define ITER_VIEW 2
+#define DISTANCE_VIEW 3
+#define CHILD_INDEX_VIEW 4
+#define TREE_LEVEL_VIEW 5
 
 float max(vec2 v) { return max(v.x, v.y); }
 float max(vec3 v) { return max(max(v.x, v.y), v.z); }
@@ -767,9 +770,8 @@ void main() {
       finalColor += traceResult.normal * 0.5f + 0.5f;
     } else if (debug.viewType == DISTANCE_VIEW) {
       const float dist = traceResult.distanceInWorldSpace;
-      const float z = (camera.far + camera.near) / (camera.far - camera.near)
-          + 1.f / dist * ((-2 * camera.far * camera.near) / (camera.far - camera.near));
-      finalColor += vec3(z);
+      const float z = dist / 100.f;
+      finalColor += vec3(1 - z);
     } else if (debug.viewType == CHILD_INDEX_VIEW) {
       finalColor += lut[traceResult.childIdx];
     } else if (debug.viewType == TREE_LEVEL_VIEW) {
@@ -785,6 +787,11 @@ void main() {
 
   finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));
 
+  imageStore(probeImages, ivec3(gl_GlobalInvocationID.x % 1024, gl_GlobalInvocationID.y % 1024, 0),
+             vec4(finalColor, 1));
+
   imageStore(computeImage, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 1.0));
   imageStore(iterImage, ivec2(gl_GlobalInvocationID.xy), vec4(iterColor, 1.0));
+  vec2 test = imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x % 1024, gl_GlobalInvocationID.y % 1024, 0)).xy;
+  imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x % 1024, gl_GlobalInvocationID.y % 1024), vec4(test, 1, 1));
 }

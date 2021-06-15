@@ -149,7 +149,7 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   void createDevices();
 
   void createSwapchain();
-  void createRenderTextures();
+  void createTextures();
   void createDescriptorPool();
   void createPipeline();
   void createCommands();
@@ -192,6 +192,12 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Image> vkIterImage;
   std::shared_ptr<vulkan::ImageView> vkIterImageView;
   std::shared_ptr<vulkan::TextureSampler> vkIterImageSampler;
+
+  std::shared_ptr<vulkan::Image> vkProbesImage;
+  std::shared_ptr<vulkan::ImageView> vkProbesImageView;
+  std::shared_ptr<vulkan::Image> vkProbesDebugImage;
+  std::shared_ptr<vulkan::ImageView> vkProbesDebugImageView;
+  std::shared_ptr<vulkan::TextureSampler> vkProbesDebugImageSampler;
 
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
 

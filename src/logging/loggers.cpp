@@ -7,6 +7,7 @@
 #include "CallbackSink.h"
 #include "SomeLevelsSink.h"
 #include <utility>
+#include <pf_common/ByteLiterals.h>
 
 std::vector<std::shared_ptr<spdlog::sinks::sink>> createConsoleLogSinks(const GlobalLoggerSettings &settings,
                                                                         std::string_view tag) {
@@ -45,11 +46,12 @@ std::vector<std::shared_ptr<spdlog::sinks::sink>> createConsoleLogSinks(const Gl
 }
 
 void createLoggerForTag(const GlobalLoggerSettings &settings, std::string_view tag) {
+  using namespace pf::byte_literals;
   auto sinks = std::vector<std::shared_ptr<spdlog::sinks::sink>>{};
   if (settings.console) { sinks = createConsoleLogSinks(settings, tag); }
   auto log_file_path = settings.logDir;
   log_file_path.append("log.log");
-  sinks.emplace_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_file_path.string()));
+  sinks.emplace_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(log_file_path.string(), 10_MB, 1));
 
   auto logger = std::make_shared<spdlog::logger>(std::string(tag), sinks.begin(), sinks.end());
   const auto logger_level = settings.verbose ? spdlog::level::trace

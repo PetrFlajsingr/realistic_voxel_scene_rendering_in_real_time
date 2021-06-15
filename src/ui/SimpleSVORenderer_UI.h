@@ -53,9 +53,9 @@ inline std::ostream &operator<<(std::ostream &o, ViewType viewType) {
 // TODO: terminal interface in pf_imgui
 
 struct TextureData {
-  vulkan::Image &vkIterImage;
-  vulkan::ImageView &vkIterImageView;
-  vulkan::TextureSampler &vkIterImageSampler;
+  vulkan::Image &vkImage;
+  vulkan::ImageView &vkImageView;
+  vulkan::TextureSampler &vkImageSampler;
 };
 
 struct ModelFileInfo {
@@ -74,8 +74,8 @@ struct ModelFileInfo {
 class SimpleSVORenderer_UI {
  public:
   explicit SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
-                                std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
-                                TextureData iterTextureData);
+                                std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
+                                TextureData probesColorTextureData);
 
   std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
   std::shared_ptr<ui::Window> window;
@@ -178,6 +178,10 @@ class SimpleSVORenderer_UI {
       ui::ig::DragInput<glm::vec3> &modelDetailTranslateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailRotateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
+  ui::ig::Window &probesDebugWindow;
+    ui::ig::TabBar &probesTabBar;
+      ui::ig::Tab &probesTexturesTab;
+        ui::ig::Image &probesColorImage;
 
   // clang-format on
 

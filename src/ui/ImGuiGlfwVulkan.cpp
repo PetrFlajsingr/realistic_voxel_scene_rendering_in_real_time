@@ -26,8 +26,10 @@ ImGuiGlfwVulkan::ImGuiGlfwVulkan(std::shared_ptr<vulkan::LogicalDevice> device,
                                  std::shared_ptr<vulkan::RenderPass> pass, std::shared_ptr<vulkan::Surface> surf,
                                  std::shared_ptr<vulkan::SwapChain> swapCh, GLFWwindow *handle, ImGuiConfigFlags flags,
                                  toml::table config)
-    : ImGuiInterface(flags, std::move(config)), logicalDevice(std::move(device)), renderPass(std::move(pass)),
-      surface(std::move(surf)), swapChain(std::move(swapCh)) {
+    : ImGuiInterface(flags, std::move(config), *config["path_icons"].value<std::string>(),
+                     IconPack::FontAwesome5Regular, 13.f),
+      logicalDevice(std::move(device)), renderPass(std::move(pass)), surface(std::move(surf)),
+      swapChain(std::move(swapCh)) {
 
   auto &physicalDevice = logicalDevice->getPhysicalDevice();
   const auto imageCount = swapChain->getImageViews().size();
@@ -99,6 +101,10 @@ void ImGuiGlfwVulkan::updateFonts() {
 }
 
 void ImGuiGlfwVulkan::render() {
+  if (shouldUpdateFontAtlas) {
+    shouldUpdateFontAtlas = false;
+    updateFonts();
+  }
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
