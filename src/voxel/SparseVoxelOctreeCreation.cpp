@@ -7,6 +7,7 @@
 #include <fstream>
 #include <logging/loggers.h>
 #include <magic_enum.hpp>
+#include <pf_common/bin.h>
 #include <pf_common/bits.h>
 #include <range/v3/action/sort.hpp>
 #include <range/v3/view/filter.hpp>
@@ -32,6 +33,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::pa
   if (!ifstream.is_open()) { throw LoadException("Could not open file '{}'", srcFile.string()); }
   switch (fileType) {
     case FileType::Vox: return details::loadVoxFileAsSVO(std::move(ifstream), sceneAsOneSVO); break;
+    case FileType::PfVox: return details::loadPfVoxFileAsSVO(std::move(ifstream)); break;
     default:
       throw LoadException("Could not load model '{}', unsupported format: {}", srcFile.string(),
                           magic_enum::enum_name(fileType));
@@ -58,8 +60,9 @@ SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene) {
   const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
   bb.p2 = bb.p1 + bbDiff;
   auto resultTree = rawTreeToSVO(tree);
-  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
-                                                std::move(resultTree.first), scene.getSceneCenter().xzy()};
+  auto createInfo =
+      SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0,
+                                  bb,           std::move(resultTree.first),          scene.getSceneCenter().xzy()};
   createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
   return createInfo;
 }
@@ -86,8 +89,9 @@ std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &
     const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
     bb.p2 = bb.p1 + bbDiff;
     auto resultTree = rawTreeToSVO(tree);
-    auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
-                                                  std::move(resultTree.first), scene.getSceneCenter().xzy()};
+    auto createInfo =
+        SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0,
+                                    bb,           std::move(resultTree.first),          scene.getSceneCenter().xzy()};
     createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
     return {createInfo};
   } else {
@@ -118,8 +122,8 @@ SparseVoxelOctreeCreateInfo convertModelToSVO(const RawVoxelModel &model) {
   const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
   bb.p2 = bb.p1 + bbDiff;
   auto resultTree = rawTreeToSVO(tree);
-  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
-                                                std::move(resultTree.first), glm::vec3{}};
+  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0,
+                                                bb,           std::move(resultTree.first),          glm::vec3{}};
   createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
   return createInfo;
 }
@@ -129,6 +133,19 @@ std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istrea
   const auto scene = loadVoxScene(std::move(istream));
   //logd("VOX", "Loaded scene");
   return convertSceneToSVO(scene, sceneAsOneSVO);
+}
+
+std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istream) {
+  auto data = std::vector<char>((std::istreambuf_iterator<char>(istream)), std::istreambuf_iterator<char>());
+  auto dataView = std::span{reinterpret_cast<const std::byte *>(data.data()), data.size()};
+  const auto svoVoxelCount = fromBytes<uint32_t>(dataView.first(sizeof(uint32_t)));
+  const auto svoDepth = fromBytes<uint32_t>(dataView.subspan(sizeof(uint32_t), sizeof(uint32_t)));
+  const auto aabb =
+      fromBytes<math::BoundingBox<3>>(dataView.subspan(sizeof(uint32_t) * 2, sizeof(math::BoundingBox<3>)));
+  const auto svo = SparseVoxelOctree::Deserialize(
+      dataView.subspan(sizeof(uint32_t) * 2 + sizeof(math::BoundingBox<3>),
+                       dataView.size() - (sizeof(uint32_t) * 2) + sizeof(math::BoundingBox<3>)));
+  return {SparseVoxelOctreeCreateInfo{svoDepth, svoVoxelCount, svoVoxelCount, aabb, std::move(svo), glm::vec3{}}};
 }
 
 math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene) {
