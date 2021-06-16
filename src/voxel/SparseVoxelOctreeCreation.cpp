@@ -57,8 +57,10 @@ SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene) {
       voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
   //logd("VOX", "Built intermediate tree");
   const auto octreeSizeLength = std::pow(2, octreeLevels);
+  std::swap(bb.p2.y, bb.p1.y); // swapping 'cause -y and we need to move the p2 towards origin basically
   const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
   bb.p2 = bb.p1 + bbDiff;
+  std::swap(bb.p2.y, bb.p1.y);
   auto resultTree = rawTreeToSVO(tree);
   auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
                                                 std::move(resultTree.first)};
@@ -84,9 +86,9 @@ std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &
     std::ranges::for_each(
         voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
     //logd("VOX", "Built intermediate tree");
-    const auto octreeSizeLength = std::pow(2, octreeLevels);
-    const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
-    bb.p2 = bb.p1 + bbDiff;
+    //const auto octreeSizeLength = std::pow(2, octreeLevels);
+    //const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
+    //bb.p2 = bb.p1 + bbDiff;
     auto resultTree = rawTreeToSVO(tree);
     auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb,
                                                   std::move(resultTree.first)};
@@ -143,10 +145,10 @@ std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istr
 }
 
 math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene) {
-  //constexpr auto MAX = std::numeric_limits<float>::max();
+  constexpr auto MAX = std::numeric_limits<float>::max();
   constexpr auto MIN = std::numeric_limits<float>::lowest();
 
-  auto result = math::BoundingBox<3>(glm::vec3{0}, glm::vec3{MIN});
+  auto result = math::BoundingBox<3>(glm::vec3{MAX}, glm::vec3{MIN});
 
   auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
       | views::join;

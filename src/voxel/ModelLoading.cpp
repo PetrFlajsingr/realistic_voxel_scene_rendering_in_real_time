@@ -84,12 +84,12 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
     return maxCoords;
   }();
 
-  const auto height = maxModelOffset.z - minModelOffset.z;
-  std::ranges::for_each(ogtModelsWithTransform, [minModelOffset, height](auto &modelInfo) {
-    modelInfo.translate -= minModelOffset;
-    modelInfo.translate.z *= -1;
-    modelInfo.translate.z += height;
-  });
+  //const auto height = maxModelOffset.z - minModelOffset.z;
+  //std::ranges::for_each(ogtModelsWithTransform, [minModelOffset, height](auto &modelInfo) {
+  //  modelInfo.translate -= minModelOffset;
+  //  modelInfo.translate.z *= -1;
+  //  modelInfo.translate.z += height;
+  //});
 
   //const auto height = maxModelOffset.z - minModelOffset.z;
   //std::ranges::for_each(ogtModelsWithTransform, [minModelOffset, height](auto &modelInfo) {
@@ -105,7 +105,7 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
     const auto volSize = ogtModel.model->size_x * ogtModel.model->size_y * ogtModel.model->size_z;
     const auto ogtVoxels = std::span{ogtModel.model->voxel_data, volSize};
 
-    auto currentPos = glm::vec3{0, ogtModel.model->size_z - 1, 0};
+    auto currentPos = glm::vec3{0, 0, 0};
 
     auto movePos = [&currentPos, ogtModel] {
       ++currentPos.x;
@@ -114,7 +114,7 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
         ++currentPos.z;
         if (currentPos.z == ogtModel.model->size_y) {
           currentPos.z = 0;
-          --currentPos.y;
+          ++currentPos.y;
         }
       }
     };
@@ -125,7 +125,7 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
       if (ogtVoxel != 0) {
         const auto ogtColor = ogtScene->palette.color[ogtVoxel];
         voxels.emplace_back(
-            glm::vec4{currentPos + ogtModel.translate.xzy(), 0},
+            glm::vec4{currentPos + ogtModel.translate.xzy(), 0} * glm::vec4{1, -1, 1, 1},
             //glm::vec4{currentPos + ogtModel.translate.yxz(), 0},
             glm::vec4{ogtColor.r / 255.0f, ogtColor.g / 255.0f, ogtColor.b / 255.0f, ogtColor.a / 255.0f});
       }
