@@ -3,6 +3,7 @@
 //
 
 #include "GPUModelInfo.h"
+#include <glm/gtx/quaternion.hpp>
 #include <pf_imgui/serialization.h>
 namespace pf::vox {
 
@@ -21,13 +22,13 @@ void GPUModelInfo::updateInfoToGPU() {
   const auto translateCenterMat = glm::translate(glm::mat4(1.f), center);
   const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
   const auto scaleMat = glm::scale(scaleVec);
-  const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
-  const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
-  const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
-  const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
+  const auto quaternion = glm::quat{rotateVec};
+  const auto rotateMat = glm::toMat4(quaternion);
   transformMatrix = translateMat * scaleMat * rotateMat * translateCenterMat;
+
+  const auto inverseRotateMat = glm::toMat4(glm::inverse(quaternion));
   const auto invTransformMatrix =
-      glm::inverse(translateCenterMat) * glm::inverse(rotateMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
+      glm::inverse(translateCenterMat) * inverseRotateMat/*glm::inverse(rotateMat)*/ * glm::inverse(scaleMat) * glm::inverse(translateMat);
   const std::uint32_t svoOffsetTmp = svoMemoryBlock->getOffset() / 4;
   const auto scaleBufferData = glm::vec4{/*1.f /*/ scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
 

@@ -5,6 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_AABB_BVH_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_AABB_BVH_H
 
+#include <glm/gtx/extended_min_max.hpp>
 #include <ostream>
 #include <pf_common/Tree.h>
 #include <pf_common/math/BoundingBox.h>
@@ -51,6 +52,8 @@ std::unique_ptr<details::Node> createNodeFromClosest2(std::vector<std::unique_pt
 
 std::vector<std::unique_ptr<details::Node>> createNextLevel(std::vector<std::unique_ptr<details::Node>> &&nodes);
 
+math::BoundingBox<3> aabbFromTransformed(const math::BoundingBox<3> &original, const glm::mat4 &matrix);
+
 BVHCreateInfo
 createBVH(std::ranges::range auto &&models,
           bool createStats) requires(std::same_as<std::ranges::range_value_t<decltype(models)>, GPUModelInfo>) {
@@ -58,7 +61,8 @@ createBVH(std::ranges::range auto &&models,
 
   auto nodes =
       models | std::views::transform([](const auto &model) {
-        return std::make_unique<details::Node>(BVHData{model.transformMatrix * model.AABB, *model.getModelIndex()});
+                     const auto transformedAABB = aabbFromTransformed(model.AABB, model.transformMatrix);
+        return std::make_unique<details::Node>(BVHData{transformedAABB, *model.getModelIndex()});
       })
       | ranges::to_vector;
 

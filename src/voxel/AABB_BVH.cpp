@@ -138,6 +138,32 @@ void saveBVHToBuffer(const Tree<BVHData> &bvh, vulkan::BufferMapping &mapping) {
   mapping.set(gpuNodes);
 }
 
+math::BoundingBox<3> aabbFromTransformed(const math::BoundingBox<3> &original, const glm::mat4 &matrix) {
+  auto corners = std::array<glm::vec4, 8>{
+      glm::vec4{original.p1.x, original.p1.y, original.p1.z, 1},
+      glm::vec4{original.p1.x, original.p1.y, original.p2.z, 1},
+      glm::vec4{original.p1.x, original.p2.y, original.p1.z, 1},
+      glm::vec4{original.p1.x, original.p2.y, original.p2.z, 1},
+      glm::vec4{original.p2.x, original.p1.y, original.p1.z, 1},
+      glm::vec4{original.p2.x, original.p1.y, original.p2.z, 1},
+      glm::vec4{original.p2.x, original.p2.y, original.p1.z, 1},
+      glm::vec4{original.p2.x, original.p2.y, original.p2.z, 1},
+  };
+  auto result = math::BoundingBox<3>{glm::vec3{std::numeric_limits<float>::max()},
+                                     glm::vec3{std::numeric_limits<float>::lowest()}};
+  std::ranges::for_each(corners, [&](const auto corner) {
+    const auto transformedCorner = matrix * corner;
+    result.p1.x = std::min(transformedCorner.x, result.p1.x);
+    result.p1.y = std::min(transformedCorner.y, result.p1.y);
+    result.p1.z = std::min(transformedCorner.z, result.p1.z);
+
+    result.p2.x = std::max(transformedCorner.x, result.p2.x);
+    result.p2.y = std::max(transformedCorner.y, result.p2.y);
+    result.p2.z = std::max(transformedCorner.z, result.p2.z);
+  });
+  return result;
+}
+
 void details::serializeBVHForGPU(const Node &root, std::vector<details::GPUBVHNode> &result) {
   if (root.childrenSize() == 0) { return; }
   auto &child1 = root.children()[0];

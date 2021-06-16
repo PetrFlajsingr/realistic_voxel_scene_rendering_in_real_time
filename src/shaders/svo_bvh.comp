@@ -709,6 +709,8 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   }
 
   if (bestModelResult.hit) {
+    bestModelResult.normal =
+        (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz;
     bestModelResult.color += result.color;
     bestModelResult.iter = result.iter;
     bestModelResult.isOnlyAABB = result.isOnlyAABB;
@@ -817,6 +819,7 @@ void main() {
   imageStore(computeImage, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 1.0));
   imageStore(iterImage, ivec2(gl_GlobalInvocationID.xy), vec4(iterColor, 1.0));
 
+  return;
   if (gl_GlobalInvocationID.x > 1024 || gl_GlobalInvocationID.y > 1024) { return; }
 
   {
