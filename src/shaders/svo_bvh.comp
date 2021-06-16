@@ -642,6 +642,18 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   Ray aabbRay = ray;
   aabbRay.direction = normalize(aabbRay.direction);
 
+  TraceResult result;
+  result.hit = false;
+  result.isOnlyAABB = true;
+  result.iter = 0;
+  result.normal = vec3(0);
+
+  if (debug.visualizeBVH == 1) {
+    result.color = vec3(1);
+  } else {
+    result.color = vec3(0);
+  }
+
   int hitArrayPos = 0;
   while (stackTop != 0) {
     const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
@@ -652,6 +664,11 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     if (aabbIntersection.hit) {
       const uint offset = GET_BVH_NODE_OFFSET(currentNode);
       if (IS_BVH_NODE_LEAF(currentNode)) {
+        if (debug.visualizeBVH == 1) {
+          result.hit = true;
+          result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
+          result.isOnlyAABB = result.isOnlyAABB && true;
+        }
         bvhHitArray[hitArrayPos].modelId = offset;
         bvhHitArray[hitArrayPos].distance = aabbIntersection.distance;
         ++hitArrayPos;
@@ -672,13 +689,6 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     bvhHitArray[swap] = bvhHitArray[j];
     bvhHitArray[j] = tmp;
   }
-
-  TraceResult result;
-  result.hit = false;
-  result.isOnlyAABB = true;
-  result.iter = 0;
-  result.normal = vec3(0);
-  result.color = vec3(0);
 
   TraceResult bestModelResult;
   bestModelResult.hit = false;
