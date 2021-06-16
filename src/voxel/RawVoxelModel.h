@@ -6,6 +6,7 @@
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_RAWVOXELMODEL_H
 
 #include <glm/vec4.hpp>
+#include <glm/vec3.hpp>
 #include <string>
 #include <vector>
 
@@ -19,7 +20,7 @@ struct VoxelInfo {
 
 class RawVoxelModel {
  public:
-  RawVoxelModel(std::string name, std::vector<VoxelInfo> voxels);
+  RawVoxelModel(std::string name, std::vector<VoxelInfo> voxels, glm::ivec3 size);
 
   [[nodiscard]] const std::string &getName() const;
   [[nodiscard]] const std::vector<VoxelInfo> &getVoxels() const;
@@ -27,6 +28,7 @@ class RawVoxelModel {
  private:
   std::string name;
   std::vector<VoxelInfo> voxels;
+  glm::ivec3 modelSize;
 };
 
 }// namespace pf::vox

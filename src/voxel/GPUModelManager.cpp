@@ -54,13 +54,16 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
         newModelInfo->scaleVec =
             glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
       }
+      //newModelInfo->center = glm::vec3{};
+      newModelInfo->center =
+          svo.center / static_cast<float>(std::pow(2, svo.depth));
 
       callbacks.progress(50 + cnt / svoCreate.size() * 100);
       resultModels.emplace_back(std::experimental::make_observer(newModelInfo.get()));
       newModels.emplace_back(std::move(newModelInfo));
     }
     auto lock = std::unique_lock{mutex};
-    for (auto &newModel : newModels) { models.emplace_back(std::move(newModel)); }
+    for (auto &newModel : newModels) { models.emplace_back(std::move(newModel)); }// TODO: <algorithm>
     callbacks.progress(100);
     return resultModels;
   } catch (const std::exception &e) {

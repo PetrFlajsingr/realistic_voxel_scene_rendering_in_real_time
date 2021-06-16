@@ -84,10 +84,10 @@ void Camera::mouse(float xDelta, float yDelta, bool contrainPitch) {
   xDelta *= mouseSpeed;
   yDelta *= mouseSpeed;
 
-  if (swapLeftRight) { xDelta = -xDelta; }
+  if (!swapLeftRight) { xDelta = -xDelta; }
 
   yaw += xDelta;
-  pitch += yDelta;
+  pitch -= yDelta;
 
   if (contrainPitch) { pitch = std::clamp(pitch, -89.f, 89.f); }
   update();

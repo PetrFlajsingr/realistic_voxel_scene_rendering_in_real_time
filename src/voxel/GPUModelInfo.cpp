@@ -18,17 +18,16 @@ std::optional<std::uint32_t> GPUModelInfo::getModelIndex() const {
 }
 
 void GPUModelInfo::updateInfoToGPU() {
-  const auto translateCenterMat = glm::translate(glm::mat4(1.f), glm::vec3{0.5, 0.5, 0.5});
-  const auto translateBackFromCenterMat = glm::inverse(translateCenterMat);
+  const auto translateCenterMat = glm::translate(glm::mat4(1.f), center);
   const auto translateMat = glm::translate(glm::mat4(1.f), translateVec);
   const auto scaleMat = glm::scale(scaleVec);
   const auto rotateMatX = glm::rotate(rotateVec.x, glm::vec3{1, 0, 0});
   const auto rotateMatY = glm::rotate(rotateVec.y, glm::vec3{0, 1, 0});
   const auto rotateMatZ = glm::rotate(rotateVec.z, glm::vec3{0, 0, 1});
   const auto rotateMat = rotateMatX * rotateMatY * rotateMatZ;
-  transformMatrix = translateMat * scaleMat * translateBackFromCenterMat * rotateMat * translateCenterMat;
-  const auto invTransformMatrix = glm::inverse(translateCenterMat) * glm::inverse(rotateMat)
-      * glm::inverse(translateBackFromCenterMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
+  transformMatrix = translateMat * scaleMat * rotateMat * translateCenterMat;
+  const auto invTransformMatrix =
+      glm::inverse(translateCenterMat) * glm::inverse(rotateMat) * glm::inverse(scaleMat) * glm::inverse(translateMat);
   const std::uint32_t svoOffsetTmp = svoMemoryBlock->getOffset() / 4;
   const auto scaleBufferData = glm::vec4{/*1.f /*/ scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
 

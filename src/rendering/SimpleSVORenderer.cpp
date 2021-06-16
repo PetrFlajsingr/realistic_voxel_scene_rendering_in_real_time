@@ -46,7 +46,7 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
 // TODO: conversion app for binary svos
 // TODO: read raw svos from disk
 SimpleSVORenderer::SimpleSVORenderer(toml::table &tomlConfig)
-    : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}) {
+    : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}, {0, 0, -1}, {0, -1, 0}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
                                config.get()["rendering"]["compute"]["local_size_y"].value_or<std::size_t>(8)};
 }

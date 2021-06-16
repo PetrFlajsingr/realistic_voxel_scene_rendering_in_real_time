@@ -22,6 +22,7 @@ struct SparseVoxelOctreeCreateInfo {
   uint32_t voxelCount;
   math::BoundingBox<3> AABB;
   SparseVoxelOctree data;
+  glm::vec3 center;
 };
 
 std::vector<SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile, bool sceneAsOneSVO,

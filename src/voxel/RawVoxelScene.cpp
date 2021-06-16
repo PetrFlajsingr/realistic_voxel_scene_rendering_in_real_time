@@ -9,8 +9,8 @@
 #include <utility>
 
 namespace pf::vox {
-RawVoxelScene::RawVoxelScene(std::string name, std::vector<std::unique_ptr<RawVoxelModel>> models)
-    : name(std::move(name)), models(std::move(models)) {}
+RawVoxelScene::RawVoxelScene(std::string name, std::vector<std::unique_ptr<RawVoxelModel>> models, glm::vec3 center)
+    : name(std::move(name)), models(std::move(models)), sceneCenter(center) {}
 
 const std::string &RawVoxelScene::getName() const { return name; }
 
@@ -21,5 +21,6 @@ RawVoxelModel &RawVoxelScene::getModelByName(std::string_view modelName) {
   if (const auto iter = std::ranges::find_if(models, modelNamePredicate); iter != models.end()) { return **iter; }
   throw StackTraceException("Model not found: {}", modelName);
 }
+const glm::vec3 &RawVoxelScene::getSceneCenter() const { return sceneCenter; }
 
 }// namespace pf::vox
