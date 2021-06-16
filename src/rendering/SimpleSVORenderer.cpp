@@ -1237,6 +1237,8 @@ void SimpleSVORenderer::convertAndSaveSVO(const std::filesystem::path &src, cons
   ostream.write(reinterpret_cast<const char *>(&svoCreate[0].depth), sizeof(uint32_t));
   const auto aabbData = toBytes(svoCreate[0].AABB);
   ostream.write(reinterpret_cast<const char *>(aabbData.data()), aabbData.size());
+  const auto centerData = toBytes(svoCreate[0].center);
+  ostream.write(reinterpret_cast<const char *>(centerData.data()), centerData.size());
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
 }
 
