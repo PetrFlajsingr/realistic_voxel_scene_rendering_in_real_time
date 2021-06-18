@@ -145,6 +145,11 @@ CPMAddPackage(
         GITHUB_REPOSITORY ChaiScript/ChaiScript
         GIT_TAG v6.1.0
 )
+CPMAddPackage(
+        NAME tinyxml2
+        GITHUB_REPOSITORY leethomason/tinyxml2
+        GIT_TAG 9.0.0
+)
 
 
 if (ENABLE_STACKTRACE)
@@ -217,7 +222,8 @@ set(SOURCES
         src/voxel/AABB_BVH.cpp
         src/voxel/GPUModelManager.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
-        src/rendering/light_field_probes/GridProbeGenerator.cpp src/rendering/light_field_probes/GridProbeGenerator.h)
+        src/rendering/light_field_probes/GridProbeGenerator.cpp
+        src/voxel/TeardownMaps.cpp)
 
 set(INCLUDES
         src/logging/loggers.h
@@ -278,7 +284,7 @@ target_link_libraries(realistic_voxel_rendering
         ${LASAN}
         -lbfd -ldl
         magic_enum nanobench subprocess argparse chaiscript
-        pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan
+        pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan tinyxml2::tinyxml2
         shaderc glslang
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})
 if (ENABLE_STACKTRACE)

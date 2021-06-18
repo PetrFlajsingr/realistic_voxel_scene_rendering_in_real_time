@@ -55,8 +55,7 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
             glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
       }
       //newModelInfo->center = glm::vec3{};
-      newModelInfo->center =
-          svo.center / static_cast<float>(std::pow(2, svo.depth));
+      newModelInfo->center = svo.center / static_cast<float>(std::pow(2, svo.depth));
 
       callbacks.progress(50 + cnt / svoCreate.size() * 100);
       resultModels.emplace_back(std::experimental::make_observer(newModelInfo.get()));
@@ -127,4 +126,80 @@ const BVHCreateInfo &GPUModelManager::rebuildBVH(bool createStats) {
   return bvh;
 }
 const BVHCreateInfo &GPUModelManager::getBvh() const { return bvh; }
+
+// FIXME
+tl::expected<std::vector<GPUModelManager::ModelPtr>, std::string> GPUModelManager::loadModel(RawVoxelScene &scene,
+                                                                                             bool autoScale) {
+  const auto svoCreate = convertSceneToSVO(scene, true);
+  auto resultModels = std::vector<ModelPtr>{};
+  auto newModels = std::vector<std::unique_ptr<GPUModelInfo>>{};
+  for (auto svo : svoCreate) {
+    auto newModelInfo = std::make_unique<GPUModelInfo>();
+    newModelInfo->path = "";
+    newModelInfo->voxelCount = svo.initVoxelCount;
+    newModelInfo->minimizedVoxelCount = svo.voxelCount;
+    newModelInfo->svoHeight = svo.depth;
+    newModelInfo->AABB = svo.AABB;
+    newModelInfo->translateVec = glm::vec3{0, 0, 0};
+    newModelInfo->scaleVec = glm::vec3{1, 1, 1};
+    newModelInfo->rotateVec = glm::vec3{0, 0, 0};
+    auto svoData = vox::SparseVoxelOctree{std::move(svo.data)};
+    auto svoBlockResult = copySvoToMemoryBlock(svoData, *svoMemoryPool);
+
+    auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+    std::string err;
+    if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!err.empty()) { return tl::make_unexpected(err); }
+
+    newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));
+    newModelInfo->modelInfoMemoryBlock =
+        std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelInfoBlockResult));
+    if (autoScale) {
+      newModelInfo->scaleVec =
+          glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
+    }
+    newModelInfo->center = svo.center / static_cast<float>(std::pow(2, svo.depth));
+
+    resultModels.emplace_back(std::experimental::make_observer(newModelInfo.get()));
+    newModels.emplace_back(std::move(newModelInfo));
+  }
+  auto lock = std::unique_lock{mutex};
+  for (auto &newModel : newModels) { models.emplace_back(std::move(newModel)); }// TODO: <algorithm>
+  return resultModels;
+}
+tl::expected<GPUModelManager::ModelPtr, std::string> GPUModelManager::loadModel(RawVoxelModel &model, bool autoScale) {
+  const auto svo = convertModelToSVO(model);
+  auto resultModels = std::vector<ModelPtr>{};
+  auto newModelInfo = std::make_unique<GPUModelInfo>();
+  newModelInfo->path = "";
+  newModelInfo->voxelCount = svo.initVoxelCount;
+  newModelInfo->minimizedVoxelCount = svo.voxelCount;
+  newModelInfo->svoHeight = svo.depth;
+  newModelInfo->AABB = svo.AABB;
+  newModelInfo->translateVec = glm::vec3{0, 0, 0};
+  newModelInfo->scaleVec = glm::vec3{1, 1, 1};
+  newModelInfo->rotateVec = glm::vec3{0, 0, 0};
+  auto svoData = vox::SparseVoxelOctree{std::move(svo.data)};
+  auto svoBlockResult = copySvoToMemoryBlock(svoData, *svoMemoryPool);
+
+  auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+  std::string err;
+  if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+  if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+  if (!err.empty()) { return tl::make_unexpected(err); }
+
+  newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));
+  newModelInfo->modelInfoMemoryBlock =
+      std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelInfoBlockResult));
+  if (autoScale) {
+    newModelInfo->scaleVec = glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
+  }
+  newModelInfo->center = svo.center / static_cast<float>(std::pow(2, svo.depth));
+
+  auto resultModel = std::experimental::make_observer(newModelInfo.get());
+  auto lock = std::unique_lock{mutex};
+  models.emplace_back(std::move(newModelInfo));
+  return resultModel;
+}
 }// namespace pf::vox

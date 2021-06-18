@@ -45,6 +45,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
       toolsSubMenu(windowMenuBar.addSubmenu("tools_main_menu", "Tools")),
       svoConverterMenuItem(toolsSubMenu.addButtonItem("svo_converter_menu", "SVO converter")),
+      teardownMapMenuItem(toolsSubMenu.addButtonItem("teardown_converter_menu", "Teardown map loading")),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
       viewTypeComboBox(renderSettingsWindow.createChild<Combobox<ViewType>>(
           "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,

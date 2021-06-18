@@ -7,6 +7,8 @@
 
 #include "AABB_BVH.h"
 #include "GPUModelInfo.h"
+#include "RawVoxelModel.h"
+#include "RawVoxelScene.h"
 #include <memory>
 #include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <range/v3/view/addressof.hpp>
@@ -28,6 +30,10 @@ class GPUModelManager {
 
   tl::expected<std::vector<ModelPtr>, std::string>
   loadModel(const std::filesystem::path &path, const Callbacks &callbacks, bool sceneAsOneSVO, bool autoScale = false);
+
+  // TODO: fix this interface
+  tl::expected<std::vector<ModelPtr>, std::string> loadModel(RawVoxelScene &scene, bool autoScale = true);
+  tl::expected<ModelPtr, std::string> loadModel(RawVoxelModel &model, bool autoScale = true);
   tl::expected<ModelPtr, std::string> createModelInstance(ModelPtr model);
   tl::expected<ModelPtr, std::string> duplicateModel(ModelPtr model);
 

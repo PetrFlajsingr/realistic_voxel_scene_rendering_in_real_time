@@ -94,6 +94,7 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuButtonItem &showAllMenuItem;
     ui::ig::SubMenu &toolsSubMenu;
       ui::ig::MenuButtonItem &svoConverterMenuItem;
+      ui::ig::MenuButtonItem &teardownMapMenuItem;
   ui::ig::Window &renderSettingsWindow;
     ui::ig::Combobox<ViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;

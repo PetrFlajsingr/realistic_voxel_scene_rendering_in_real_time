@@ -41,7 +41,7 @@ std::optional<FileType> details::detectFileType(const std::filesystem::path &src
   if (srcFile.extension().string() == ".pf_vox") { return FileType::PfVox; }
   return std::nullopt;
 }
-// TODO: load it normally and then just flip y axis for each voxel AND chunk
+
 RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
   const auto fileData = std::vector<uint8_t>(std::istreambuf_iterator(istream), {});
   const auto ogtScene = ogt_vox_read_scene(fileData.data(), fileData.size());
@@ -52,12 +52,13 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
 
   struct ModelWithTransform {
     const ogt_vox_model *model;
+    const char *name;
     glm::vec3 translate;
   };
 
   auto ogtModelsWithTransform =
       ogtInstances | std::views::transform([&ogtModels](auto instance) {
-        return ModelWithTransform{ogtModels[instance.model_index],
+        return ModelWithTransform{ogtModels[instance.model_index], instance.name,
                                   glm::vec3{instance.transform.m30, instance.transform.m31, instance.transform.m32}};
       })
       | ranges::to_vector;
@@ -81,9 +82,15 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
     std::ranges::for_each(ogtModelsWithTransform, [&maxCoords](const auto &modelInfo) {
       const auto translateWithCenterOffset = modelInfo.translate
           - glm::vec3{modelInfo.model->size_x / 2, modelInfo.model->size_y / 2, modelInfo.model->size_z / 2};
-      if (maxCoords.x < translateWithCenterOffset.x) { maxCoords.x = translateWithCenterOffset.x + modelInfo.model->size_x; }
-      if (maxCoords.y < translateWithCenterOffset.y) { maxCoords.y = translateWithCenterOffset.y + modelInfo.model->size_y; }
-      if (maxCoords.z < translateWithCenterOffset.z) { maxCoords.z = translateWithCenterOffset.z + modelInfo.model->size_z; }
+      if (maxCoords.x < translateWithCenterOffset.x) {
+        maxCoords.x = translateWithCenterOffset.x + modelInfo.model->size_x;
+      }
+      if (maxCoords.y < translateWithCenterOffset.y) {
+        maxCoords.y = translateWithCenterOffset.y + modelInfo.model->size_y;
+      }
+      if (maxCoords.z < translateWithCenterOffset.z) {
+        maxCoords.z = translateWithCenterOffset.z + modelInfo.model->size_z;
+      }
     });
     return maxCoords;
   }();
@@ -128,7 +135,7 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
     }
     voxels.shrink_to_fit();
     models.emplace_back(std::make_unique<RawVoxelModel>(
-        std::to_string(idx), std::move(voxels),
+        ogtModel.name == nullptr ? std::to_string(idx) : ogtModel.name, std::move(voxels),
         glm::ivec3{ogtModel.model->size_x, ogtModel.model->size_y, ogtModel.model->size_z}));
   }
 

@@ -16,6 +16,8 @@ class RawVoxelScene {
  public:
   RawVoxelScene(std::string name, std::vector<std::unique_ptr<RawVoxelModel>> models, glm::vec3 center);
 
+  RawVoxelScene(const RawVoxelScene &other);
+
   [[nodiscard]] const std::string &getName() const;
   [[nodiscard]] const std::vector<std::unique_ptr<RawVoxelModel>> &getModels() const;
   const glm::vec3 &getSceneCenter() const;
