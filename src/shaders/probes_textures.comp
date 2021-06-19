@@ -7,29 +7,17 @@
 #define INF 10000000000000.0
 #define EPSILON 0.001
 
-#define MAX_BOUNCES 40
-#define SHADOW 0.35
-
-struct Ray {
-  vec3 origin;
-  float originSize;
-  vec3 direction;
-  float directionSize;
-};
-
-struct ChildDescriptor {
-  uint data1;
-  uint data2;
-};
-
 #ifndef LOCAL_SIZE_X
 #define LOCAL_SIZE_X 8
 #endif
 #ifndef LOCAL_SIZE_Y
 #define LOCAL_SIZE_Y 8
 #endif
+#ifndef LOCAL_SIZE_Z
+#define LOCAL_SIZE_Z 8
+#endif
 
-layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = LOCAL_SIZE_Z) in;
 
 struct ModelInfo {
   vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
@@ -44,66 +32,48 @@ struct BVHNode {
   vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
 };
 
-layout(binding = 0, rgba8) uniform image2D computeImage;
-
-layout(binding = 1) uniform UniformCamera {
-  vec4 pos;
-  vec4 dir;
-  vec4 up;
-  mat4 view;
-  mat4 projection;
-  mat4 invProjView;
-  float near;
-  float far;
-  int screenWidth;
-  int screenHeight;
-}
-camera;
-layout(binding = 2) uniform UniformLigtValues {
-  vec4 pos;
-  vec4 ambientColor;
-  vec4 diffuseColor;
-  vec4 specularColor;
-}
-light;
-layout(std430, binding = 3) buffer VoxelSVO_SSBO {
+layout(std430, binding = 0) buffer VoxelSVO_SSBO {
   //uint infoSectionPtr;
   //uint attachmentsPtr;
   //uint childDescriptors[];
   uint data[];// uint infosectionPtr, uint attachmentsPtr, childDescriptors[]
 }
 svo;
-layout(binding = 4, std140) uniform Debug {
-  int viewType;
-  int debugVal;
-  int shadows;
-  float debugFloatVal;
-  float iterDivide;
-  uint printEnabled;
-  uint visualizeBVH;
-  uint visualizeProbes;
-  uint probeVisualType;// 0 disabled, 1 color, 2 normal, 3 depth
+layout(binding = 1, std140) uniform Debug {
+  uint probeVisualType;
+  float time;
 }
 debug;
-layout(binding = 5, r32f) uniform image2D iterImage;
-layout(std430, binding = 6) buffer SVOModelInfos { ModelInfo infos[]; }
+
+layout(std430, binding = 2) buffer SVOModelInfos { ModelInfo infos[]; }
 modelInfos;
-layout(std430, binding = 7) buffer BVHModelAABBs { BVHNode nodes[]; }
+layout(std430, binding = 3) buffer BVHModelAABBs { BVHNode nodes[]; }
 bvh;
-layout(std430, binding = 8) buffer LightFieldProbes { vec4 probes[]; }
+layout(std430, binding = 4) buffer LightFieldProbes { vec4 probes[]; }
 lfp;
+
+layout(binding = 5, rg32f) uniform image2DArray probeImages;
+layout(binding = 6, rgba8) uniform image2D debugProbeImage;
 
 #define SVO_HEADER_SIZE 2
 
 const uint BVH_OFFSET_MASK = 0x7FFFFFFF;
 const uint BVH_LEAF_NODE_MASK = ~BVH_OFFSET_MASK;
 
-#define COLOR_VIEW 0
-#define NORMAL_VIEW 1
-#define ITER_VIEW 2
-#define DISTANCE_VIEW 3
-#define CHILD_INDEX_VIEW 4
-#define TREE_LEVEL_VIEW 5
+#define MAX_BOUNCES 40
+#define SHADOW 0.35
+
+struct Ray {
+  vec3 origin;
+  float originSize;
+  vec3 direction;
+  float directionSize;
+};
+
+struct ChildDescriptor {
+  uint data1;
+  uint data2;
+};
 
 float max(vec2 v) { return max(v.x, v.y); }
 float max(vec3 v) { return max(max(v.x, v.y), v.z); }
@@ -149,19 +119,6 @@ struct BoundingBox {
   vec3 p1;
   vec3 p2;
 };
-
-vec3 getCameraRayDir(vec2 coord, vec3 camPos, vec3 camForward) {
-  const vec3 camRight = normalize(cross(camera.up.xyz, camForward));
-  const vec3 camUp = normalize(cross(camForward, camRight));
-  const float fPersp = 1;
-  return normalize(coord.x * camRight + coord.y * camUp + camForward * fPersp) * 500;
-}
-
-vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
-  vec2 result = 2.0 * (screenCoord / resolution.xy - 0.5);
-  result.x *= resolution.x / float(resolution.y);
-  return result;
-}
 
 struct Box {
   vec3 pos;
@@ -400,8 +357,8 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
         uint ptr = child_descriptor.data2;// child pointer
 
         /* if ((child_descriptor.childData & 0x10000) != 0) { // FAR
-          ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
-        }*/
+                  ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
+                }*/
 
         uint validMask = (child_descriptor.data1 >> 8u) & 0xFFu;
         uint leafMask = child_descriptor.data1 & 0xFFu;
@@ -527,20 +484,6 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
   return res;
 }
 
-vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
-  const vec3 LAmbient = light.ambientColor.xyz;
-  if (isInShadow) { return traceResult.color * LAmbient; }
-
-  const vec3 pos = traceResult.pos;
-  const vec3 normal = traceResult.normal;
-  const float NoL = max(dot(normal, -lightDir), 0.0);
-  const vec3 LDirectional = light.diffuseColor.xyz * NoL;
-  const vec3 diffuse = (LDirectional + LAmbient);
-  const float specular = dot(normalize(light.pos.xyz - pos), reflect(normalize(pos - camera.pos.xyz), normal));
-  vec3 intensity = diffuse + light.specularColor.xyz * (0.25 * pow(clamp(specular, 0.0, 1.0), 200.0));
-  return traceResult.color * intensity;
-}
-
 TraceResult traceModel(uint modelIndex, Ray ray) {
   ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
   ray.direction =                                                                                //normalize(
@@ -564,68 +507,6 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 #define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
 #define GET_BVH_MIN_AABB(node) node.AABB1.xyz
 #define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
-//TODO: change bvh visualisation
-
-TraceResult traceBVH(Ray ray, uint idx, uint idy) {
-  uint stackTop = 0;
-  WRITE_BVH_STACK(bvhStack, stackTop++, 0);
-
-  Ray aabbRay = ray;
-  aabbRay.direction = normalize(aabbRay.direction);
-
-  TraceResult result;
-  result.hit = false;
-  result.isOnlyAABB = true;
-  if (debug.visualizeBVH == 1) {
-    result.color = vec3(1);
-  } else {
-    result.color = vec3(0);
-  }
-  result.iter = 0;
-  result.normal = vec3(0);
-  TraceResult bestModelResult;
-  bestModelResult.hit = false;
-  bestModelResult.t = INF;
-  bestModelResult.iter = 0;
-  while (stackTop != 0) {
-    const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
-    const BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
-    const vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
-    const vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
-    if (debug.visualizeBVH == 1) { ++result.iter; }
-    if (intersectAABB(aabbRay, boxMin, boxMax)) {
-      if (debug.visualizeBVH == 1) {
-        result.hit = true;
-        result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
-        result.isOnlyAABB = result.isOnlyAABB && true;
-      }
-      // TODO: if distance to BVH is further away than sucessful hit don't do SVO intersection
-      const uint offset = GET_BVH_NODE_OFFSET(currentNode);
-      if (IS_BVH_NODE_LEAF(currentNode)) {
-        TraceResult modelTraceResult = traceModel(offset, ray);
-        if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) {
-          bestModelResult = modelTraceResult;
-          result.isOnlyAABB = false;
-        }
-        result.iter += modelTraceResult.iter;
-      } else {
-        WRITE_BVH_STACK(bvhStack, stackTop++, offset);
-        WRITE_BVH_STACK(bvhStack, stackTop++, offset + 1);
-      }
-    }
-  }
-  if (bestModelResult.hit) {
-    bestModelResult.color += result.color;
-    bestModelResult.iter = result.iter;
-    bestModelResult.isOnlyAABB = result.isOnlyAABB;
-    bestModelResult.posInWorldSpace =
-        (modelInfos.infos[bestModelResult.objectId].objectMatrix * vec4(bestModelResult.pos - vec3(1, 1, 1), 1)).xyz;
-    bestModelResult.distanceInWorldSpace = distance(ray.origin, bestModelResult.posInWorldSpace);
-    return bestModelResult;
-  }
-  result.normal = vec3(0, 0, 0);
-  return result;
-}
 
 struct BVHDistanceInfo {
   uint modelId;
@@ -633,7 +514,7 @@ struct BVHDistanceInfo {
 };
 
 BVHDistanceInfo bvhHitArray[50];// TODO: this size is wrong
-TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
+TraceResult traceBVHImproved(Ray ray) {
   uint stackTop = 0;
   WRITE_BVH_STACK(bvhStack, stackTop++, 0);
 
@@ -641,16 +522,11 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   aabbRay.direction = normalize(aabbRay.direction);
 
   TraceResult result;
+  result.color = vec3(0);
   result.hit = false;
   result.isOnlyAABB = true;
   result.iter = 0;
   result.normal = vec3(0);
-
-  if (debug.visualizeBVH == 1) {
-    result.color = vec3(1);
-  } else {
-    result.color = vec3(0);
-  }
 
   int hitArrayPos = 0;
   while (stackTop != 0) {
@@ -662,11 +538,6 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     if (aabbIntersection.hit) {
       const uint offset = GET_BVH_NODE_OFFSET(currentNode);
       if (IS_BVH_NODE_LEAF(currentNode)) {
-        if (debug.visualizeBVH == 1) {
-          result.hit = true;
-          result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
-          result.isOnlyAABB = result.isOnlyAABB && true;
-        }
         bvhHitArray[hitArrayPos].modelId = offset;
         bvhHitArray[hitArrayPos].distance = aabbIntersection.distance;
         ++hitArrayPos;
@@ -701,7 +572,6 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
     if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
       bestModelResult = modelTraceResult;
-      result.isOnlyAABB = false;
     }
     result.iter += modelTraceResult.iter;
   }
@@ -709,9 +579,7 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   if (bestModelResult.hit) {
     bestModelResult.normal = normalize(
         (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);
-    bestModelResult.color += result.color;
     bestModelResult.iter = result.iter;
-    bestModelResult.isOnlyAABB = result.isOnlyAABB;
     return bestModelResult;
   }
   return result;
@@ -719,101 +587,111 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
 
 vec2 signNotZero(vec2 v) { return vec2((v.x >= 0.0) ? +1.0 : -1.0, (v.y >= 0.0) ? +1.0 : -1.0); }
 
-vec2 encodeNormal(vec3 normal) {
-  const float p = sqrt(normal.z * 8.0 + 8.0);
-  return normal.xy / p + 0.5;
+vec2 octahedronWrap(vec2 v) { return (1.0f - abs(v.yx)) * (v.x >= 0.0f && v.y >= 0.f ? 1.0f : -1.0f); }
+
+vec2 encodeNormal(vec3 n) {
+  n /= (abs(n.x) + abs(n.y) + abs(n.z));
+  n.xy = n.z >= 0.0 ? n.xy : octahedronWrap(n.xy);
+  n.xy = n.xy * 0.5f + 0.5f;
+  return n.xy;
 }
 
-vec3 decodeNormal(vec2 normal) {
-  const vec2 f = normal * 4.0 - 2.0;
-  const float fD = dot(f, f);
-  const float g = sqrt(1.0 - fD / 4.0);
-  const vec2 xy = f * g;
-  const float z = 1.0 - fD / 2.0;
-  return vec3(xy, z);
+vec3 decodeNormal(vec2 f) {
+  f = f * 2.0f - 1.0f;
+  vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+  float t = clamp(-n.z, 0.f, 1.f);
+  n.x += n.x >= 0.0 ? -t : t;
+  n.y += n.y >= 0.0 ? -t : t;
+  return normalize(n);
 }
 
 void main() {
-  uint idx = gl_GlobalInvocationID.x;
-  uint idy = gl_GlobalInvocationID.y;
+  ivec3 probeTextureSize = imageSize(probeImages);
+  if (gl_GlobalInvocationID.z > 0) { return; }
+  if (gl_GlobalInvocationID.x > probeTextureSize.x || gl_GlobalInvocationID.y > probeTextureSize.y
+      || gl_GlobalInvocationID.z > probeTextureSize.z) {
+    return;
+  }
 
-  ivec2 dimensions = imageSize(computeImage);
-  if (idx > dimensions.x || idy > dimensions.y) { return; }
+  const uint probeId = gl_GlobalInvocationID.z;
 
-  vec3 finalColor = vec3(0);
-  vec3 iterColor = vec3(0);
+  vec2 normalisedOctCoords = (vec2(gl_GlobalInvocationID.xy) - 512.0) / 512.0;
+  vec3 v = vec3(normalisedOctCoords.xy, 1.0 - abs(normalisedOctCoords.x) - abs(normalisedOctCoords.y));
+  if (v.z < 0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+  v = normalize(v);
 
-  Ray ray;
-  const vec2 uv = normalizeScreenCoords(vec2(idx, idy), vec2(dimensions));
-  const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
-  ray.origin = (camera.invProjView * nearPlanePos).xyz;
-  ray.direction =// normalize(
-      (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
-          .xyz;//);
+  Ray probeRay;
+  probeRay.origin = lfp.probes[probeId].xyz;
+  probeRay.direction = v * 10;
 
   TraceResult traceResult;
   traceResult.hit = false;
   traceResult.t = INF;
   traceResult.iter = 0;
+  traceResult.color;
 
-  traceResult = traceBVHImproved(ray, idx, idy);
+  traceResult = traceBVHImproved(probeRay);
 
-  TraceResult shadowTraceResult;
-  shadowTraceResult.hit = false;
-  const vec3 hitPointInCameraSpace = traceResult.posInWorldSpace;
-  const vec3 lightDir = normalize(light.pos.xyz - hitPointInCameraSpace);
-  if (debug.shadows == 1 && traceResult.hit) {
-    Ray shadowRay;
-    shadowRay.direction = lightDir * 50;// TODO: figure out why this needs to be done
-    shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
-    shadowRay.originSize = 0.02;
-    shadowRay.directionSize = 0;
-    shadowTraceResult = traceBVHImproved(shadowRay, idx, idy);
-    traceResult.iter += shadowTraceResult.iter;
+  const vec3 color = traceResult.color;
+  const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);
+  const float depth = traceResult.hit ? traceResult.distanceInWorldSpace / 10.f : INF;
+  const uint MASK11 = 0x7FF;
+  const uint MASK10 = 0x3FF;
+  const uint R_MAX = 2047;
+  const uint G_MAX = 2047;
+  const uint G_SHIFT = 11;
+  const uint B_MAX = 1023;
+  const uint B_SHIFT = 22;
+
+  const float colorBytes =
+      uintBitsToFloat(uint(color.r * R_MAX) | (uint(color.g * G_MAX) << G_SHIFT) | (uint(color.b * B_MAX) << B_SHIFT));
+
+  const uint DEPTH_MASK = 0xFFFF;
+  const uint DEPTH_MAX = 65535;
+
+  const uint NORMAL_ELEMENT_MAX = 255;
+  const uint NORMAL_ELEMENT_MASK = 0xFF;
+  const uint NORMALS_SHIFT = 16;
+  const uint NORMAL1_SHIFT = 0;
+  const uint NORMAL2_SHIFT = 8;
+
+  const vec2 encodedNormal = encodeNormal(traceResult.normal);
+  const int encodedBitNormal1 = int(encodedNormal.x * NORMAL_ELEMENT_MAX);
+  const int encodedBitNormal2 = int(encodedNormal.y * NORMAL_ELEMENT_MAX);
+  const int encodedBitNormal = (encodedBitNormal1 << NORMAL1_SHIFT) | (encodedBitNormal2 << NORMAL2_SHIFT);
+
+  const float depthAndNormalBytes = intBitsToFloat(int(depth * DEPTH_MAX) | (encodedBitNormal << NORMALS_SHIFT));
+
+  const vec2 probeData = vec2(colorBytes, depthAndNormalBytes);
+
+  imageStore(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeId), vec4(probeData, 0, 0));
+
+  if (debug.probeVisualType == 0) { return; }
+
+  uint savedColorBytes =
+      floatBitsToUint(imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, 0)).x);
+  const vec3 probeColor =
+      vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+           float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+
+  int savedDepthAndNormalBytes =
+      floatBitsToInt(imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, 0)).y);
+
+  float probeDepth = float(savedDepthAndNormalBytes & DEPTH_MASK) / DEPTH_MAX;
+
+  float probeNormalEncoded1 =
+      float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  float probeNormalEncoded2 =
+      float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  vec3 probeNormal = decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+  probeNormal = decodeNormal(encodedNormal);
+  if (debug.probeVisualType == 1) {
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(probeColor, 1));
+  } else if (debug.probeVisualType == 2) {
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y),
+               vec4(probeNormal * 0.5f + 0.5f, 1));
+  } else if (debug.probeVisualType == 3) {
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y),
+               vec4(probeDepth, probeDepth, probeDepth, 1));
   }
-
-  if (debug.visualizeProbes == 1) {
-    int probeCount = int(lfp.probes[0].w);
-    ray.direction = normalize(ray.direction);
-    for (int i = 0; i < probeCount; ++i) {
-      Sphere sphere = LFP_SPHERE;
-      sphere.radius = 0.2f;
-      sphere.position = lfp.probes[i].xyz;
-      if (SphereIntersection(ray, sphere) > 0) {
-        traceResult.hit = true;
-        traceResult.color = vec3(0, 1, 0);
-      }
-    }
-  }
-
-  iterColor += vec3(traceResult.iter / debug.iterDivide);
-  if (debug.viewType == ITER_VIEW) {
-    finalColor += vec3(traceResult.iter / debug.iterDivide);
-  } else if (traceResult.hit) {
-    if (debug.viewType == COLOR_VIEW) {
-      finalColor += calcLight(traceResult, lightDir, shadowTraceResult.hit);
-      if (debug.debugVal == traceResult.objectId && !traceResult.isOnlyAABB) { finalColor += vec3(0.5, 0, 0); }
-    } else if (debug.viewType == NORMAL_VIEW) {
-      finalColor += traceResult.normal * 0.5f + 0.5f;
-    } else if (debug.viewType == DISTANCE_VIEW) {
-      const float dist = traceResult.distanceInWorldSpace;
-      const float z = dist / 100.f;
-      finalColor += vec3(1 - z);
-    } else if (debug.viewType == CHILD_INDEX_VIEW) {
-      finalColor += lut[traceResult.childIdx];
-    } else if (debug.viewType == TREE_LEVEL_VIEW) {
-      finalColor += lut[traceResult.stackPtr % 8];
-    }
-  } else {
-    if (debug.viewType == DISTANCE_VIEW) {
-      finalColor += vec3(0);
-    } else {
-      finalColor += vec3(1);
-    }
-  }
-
-  finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));
-
-  imageStore(computeImage, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 1.0));
-  imageStore(iterImage, ivec2(gl_GlobalInvocationID.xy), vec4(iterColor, 1.0));
 }

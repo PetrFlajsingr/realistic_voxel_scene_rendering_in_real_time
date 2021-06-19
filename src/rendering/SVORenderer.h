@@ -2,26 +2,26 @@
 // Created by petr on 1/5/21.
 //
 
-#ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SIMPLESVORENDERER_H
-#define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SIMPLESVORENDERER_H
+#ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SVORENDERER_H
+#define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SVORENDERER_H
 
 #include "VulkanDebugCallbackImpl.h"
 #include "enums.h"
+#include "light_field_probes/ProbeRenderer.h"
 #include "logging/loggers.h"
 #include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
 #include <RunInfo.h>
 #include <chaiscript/chaiscript.hpp>
+#include <pf_common/parallel/ThreadPool.h>
 #include <pf_glfw_vulkan/lib_config.h>
 #include <pf_glfw_vulkan/ui/Window.h>
 #include <pf_glfw_vulkan/ui/events/common.h>
 #include <pf_glfw_vulkan/vulkan/types.h>
+#include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <pf_imgui/elements/ProgressBar.h>
 #include <range/v3/view/map.hpp>
 #include <thread>
-//#include <threading/ThreadPool.h>
-#include <pf_common/parallel/ThreadPool.h>
-#include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <toml++/toml.h>
 #include <ui/SimpleSVORenderer_UI.h>
 #include <utility>
@@ -125,14 +125,14 @@ class UniformAccessor {
   std::shared_ptr<vulkan::Buffer> buffer;
 };*/
 
-class SimpleSVORenderer : public VulkanDebugCallbackImpl {
+class SVORenderer : public VulkanDebugCallbackImpl {
  public:
-  explicit SimpleSVORenderer(toml::table &tomlConfig);
-  SimpleSVORenderer(const SimpleSVORenderer &) = delete;
-  SimpleSVORenderer &operator=(const SimpleSVORenderer &) = delete;
-  SimpleSVORenderer(SimpleSVORenderer &&) = default;
-  SimpleSVORenderer &operator=(SimpleSVORenderer &&) = default;
-  virtual ~SimpleSVORenderer();
+  explicit SVORenderer(toml::table &tomlConfig);
+  SVORenderer(const SVORenderer &) = delete;
+  SVORenderer &operator=(const SVORenderer &) = delete;
+  SVORenderer(SVORenderer &&) = default;
+  SVORenderer &operator=(SVORenderer &&) = default;
+  virtual ~SVORenderer();
 
   void init(const std::shared_ptr<ui::Window> &win);
 
@@ -143,6 +143,8 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   static std::unordered_set<std::string> getValidationLayers();
 
   void buildVulkanObjects();
+
+  void createBuffers();
 
   void createInstance();
 
@@ -194,12 +196,6 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::ImageView> vkIterImageView;
   std::shared_ptr<vulkan::TextureSampler> vkIterImageSampler;
 
-  std::shared_ptr<vulkan::Image> vkProbesImage;
-  std::shared_ptr<vulkan::ImageView> vkProbesImageView;
-  std::shared_ptr<vulkan::Image> vkProbesDebugImage;
-  std::shared_ptr<vulkan::ImageView> vkProbesDebugImageView;
-  std::shared_ptr<vulkan::TextureSampler> vkProbesDebugImageSampler;
-
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
 
   std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
@@ -208,7 +204,6 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
-  std::shared_ptr<vulkan::Buffer> probePosBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 
@@ -237,7 +232,9 @@ class SimpleSVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool;
 
   std::unique_ptr<vox::GPUModelManager> modelManager;
+
+  std::unique_ptr<lfp::ProbeRenderer> probeRenderer;
 };
 
 }// namespace pf
-#endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SIMPLESVORENDERER_H
+#endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_SVORENDERER_H

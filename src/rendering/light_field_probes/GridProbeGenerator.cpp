@@ -14,14 +14,14 @@ std::vector<LightFieldProbe> GridProbeGenerator::generateLightFieldProbes(vox::G
   if (!bvh.data.hasRoot()) { return {}; }
   const auto sceneBB = modelManager.getBvh().data.getRoot()->aabb;
   auto result = std::vector<LightFieldProbe>{};
-  const auto gridWidth = static_cast<int>(sceneBB.width() / gridStep) + 1;
-  const auto gridHeight = static_cast<int>(sceneBB.height() / gridStep) + 1;
-  const auto gridDepth = static_cast<int>(sceneBB.depth() / gridStep) + 1;
+  const auto gridWidth = static_cast<int>(std::ceil(sceneBB.width() / gridStep) + 1);
+  const auto gridHeight = static_cast<int>(std::ceil(sceneBB.height() / gridStep) + 1);
+  const auto gridDepth = static_cast<int>(std::ceil(sceneBB.depth() / gridStep) + 1);
   const auto nodeCount = gridWidth * gridHeight * gridDepth;
   return std::views::iota(0, nodeCount) | std::views::transform([&, this](auto index) {
            const auto posInGrid = glm::vec3{index % gridWidth * gridStep, index / gridWidth % gridHeight * gridStep,
-                                   index / (gridWidth * gridHeight) * gridStep};
-           return LightFieldProbe{posInGrid + sceneBB.p1};
+                                            index / (gridWidth * gridHeight) * gridStep};
+           return LightFieldProbe{posInGrid - gridStep / 2 + sceneBB.p1};
          })
       | ranges::to_vector;
 }

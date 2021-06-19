@@ -174,6 +174,7 @@ class SimpleSVORenderer_UI {
       ui::ig::DragInput<glm::vec3> &modelDetailRotateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
   ui::ig::Window &probesDebugWindow;
+    ui::ig::DragInput<float> &probesGridStepDrag;
     ui::ig::DragInput<glm::vec3> &probePositionDrag;
     ui::ig::TabBar &probesTabBar;
       ui::ig::Tab &probesTexturesTab;

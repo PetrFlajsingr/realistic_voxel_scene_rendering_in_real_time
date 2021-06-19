@@ -2,7 +2,7 @@
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
-#include "rendering/SimpleSVORenderer.h"
+#include "rendering/SVORenderer.h"
 #include <filesystem>
 #include <pf_common/RAII.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
@@ -66,8 +66,8 @@ int main(int argc, char *argv[]) {
                          .mode = ui::Mode::Windowed};
 
   {
-    auto app = Application<ui::GlfwWindow, SimpleSVORenderer>(
-        SimpleSVORenderer(*config.as_table()),
+    auto app = Application<ui::GlfwWindow, SVORenderer>(
+        SVORenderer(*config.as_table()),
         ApplicationSettings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
     //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
     //    TriangleRenderer(*config.as_table()),

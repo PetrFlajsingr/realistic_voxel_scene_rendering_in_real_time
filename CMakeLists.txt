@@ -3,7 +3,7 @@ include("cmake/HunterGate.cmake")
 include(FetchContent)
 
 set(CPM_DOWNLOAD_LOCATION "${CMAKE_SOURCE_DIR}/cmake/CPM.cmake")
-set(CPM_DOWNLOAD_VERSION 0.28.1)
+set(CPM_DOWNLOAD_VERSION 0.32.2)
 
 message(https://github.com/TheLartians/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake)
 if (NOT (EXISTS ${CPM_DOWNLOAD_LOCATION} AND CPM_VERSION STREQUAL CPM_DOWNLOAD_VERSION))
@@ -131,11 +131,6 @@ CPMAddPackage(
         GIT_TAG v4.2.0
 )
 CPMAddPackage(
-        NAME subprocess
-        GITHUB_REPOSITORY benman64/subprocess
-        GIT_TAG v0.4.0
-)
-CPMAddPackage(
         NAME argparse
         GITHUB_REPOSITORY p-ranav/argparse
         GIT_TAG v2.1
@@ -203,7 +198,7 @@ set(SOURCES
         src/args/ValidPathCheckAction.cpp
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
-        src/rendering/SimpleSVORenderer.cpp
+        src/rendering/SVORenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
         src/ui/ImGuiGlfwVulkan.cpp
@@ -223,7 +218,7 @@ set(SOURCES
         src/voxel/GPUModelManager.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
-        src/voxel/TeardownMaps.cpp)
+        src/voxel/TeardownMaps.cpp src/rendering/light_field_probes/ProbeRenderer.cpp src/rendering/light_field_probes/ProbeRenderer.h)
 
 set(INCLUDES
         src/logging/loggers.h
@@ -235,7 +230,7 @@ set(INCLUDES
         src/ui/events/EventDispatchImpl.h
         src/ui/SimpleSVORenderer_UI.h
         src/rendering/VulkanDebugCallbackImpl.h
-        src/rendering/SimpleSVORenderer.h
+        src/rendering/SVORenderer.h
         src/concepts/Renderer.h
         src/ui/ImGuiGlfwVulkan.h
         src/utils/common_enums.h
@@ -283,7 +278,7 @@ add_executable(realistic_voxel_rendering ${SOURCES})
 target_link_libraries(realistic_voxel_rendering
         ${LASAN}
         -lbfd -ldl
-        magic_enum nanobench subprocess argparse chaiscript
+        magic_enum nanobench argparse chaiscript
         pf_imgui::pf_imgui pf_common::pf_common pf_glfw_vulkan::pf_glfw_vulkan tinyxml2::tinyxml2
         shaderc glslang
         ${GLFW_STATIC_LIBRARIES} ${GLM_LIBRARIES} ${Vulkan_LIBRARIES})

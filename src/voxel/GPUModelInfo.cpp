@@ -28,7 +28,7 @@ void GPUModelInfo::updateInfoToGPU() {
 
   const auto inverseRotateMat = glm::toMat4(glm::inverse(quaternion));
   const auto invTransformMatrix =
-      glm::inverse(translateCenterMat) * inverseRotateMat/*glm::inverse(rotateMat)*/ * glm::inverse(scaleMat) * glm::inverse(translateMat);
+      glm::inverse(translateCenterMat) * inverseRotateMat * glm::inverse(scaleMat) * glm::inverse(translateMat);
   const std::uint32_t svoOffsetTmp = svoMemoryBlock->getOffset() / 4;
   const auto scaleBufferData = glm::vec4{/*1.f /*/ scaleVec, *reinterpret_cast<const float *>(&svoOffsetTmp)};
 

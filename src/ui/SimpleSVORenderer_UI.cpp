@@ -169,6 +169,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       modelDetailScaleDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_scale_drag", "Scale", 0.01,
                                                                                0.01, 10, glm::vec3{1, 1, 1})),
       probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes debug")),
+      probesGridStepDrag(probesDebugWindow.createChild<DragInput<float>>("probe_grid_step_drag", "Grid step", 0.01,
+                                                                         0.001f, 10.f, 1.f)),
       probePositionDrag(probesDebugWindow.createChild<DragInput<glm::vec3>>("probe_pos_drag", "Probe position", 0.01,
                                                                             -100.f, 100.f, glm::vec3{0})),
       probesTabBar(probesDebugWindow.createChild<TabBar>("probe_debug_tabbar")),
@@ -186,8 +188,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           Size{400, 400}))
 
 {
-  //auto &w = imgui->createWindow(uniqueId(), "Window");
-  //w.createChild<Bullet<Button>>(uniqueId(), "Click me");
+  //resetFpsButton.setColor<style::ColorOf::Button>(ImVec4{1, 0, 0, 1});
+  //resetFpsButton.setColor<style::ColorOf::Text>(ImVec4{0, 0, 1, 1});
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);
   modelDetailLayout.setScrollable(true);
@@ -200,6 +202,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
 
   probesDebugWindow.setCollapsible(true);
 
+  probesGridStepDrag.setTooltip("Step of grid for generating probes");
   probePositionDrag.setTooltip("Position of debug probe in the scene");
 
   modelLoadingSeparateModelsCheckbox.setTooltip("Load models in model file as separate SVOs");
