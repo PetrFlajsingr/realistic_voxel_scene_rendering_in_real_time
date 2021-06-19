@@ -206,6 +206,7 @@ class SVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
+  std::shared_ptr<vulkan::Buffer> probePosBuffer;
 
   std::vector<std::shared_ptr<vulkan::Fence>> fences;
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;

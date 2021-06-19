@@ -112,6 +112,13 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
 
   modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, 5);
 
+  auto probeMapping = probePosBuffer->mapping();
+  const auto totalProbeCount = probeRenderer->probeManager->getTotalProbeCount();
+  auto probePositions = probeRenderer->probeManager->getProbePositions();
+  for (const auto &[idx, position] : probePositions | ranges::views::enumerate) {
+    probeMapping.set(glm::vec4{position, totalProbeCount}, idx);
+  }
+
   initUI();
   window->setMainLoopCallback([&] { render(); });
 }
@@ -122,8 +129,9 @@ std::unordered_set<std::string> SVORenderer::getValidationLayers() {
 
 void SVORenderer::buildVulkanObjects() {
   createBuffers();
-  probeRenderer = std::make_unique<lfp::ProbeRenderer>(config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer,
-                                                       modelInfoBuffer, bvhBuffer);
+  probeRenderer = std::make_unique<lfp::ProbeRenderer>(
+      config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer,
+      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.3f, vkLogicalDevice));
 
   createSwapchain();
   createTextures();
@@ -219,7 +227,7 @@ void SVORenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   auto probeSample = mainSample.blockSampler("probes");
-  auto probeSemaphore = probeRenderer->render();
+  auto probeSemaphore = probeRenderer->renderProbes();
   probeSample.end();
 
   auto computeSample = mainSample.blockSampler("compute");
@@ -493,9 +501,8 @@ void SVORenderer::createPipeline() {
                                                .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                .pBufferInfo = &bvhInfo};
 
-  const auto probePosInfo = vk::DescriptorBufferInfo{.buffer = **probeRenderer->getProbePosBuffer(),
-                                                     .offset = 0,
-                                                     .range = probeRenderer->getProbePosBuffer()->getSize()};
+  const auto probePosInfo =
+      vk::DescriptorBufferInfo{.buffer = **probePosBuffer, .offset = 0, .range = probePosBuffer->getSize()};
   const auto probePosWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
                                                     .dstBinding = 8,
                                                     .dstArrayElement = {},
@@ -1019,12 +1026,6 @@ void SVORenderer::initUI() {
                             [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
   });
 
-  ui->probePositionDrag.addValueListener(
-      [this](const auto probePos) {
-        probeRenderer->getProbePosBuffer()->mapping().set(glm::vec4{probePos, 1});
-      },
-      true);
-
   ui->probeTextureCombobox.addValueListener(
       [this](const auto type) { probeRenderer->getDebugUniformBuffer()->mapping().set(static_cast<uint32_t>(type)); });
 
@@ -1082,7 +1083,8 @@ void SVORenderer::initUI() {
         [] {}, Size{500, 400}, *config.get()["resources"]["path_models"].value<std::string>());
   });
 
-  ui->probesGridStepDrag.addValueListener([this](auto) { rebuildAndUploadBVH(); });
+  ui->renderProbesButton.addClickListener([this] { probeRenderer->renderProbesInNextPass(); });
+  ui->selectedProbeSpinner.addValueListener([this](auto val) { probeRenderer->setProbeToRender(val); });
 
   ui->imgui->setStateFromConfig();
 }
@@ -1118,13 +1120,6 @@ void SVORenderer::rebuildAndUploadBVH() {
 
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree.data, mapping);
-
-  /*lfp::GridProbeGenerator generator{ui->probesGridStepDrag.getValue()};
-  const auto probes = generator.generateLightFieldProbes(*modelManager);
-  auto probeMapping = probeRenderer->getProbePosBuffer()->mapping();
-  for (const auto &[idx, probe] : probes | ranges::views::enumerate) {
-    probeMapping.set(glm::vec4{probe.position, probes.size()}, idx);
-  }*/
 }
 
 std::function<void()> SVORenderer::popupClickActiveModel(std::size_t itemId, vox::GPUModelManager::ModelPtr modelPtr) {
@@ -1210,6 +1205,11 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
 }
 void SVORenderer::createBuffers() {
+  probePosBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
+                                                  .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
+                                                  .sharingMode = vk::SharingMode::eExclusive,
+                                                  .queueFamilyIndices = {}});
+  probePosBuffer->mapping().set(glm::vec4{0, 0, 0, 0});
   // TODO: size
   svoBuffer = vkLogicalDevice->createBuffer({.size = 500_MB,
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,

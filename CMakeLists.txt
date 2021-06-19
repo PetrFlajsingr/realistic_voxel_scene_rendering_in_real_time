@@ -218,7 +218,9 @@ set(SOURCES
         src/voxel/GPUModelManager.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
-        src/voxel/TeardownMaps.cpp src/rendering/light_field_probes/ProbeRenderer.cpp src/rendering/light_field_probes/ProbeRenderer.h)
+        src/voxel/TeardownMaps.cpp
+        src/rendering/light_field_probes/ProbeRenderer.cpp
+        src/rendering/light_field_probes/ProbeManager.cpp )
 
 set(INCLUDES
         src/logging/loggers.h
@@ -254,6 +256,8 @@ set(INCLUDES
         src/voxel/GPUModelManager.h
         src/rendering/light_field_probes/ProbeGenerator.h
         src/rendering/light_field_probes/GridProbeGenerator.h
+        src/rendering/light_field_probes/ProbeRenderer.h
+        src/rendering/light_field_probes/ProbeManager.h
         )
 
 set(SVO_SOURCES

@@ -169,10 +169,9 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       modelDetailScaleDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_scale_drag", "Scale", 0.01,
                                                                                0.01, 10, glm::vec3{1, 1, 1})),
       probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes debug")),
-      probesGridStepDrag(probesDebugWindow.createChild<DragInput<float>>("probe_grid_step_drag", "Grid step", 0.01,
-                                                                         0.001f, 10.f, 1.f)),
-      probePositionDrag(probesDebugWindow.createChild<DragInput<glm::vec3>>("probe_pos_drag", "Probe position", 0.01,
-                                                                            -100.f, 100.f, glm::vec3{0})),
+      renderProbesButton(probesDebugWindow.createChild<Button>("render_probes_button", "Render probes in next pass")),
+      selectedProbeSpinner(probesDebugWindow.createChild<SpinInput<int>>("selected_prob_spinner", "Selected probe",
+                                                                              0, 64, 0, 1, 10)),
       probesTabBar(probesDebugWindow.createChild<TabBar>("probe_debug_tabbar")),
       probesTexturesTab(probesTabBar.addTab("probes_debug_textures_tab", "Textures")),
       probeTextureCombobox(probesTexturesTab.createChild<Combobox<ProbeVisualisation>>(
@@ -202,9 +201,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
 
   probesDebugWindow.setCollapsible(true);
 
-  probesGridStepDrag.setTooltip("Step of grid for generating probes");
-  probePositionDrag.setTooltip("Position of debug probe in the scene");
-
+  renderProbesButton.setTooltip("Render G buffer for each probe in the next pass");
   modelLoadingSeparateModelsCheckbox.setTooltip("Load models in model file as separate SVOs");
 
   activeModelList.addValueListener([this](const auto &modelInfo) {

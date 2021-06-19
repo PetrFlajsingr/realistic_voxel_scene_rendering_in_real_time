@@ -5,6 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
 
+#include "ProbeManager.h"
 #include <memory>
 #include <pf_common/ByteLiterals.h>
 #include <pf_glfw_vulkan/vulkan/types/Buffer.h>
@@ -27,39 +28,50 @@
 namespace pf::lfp {
 class ProbeRenderer {
  public:
-  constexpr static auto PROBES_IMG_ARRAY_LAYERS = 50;
 
   ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
                 std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
                 std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
-                std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer);
+                std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
+                std::unique_ptr<ProbeManager> probeManag);
 
-  [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImage() const;
-  [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageView() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesDebugImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesDebugImageView() const;
   [[nodiscard]] const std::shared_ptr<vulkan::TextureSampler> &getProbesDebugSampler() const;
-  [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getProbePosBuffer() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getDebugUniformBuffer() const;
 
-  const std::shared_ptr<vulkan::Semaphore> &render();
+  const std::shared_ptr<vulkan::Semaphore> &renderProbes();
+
+  [[nodiscard]] ProbeManager &getProbeManager();
+
+  void setProbeToRender(std::uint32_t index);
+
+  void setProbeToRender(glm::ivec3 position);
+
+  void renderProbesInNextPass();
 
  private:
   void recordCommands();
+  bool renderingProbesInNextPass = false;
   toml::table config;
   std::shared_ptr<vulkan::Instance> vkInstance;
   std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
   std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
+
   std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
 
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
   std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
-  std::shared_ptr<vulkan::Buffer> probePosBuffer;
+  std::shared_ptr<vulkan::Buffer> gridInfoBuffer;
 
+ public:
+  std::unique_ptr<ProbeManager> probeManager;
+
+ private:
   std::shared_ptr<vulkan::CommandPool> vkCommandPool;
 
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
@@ -72,8 +84,6 @@ class ProbeRenderer {
 
   void createTextures();
 
-  std::shared_ptr<vulkan::Image> vkProbesImage;
-  std::shared_ptr<vulkan::ImageView> vkProbesImageView;
   std::shared_ptr<vulkan::Image> vkProbesDebugImage;
   std::shared_ptr<vulkan::ImageView> vkProbesDebugImageView;
   std::shared_ptr<vulkan::TextureSampler> vkProbesDebugImageSampler;
