@@ -227,7 +227,7 @@ void SVORenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   auto probeSample = mainSample.blockSampler("probes");
-  auto probeSemaphore = probeRenderer->renderProbes();
+  auto probeSemaphore = probeRenderer->render();
   probeSample.end();
 
   auto computeSample = mainSample.blockSampler("compute");
@@ -1026,8 +1026,7 @@ void SVORenderer::initUI() {
                             [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
   });
 
-  ui->probeTextureCombobox.addValueListener(
-      [this](const auto type) { probeRenderer->getDebugUniformBuffer()->mapping().set(static_cast<uint32_t>(type)); });
+  ui->probeTextureCombobox.addValueListener([this](const auto type) { probeRenderer->setProbeDebugRenderType(type); }, true);
 
   ui->teardownMapMenuItem.addClickListener([this] {
     ui->imgui->openDirDialog(
