@@ -130,7 +130,7 @@ std::unordered_set<std::string> SVORenderer::getValidationLayers() {
 void SVORenderer::buildVulkanObjects() {
   createBuffers();
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
-      config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer,
+      config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
       std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.3f, vkLogicalDevice));
 
   createSwapchain();
@@ -227,14 +227,14 @@ void SVORenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   auto probeSample = mainSample.blockSampler("probes");
-  auto probeSemaphore = probeRenderer->render();
+  //auto probeSemaphore = probeRenderer->render();
   probeSample.end();
 
   auto computeSample = mainSample.blockSampler("compute");
   vkCommandBuffers[commandBufferIndex]->submit(
-      {.waitSemaphores = {semaphore, *probeSemaphore},
+      {.waitSemaphores = {semaphore/*, *probeSemaphore*/},
        .signalSemaphores = {*computeSemaphore},
-       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eComputeShader},
+       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput/*, vk::PipelineStageFlagBits::eComputeShader*/},
        .fence = fence,
        .wait = true});
 
@@ -258,7 +258,10 @@ void SVORenderer::render() {
 }
 
 void SVORenderer::createDevices() {
-  vkDevice = vkInstance->selectDevice(DefaultDeviceSuitabilityScorer({}, {}, [](const auto &) { return 0; }));
+  vkDevice = vkInstance->selectDevice(DefaultDeviceSuitabilityScorer({}, {}, [](const vk::PhysicalDeviceFeatures &) {
+    // FIXME: actually select the best one
+    return 0;
+  }));
   vkLogicalDevice =
       vkDevice->createLogicalDevice({.id = "dev1",
                                      .deviceFeatures = vk::PhysicalDeviceFeatures{},
@@ -409,24 +412,6 @@ void SVORenderer::createPipeline() {
   allocInfo.setSetLayouts(setLayouts);
   allocInfo.descriptorPool = **vkDescPool;
   computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
-
-  cameraUniformBuffer =
-      vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + 2 * sizeof(float),
-                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                     .sharingMode = vk::SharingMode::eExclusive,
-                                     .queueFamilyIndices = {}});
-
-  lightUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 4,
-                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                      .sharingMode = vk::SharingMode::eExclusive,
-                                                      .queueFamilyIndices = {}});
-
-  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float)
-                                                          + sizeof(std::uint32_t) + sizeof(std::uint32_t)
-                                                          + sizeof(uint32_t) + sizeof(uint32_t),
-                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                      .sharingMode = vk::SharingMode::eExclusive,
-                                                      .queueFamilyIndices = {}});
 
   const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
                                                         .imageView = **vkRenderImageView,
@@ -1026,7 +1011,8 @@ void SVORenderer::initUI() {
                             [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
   });
 
-  ui->probeTextureCombobox.addValueListener([this](const auto type) { probeRenderer->setProbeDebugRenderType(type); }, true);
+  ui->probeTextureCombobox.addValueListener([this](const auto type) { probeRenderer->setProbeDebugRenderType(type); },
+                                            true);
 
   ui->teardownMapMenuItem.addClickListener([this] {
     ui->imgui->openDirDialog(
@@ -1083,7 +1069,10 @@ void SVORenderer::initUI() {
   });
 
   ui->renderProbesButton.addClickListener([this] { probeRenderer->renderProbesInNextPass(); });
-  ui->selectedProbeSpinner.addValueListener([this](auto val) { probeRenderer->setProbeToRender(val); });
+  ui->selectedProbeSpinner.addValueListener([this](auto val) {
+    probeRenderer->setProbeToRender(val);
+    debugUniformBuffer->mapping().set(val, 8);
+  });
 
   ui->imgui->setStateFromConfig();
 }
@@ -1204,6 +1193,24 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
 }
 void SVORenderer::createBuffers() {
+  cameraUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + 2 * sizeof(float),
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
+
+  lightUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 4,
+                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      .sharingMode = vk::SharingMode::eExclusive,
+                                                      .queueFamilyIndices = {}});
+
+  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float)
+                                                          + sizeof(std::uint32_t) + sizeof(std::uint32_t)
+                                                          + sizeof(uint32_t) + sizeof(uint32_t),
+                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                                      .sharingMode = vk::SharingMode::eExclusive,
+                                                      .queueFamilyIndices = {}});
+
   probePosBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
                                                   .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                                   .sharingMode = vk::SharingMode::eExclusive,

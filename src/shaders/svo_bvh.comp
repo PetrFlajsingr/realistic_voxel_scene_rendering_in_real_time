@@ -82,7 +82,7 @@ layout(binding = 4, std140) uniform Debug {
   uint printEnabled;
   uint visualizeBVH;
   uint visualizeProbes;
-  uint probeVisualType;// 0 disabled, 1 color, 2 normal, 3 depth
+  uint selectedProbeIdx;
 }
 debug;
 layout(binding = 5, r32f) uniform image2D iterImage;
@@ -163,6 +163,41 @@ vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
   return result;
 }
 
+struct NearFarCoords {
+  vec4 near;
+  vec4 far;
+};
+
+Ray createRay(vec2 screenCoord, vec2 resolution) {
+  float x = (2.0f * screenCoord.x) / resolution.x - 1.0f;
+  float y = (2.0f * screenCoord.y) / resolution.y - 1.0f;
+  float z = 1.0f;
+  vec3 ray_nds = vec3(x, y, z);
+  vec4 ray_clip = vec4(ray_nds.xy, -1.0, 1.0);
+  vec4 ray_eye = inverse(camera.projection) * ray_clip;
+  ray_eye = vec4(ray_eye.xy, -1.0, 0.0);
+  vec3 ray_wor = (inverse(camera.view) * ray_eye).xyz;
+  ray_wor = normalize(ray_wor);
+  Ray result;
+  result.origin = camera.pos.xyz;
+  result.direction = ray_wor;
+  return result;
+}
+NearFarCoords getNearFarCoords(vec2 screenCoord, vec2 resolution) {
+  const float xNorm = 2.0 * screenCoord.x / resolution.x - 1.0;
+  const float yNorm = 2.0 * screenCoord.y / resolution.y - 1.0;
+  return NearFarCoords(vec4(xNorm, yNorm, -1, 1), vec4(xNorm, yNorm, 1, 1));
+}
+
+Ray nearFarCoordsToRay(NearFarCoords coords, mat4 inverseProjectionView) {
+  coords.near = inverseProjectionView * coords.near;
+  coords.far = inverseProjectionView * coords.far;
+  Ray result;
+  result.origin = coords.near.xyz / coords.near.w;
+  result.direction = normalize((coords.far.xyz / coords.far.w) - result.origin);
+  return result;
+}
+
 struct Box {
   vec3 pos;
   float sideLen;
@@ -226,6 +261,13 @@ struct AABBIntersection {
   bool hit;
   float distance;
 };
+
+struct AABBIntersection_ALT {
+  bool hit;
+  float distance;
+  uint offset;
+  bool isLeaf;
+};
 /**
   * Check for intersection with AABB and get distance.
   */
@@ -238,7 +280,22 @@ AABBIntersection intersectAABBDistance(Ray ray, vec3 boxMin, vec3 boxMax) {
   const float tFar = min(min(t2.x, t2.y), t2.z);
   AABBIntersection result;
   result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
-  result.distance = tNear;
+  result.distance = tNear + float(!result.hit) * INF;
+  return result;
+}
+
+AABBIntersection_ALT intersectAABBDistance_ALT(Ray ray, vec3 boxMin, vec3 boxMax, uint offset, bool isLeaf) {
+  const vec3 tMin = (boxMin - ray.origin) / ray.direction;
+  const vec3 tMax = (boxMax - ray.origin) / ray.direction;
+  const vec3 t1 = min(tMin, tMax);
+  const vec3 t2 = max(tMin, tMax);
+  const float tNear = max(max(t1.x, t1.y), t1.z);
+  const float tFar = min(min(t2.x, t2.y), t2.z);
+  AABBIntersection_ALT result;
+  result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
+  result.distance = tNear + float(!result.hit) * INF;
+  result.offset = offset;
+  result.isLeaf = isLeaf;
   return result;
 }
 
@@ -632,11 +689,12 @@ struct BVHDistanceInfo {
   float distance;
 };
 
-BVHDistanceInfo bvhHitArray[50];// TODO: this size is wrong
-TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
-  uint stackTop = 0;
-  WRITE_BVH_STACK(bvhStack, stackTop++, 0);
+#define READ_BVH_STACK_ALT(stack, idx) stack[idx]
+#define WRITE_BVH_STACK_ALT(stack, idx, n) stack[idx] = n;
 
+AABBIntersection_ALT bvhStack_ALT[BVH_STACK_SIZE];
+
+TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   Ray aabbRay = ray;
   aabbRay.direction = normalize(aabbRay.direction);
 
@@ -652,58 +710,82 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     result.color = vec3(0);
   }
 
-  int hitArrayPos = 0;
-  while (stackTop != 0) {
-    const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
-    const BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
-    const vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
-    const vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
-    AABBIntersection aabbIntersection = intersectAABBDistance(aabbRay, boxMin, boxMax);
-    if (aabbIntersection.hit) {
-      const uint offset = GET_BVH_NODE_OFFSET(currentNode);
-      if (IS_BVH_NODE_LEAF(currentNode)) {
-        if (debug.visualizeBVH == 1) {
-          result.hit = true;
-          result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
-          result.isOnlyAABB = result.isOnlyAABB && true;
-        }
-        bvhHitArray[hitArrayPos].modelId = offset;
-        bvhHitArray[hitArrayPos].distance = aabbIntersection.distance;
-        ++hitArrayPos;
-      } else {
-        WRITE_BVH_STACK(bvhStack, stackTop++, offset);
-        WRITE_BVH_STACK(bvhStack, stackTop++, offset + 1);
-      }
-    }
-  }
-
-  BVHDistanceInfo tmp;
-  for (int j = 0; j < hitArrayPos - 1; ++j) {
-    int swap = j;
-    for (int i = j + 1; i < hitArrayPos; ++i) {
-      if (bvhHitArray[swap].distance > bvhHitArray[i].distance) { swap = i; }
-    }
-    tmp = bvhHitArray[swap];
-    bvhHitArray[swap] = bvhHitArray[j];
-    bvhHitArray[j] = tmp;
-  }
-
   TraceResult bestModelResult;
   bestModelResult.hit = false;
   bestModelResult.t = INF;
   bestModelResult.iter = 0;
   bestModelResult.distanceInWorldSpace = INF;
-  for (int i = 0; i < hitArrayPos; ++i) {
-    if (bvhHitArray[i].distance > bestModelResult.distanceInWorldSpace) { break; }
-    TraceResult modelTraceResult = traceModel(bvhHitArray[i].modelId, ray);
-    modelTraceResult.posInWorldSpace =
-        (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1)).xyz;
-    modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
-    if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
-      bestModelResult = modelTraceResult;
-      result.isOnlyAABB = false;
+
+  uint stackTop = 0;
+
+  // BVH root
+  uint nodeToCheckIdx = 0;
+  BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
+  vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
+  vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
+  uint offset = GET_BVH_NODE_OFFSET(currentNode);
+  AABBIntersection_ALT intersectionA =
+      intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+
+  // if there's no root hit or the stack is empty and there's nothing to check
+  while (intersectionA.hit) {
+    // of the hit node is a leaf, intersect the model
+    if (intersectionA.isLeaf) {
+      // if the aabb intersection is further away then the best previous model hit, don't check it
+      if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
+        TraceResult modelTraceResult = traceModel(intersectionA.offset, ray);
+        modelTraceResult.posInWorldSpace =
+            (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1))
+                .xyz;
+        modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
+        if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
+          bestModelResult = modelTraceResult;
+          result.isOnlyAABB = false;
+        }
+        result.iter += modelTraceResult.iter;
+      }
+
+      if (debug.visualizeBVH == 1) {
+        result.hit = true;
+        result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
+        result.isOnlyAABB = result.isOnlyAABB && true;
+      }
+      // stack is empty, end
+      if (stackTop == 0) {
+        intersectionA.hit = false;
+      } else {// read stack
+        intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop);
+      }
+    } else {
+      // intersect child nodes
+      nodeToCheckIdx = intersectionA.offset + 1;
+      currentNode = bvh.nodes[nodeToCheckIdx];
+      boxMin = GET_BVH_MIN_AABB(currentNode);
+      boxMax = GET_BVH_MAX_AABB(currentNode);
+      offset = GET_BVH_NODE_OFFSET(currentNode);
+      AABBIntersection_ALT intersectionB =
+          intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+
+      nodeToCheckIdx = intersectionA.offset;
+      currentNode = bvh.nodes[nodeToCheckIdx];
+      boxMin = GET_BVH_MIN_AABB(currentNode);
+      boxMax = GET_BVH_MAX_AABB(currentNode);
+      offset = GET_BVH_NODE_OFFSET(currentNode);
+      intersectionA = intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+
+      // sort child nodes
+      if (intersectionB.distance < intersectionA.distance) {
+        AABBIntersection_ALT tmp = intersectionB;
+        intersectionB = intersectionA;
+        intersectionA = tmp;
+      }
+      // B is present only if both children have been hit, push it onto stack - if it's further away than the closest intersected model skip it
+      if (intersectionB.hit && intersectionB.distance < bestModelResult.distanceInWorldSpace) {
+        WRITE_BVH_STACK_ALT(bvhStack_ALT, stackTop++, intersectionB);
+      }
+      // there was no hit, read stack
+      if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
     }
-    result.iter += modelTraceResult.iter;
   }
 
   if (bestModelResult.hit) {
@@ -722,7 +804,7 @@ void main() {
   uint idy = gl_GlobalInvocationID.y;
 
   ivec2 dimensions = imageSize(computeImage);
-  if (idx > dimensions.x || idy > dimensions.y) { return; }
+  if (idx >= dimensions.x || idy >= dimensions.y) { return; }
 
   vec3 finalColor = vec3(0);
   vec3 iterColor = vec3(0);
@@ -734,6 +816,9 @@ void main() {
   ray.direction =// normalize(
       (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
           .xyz;//);
+
+  //Ray ray = nearFarCoordsToRay(getNearFarCoords(vec2(idx, idy), vec2(dimensions)), camera.invProjView);
+  //ray.direction *= 100;
 
   TraceResult traceResult;
   traceResult.hit = false;
@@ -765,7 +850,7 @@ void main() {
       sphere.position = lfp.probes[i].xyz;
       if (SphereIntersection(ray, sphere) > 0) {
         traceResult.hit = true;
-        traceResult.color = vec3(0, 1, 0);
+        traceResult.color = debug.selectedProbeIdx == i ? vec3(1, 0, 0) : vec3(0, 1, 0);
       }
     }
   }

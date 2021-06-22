@@ -1,0 +1,596 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+#extension GL_EXT_debug_printf : enable
+
+#define PI 3.141592
+#define INF 10000000000000.0
+#define EPSILON 0.001
+
+#ifndef LOCAL_SIZE_X
+#define LOCAL_SIZE_X 8
+#endif
+#ifndef LOCAL_SIZE_Y
+#define LOCAL_SIZE_Y 8
+#endif
+#ifndef LOCAL_SIZE_Z
+#define LOCAL_SIZE_Z 1
+#endif
+
+bool isPrintThread() { return gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0; }
+
+/*if (isPrintThread()) {
+  debugPrintfEXT();
+}*/
+
+const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
+                            vec3(1, 0, 0),// 1
+                            vec3(0, 1, 0),// 2
+                            vec3(1, 1, 0),// 3
+                            vec3(0, 0, 1),// 4
+                            vec3(1, 0, 1),// 5
+                            vec3(0, 1, 1),// 6
+                            vec3(1, 1, 1) // 7
+);
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = LOCAL_SIZE_Z) in;
+
+#define PROBE_VISUAL_TYPE uint
+#define PROBE_VISUAL_TYPE_DISABLED 0
+#define PROBE_VISUAL_TYPE_COLOR 1
+#define PROBE_VISUAL_TYPE_NORMALS 2
+#define PROBE_VISUAL_TYPE_DEPTH 3
+#define PROBE_VISUAL_TYPE_CAMERA_VIEW 4
+
+layout(binding = 0, std140) uniform Debug {
+  PROBE_VISUAL_TYPE probeVisualType;
+  uint probeToRender;
+}
+debug;
+
+layout(binding = 1, std140) uniform Grid {
+  ivec4 gridSize;
+  vec4 gridPos;
+  float gridStep;
+}
+grid;
+
+layout(binding = 2, rg32f) uniform image2DArray probeImages;
+layout(binding = 3, rgba8) uniform image2D debugProbeImage;
+
+layout(binding = 4) uniform UniformCamera {
+  vec4 pos;
+  vec4 dir;
+  vec4 up;
+  mat4 view;
+  mat4 projection;
+  mat4 invProjView;
+  float near;
+  float far;
+  int screenWidth;
+  int screenHeight;
+}
+camera;
+
+vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
+  vec2 result = 2.0 * (screenCoord / resolution.xy - 0.5);
+  result.x *= resolution.x / float(resolution.y);
+  return result;
+}
+
+struct Ray {
+  vec3 origin;
+  float originSize;
+  vec3 direction;
+  float directionSize;
+};
+
+#define INVALID_PROBE uint(-1)
+
+/*
+ProbeTraceResult probeTrace(Ray ray, uint probeIndex) {
+  // compute polyline segments for the 4 faces which are traversed
+  // for each of these segments - step by 16:1 mipmap and then do course when we get close?
+  // for each pixel and thus 3D point on the segment do:
+  // if ray intersects given pixel based on its radial distance
+  // return ProbeTraceResult(HIT, hitpoint);
+  // if ray is further away than the radial distance
+  // return ProbeTraceResult(UNKNOWN, vec3());
+  //return ProbeTraceResult(MISS, last endpoint of polyline);
+  return ProbeTraceResult(PROBE_TRACE_STATE_UNRESOLVABLE, vec3(0));
+}
+
+void lightFieldTrace(Ray ray) {
+  PROBE_TRACE_STATE result = PROBE_TRACE_STATE_UNKNOWN;
+  while (result == PROBE_TRACE_STATE_UNKNOWN) {
+    uint probeIndex = chooseNextProbe();
+    if (probeIndex == INVALID_PROBE) {
+      result = PROBE_TRACE_STATE_UNRESOLVABLE;
+      break;
+    }
+    ProbeTraceResult probeTraceResult = probeTrace(ray, probeIndex);
+    ray.origin = endpoint;
+  }
+}*/
+
+/*
+Probe selection:
+Order in cube of probes:
+    index calc: next index = (index + 3) % 8 == (index + 3) & 0xF
+    0: 0 0 0 <- first probe in group
+    1: x 0 0
+    2: 0-y 0
+    3: x-y 0
+    4: 0 0 z
+    5: x 0 z
+    6: 0-y z
+    7: x-y z
+First probe: 
+    select a probe so that its center is nearest the ray origin
+Next probe: 
+    if the new endpoint isn't in bounding box of last probe group:
+        select a probe so that its center is nearest the ray origin
+    else:
+        select next probe in local probe box based on heuristic above
+if all in group tested but returning UNKNOWN return the last occlusion as HIT
+
+*/
+
+float maxComponent(vec2 a) { return max(a.x, a.y); }
+
+float signNotZero(float f) { return (f >= 0.0) ? 1.0 : -1.0; }
+vec2 signNotZero(vec2 v) { return vec2(signNotZero(v.x), signNotZero(v.y)); }
+
+/** Assumes that v is a unit vector. The result is an octahedral vector on the [-1, +1] square. */
+vec2 octEncode(in vec3 v) {
+  float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
+  vec2 result = v.xy * (1.0 / l1norm);
+  if (v.z < 0.0) { result = (1.0 - abs(result.yx)) * signNotZero(result.xy); }
+  return result;
+}
+
+/** Returns a unit vector. Argument o is an octahedral vector packed via octEncode,
+    on the [-1, +1] square*/
+vec3 octDecode(vec2 o) {
+  vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+  if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+  return normalize(v);
+}
+
+// index in image array
+#define PROBE_INDEX uint
+// position in integer grid
+#define GRID_COORD uvec3
+// position in world space
+#define PROBE_COORD vec3
+// position within current probe box
+#define PROBE_CUBE_INDEX uint
+
+// convert position in grid to index in image array
+PROBE_INDEX lfp_gridCoordToProbeIndex(GRID_COORD gridCoord) {
+  PROBE_INDEX result =
+      PROBE_INDEX(gridCoord.x + gridCoord.y * grid.gridSize.x + gridCoord.z * grid.gridSize.x * grid.gridSize.y);
+  return result;
+}
+// convert world space coord to grid coord
+GRID_COORD lfp_probeCoordToGridCoord(PROBE_COORD probeCoord) {
+  return clamp(GRID_COORD((probeCoord - grid.gridPos.xyz) / grid.gridStep), GRID_COORD(0, 0, 0),
+               GRID_COORD(grid.gridSize.xyz) - GRID_COORD(1, 1, 1));
+}
+
+// convert world space coord to probe index in image array
+PROBE_INDEX lfp_probeCoordToProbeIndex(PROBE_COORD probeCoord) {
+  return lfp_gridCoordToProbeIndex(lfp_probeCoordToGridCoord(probeCoord));
+}
+
+// convert probe index to grid position - FIXME this is messed up
+GRID_COORD lfp_probeIndexToGridCoord(PROBE_INDEX probeIndex) {
+  /*GRID_COORD result;
+  result.x = probeIndex % grid.gridSize.x;
+  result.y = probeIndex / grid.gridSize.x;
+  result.z = probeIndex / (grid.gridSize.x * grid.gridSize.y);
+  return result;*/
+  GRID_COORD result = GRID_COORD(probeIndex & (grid.gridSize.x - 1),
+                                 (probeIndex & (grid.gridSize.x * grid.gridSize.y - 1)) >> findMSB(grid.gridSize.x),
+                                 probeIndex >> findMSB(grid.gridSize.x * grid.gridSize.y));
+  return result;
+}
+PROBE_COORD lfp_gridCoordToProbeCoord(GRID_COORD gridCoord) {
+  PROBE_COORD result = PROBE_COORD(grid.gridStep * gridCoord + grid.gridPos.xyz);
+  return result;
+}
+
+PROBE_COORD lfp_probeIndexToProbeCoord(PROBE_INDEX probeIndex) {
+  return lfp_gridCoordToProbeCoord(lfp_probeIndexToGridCoord(probeIndex));
+}
+
+struct NearestProbeInfo {
+  PROBE_INDEX probeIndex;
+  GRID_COORD gridCoord;
+};
+// find the nearest probe to given position
+NearestProbeInfo lfp_findNearestProbe(vec3 position) {
+  NearestProbeInfo result;
+  // FIXME: this may be messed up
+  result.gridCoord = GRID_COORD(clamp(round((position - grid.gridPos.xyz) / grid.gridStep), vec3(0, 0, 0),
+                                      vec3(grid.gridSize.xyz) - vec3(1, 1, 1)));
+  result.probeIndex = lfp_gridCoordToProbeIndex(result.gridCoord);
+  return result;
+}
+// find an index of nearest probe in current cube
+PROBE_CUBE_INDEX lfp_findNearestProbeInGroup(vec3 position) {
+  const PROBE_COORD maxProbeCoords = PROBE_COORD(grid.gridSize.xyz) - PROBE_COORD(1, 1, 1);
+  const PROBE_COORD floatProbeCoords = (position - grid.gridPos.xyz) / grid.gridStep;
+  const PROBE_COORD baseProbeCoords = clamp(floor(floatProbeCoords), PROBE_COORD(0, 0, 0), maxProbeCoords);
+
+  float minDistance = INF;
+  PROBE_CUBE_INDEX nearestIndex;
+  for (int i = 0; i < 8; ++i) {
+    PROBE_COORD newProbeCoords = min(baseProbeCoords + vec3(i & 1, (i >> 1) & 1, (i >> 2) & 1), maxProbeCoords);
+    const float dist = distance(newProbeCoords, floatProbeCoords);
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearestIndex = i;
+    }
+  }
+  return nearestIndex;
+}
+
+int idot(ivec3 a, ivec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+
+// calculate probe index based on local cube index
+PROBE_INDEX relativeProbeIndex(PROBE_INDEX currentNode, PROBE_CUBE_INDEX neighborIndex) {
+  PROBE_INDEX probeCOunt = grid.gridSize.x * grid.gridSize.y * grid.gridSize.z;
+  const ivec3 offset = ivec3(neighborIndex & 1, (neighborIndex >> 1) & 1, (neighborIndex >> 2) & 1);
+  const ivec3 stride = ivec3(1, grid.gridSize.x, grid.gridSize.x * grid.gridSize.y);
+  return (currentNode + idot(offset, stride)) & (probeCOunt - 1);
+}
+PROBE_CUBE_INDEX getNextNeighborIndex(PROBE_CUBE_INDEX currentIndex) { return (currentIndex + 3) & 7; }
+
+void minSwap(inout float a, inout float b) {
+  float temp = min(a, b);
+  b = max(a, b);
+  a = temp;
+}
+
+void sort(inout vec3 v) {
+  minSwap(v[0], v[1]);
+  minSwap(v[1], v[2]);
+  minSwap(v[0], v[1]);
+}
+
+float lengthSquared(in vec2 v) { return dot(v, v); }
+
+float lengthSquared(in vec3 v) { return dot(v, v); }
+
+float[5] createRaySegments(vec3 origin, vec3 inverseDirection, float minT, float maxT) {
+  float result[5];
+  result[0] = minT;
+  vec3 t = origin * -inverseDirection;
+  sort(t);
+  for (int i = 0; i < 3; ++i) { result[i + 1] = clamp(t[i], minT, maxT); }
+  result[4] = maxT;
+  return result;
+}
+
+float distanceToIntersection(Ray ray, vec3 intersectionPoint) {
+  float denom = intersectionPoint.y * ray.direction.z - intersectionPoint.z * ray.direction.y;
+  float numer;
+  if (abs(denom) > 0.1) {
+    numer = ray.origin.y * ray.direction.z - ray.origin.z * ray.direction.y;
+  } else {
+    numer = ray.origin.x * ray.direction.y - ray.origin.y * ray.direction.x;
+    denom = intersectionPoint.x * ray.direction.y - intersectionPoint.y * ray.direction.x;
+  }
+  return numer / denom;
+}
+
+const vec2 TEX_SIZE = vec2(1024.0);
+const vec2 TEX_SIZE_SMALL = vec2(64.0);
+
+const vec2 INV_TEX_SIZE = vec2(1.0) / TEX_SIZE;
+const vec2 INV_TEX_SIZE_SMALL = vec2(1.0) / TEX_SIZE_SMALL;
+
+const uint MASK11 = 0x7FF;
+const uint MASK10 = 0x3FF;
+const uint R_MAX = 2047;
+const uint G_MAX = 2047;
+const uint G_SHIFT = 11;
+const uint B_MAX = 1023;
+const uint B_SHIFT = 22;
+
+const uint DEPTH_MASK = 0xFFFF;
+const uint DEPTH_MAX = 65535;
+
+const uint NORMAL_ELEMENT_MAX = 255;
+const uint NORMAL_ELEMENT_MASK = 0xFF;
+const uint NORMALS_SHIFT = 16;
+const uint NORMAL1_SHIFT = 0;
+const uint NORMAL2_SHIFT = 8;
+
+vec3 decodeNormal(vec2 f) {
+  f = f * 2.0f - 1.0f;
+  vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+  float t = clamp(-n.z, 0.f, 1.f);
+  n.x += n.x >= 0.0 ? -t : t;
+  n.y += n.y >= 0.0 ? -t : t;
+  return normalize(n);
+}
+
+#define TMP_FAR 10.0
+
+float depthFromProbe(uint data) { return (float(data & DEPTH_MASK) / DEPTH_MAX) * TMP_FAR; }
+
+vec3 normalFromProbe(uint data) {
+  const float probeNormalEncoded1 =
+      float((data >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  const float probeNormalEncoded2 =
+      float((data >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  return decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+}
+
+const float minThickness = 0.03;// meters
+const float maxThickness = 0.50;// meters
+
+#define TRACE_RESULT uint
+#define TRACE_RESULT_MISS 0
+#define TRACE_RESULT_HIT 1
+#define TRACE_RESULT_UNKNOWN 2
+
+struct SegmentTraceResult {
+  TRACE_RESULT traceResult;
+  vec2 hitTexCoord;
+};
+
+//FIXME: make a low res variation as well
+SegmentTraceResult fullResolutionTraceOneRaySegment(Ray ray, vec2 startTexCoord, vec2 endTexCoord,
+                                                    PROBE_INDEX probeIndex, inout float tMin, inout float tMax) {
+  SegmentTraceResult result;
+  const vec2 texCoordDelta = endTexCoord - startTexCoord;
+  const float texCoordDistance = length(texCoordDelta);
+
+  if (texCoordDistance < 0.001) {
+    result.traceResult = TRACE_RESULT_UNKNOWN;
+    return result;
+  }
+
+  const vec2 texCoordDirection = texCoordDelta * (1.0 / texCoordDistance);
+  const float texCoordStep = INV_TEX_SIZE.x * (texCoordDistance / maxComponent(abs(texCoordDelta)));
+
+  const vec3 directionFromProbeBefore = octDecode(startTexCoord * 2.0 - 1.0);
+  float distanceFromProbeToRayBefore = max(0.0, distanceToIntersection(ray, directionFromProbeBefore));
+
+  for (float d = 0.0f; d <= texCoordDistance; d += texCoordStep) {
+    const vec2 texCoord = (texCoordDirection * min(d + texCoordStep * 0.5, texCoordDistance)) + startTexCoord;
+    const float distanceFromProbeToSurface =
+        depthFromProbe(floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y));
+
+    const vec3 directionFromProbe = octDecode(texCoord * 2.0 - 1.0);
+
+    const vec2 texCoordAfter = (texCoordDirection * min(d + texCoordStep, texCoordDistance)) + startTexCoord;
+    const vec3 directionFromProbeAfter = octDecode(texCoordAfter * 2.0 - 1.0);
+    const float distanceFromProbeToRayAfter = max(0.0, distanceToIntersection(ray, directionFromProbeAfter));
+    const float maxDistanceFromProbeToRay = max(distanceFromProbeToRayBefore, distanceFromProbeToRayAfter);
+
+    if (maxDistanceFromProbeToRay >= distanceFromProbeToSurface) {
+      const float minDistanceFromProbeToRay = min(distanceFromProbeToRayBefore, distanceFromProbeToRayAfter);
+      const float distanceFromProbeToRay = (minDistanceFromProbeToRay + maxDistanceFromProbeToRay) * 0.5;
+
+      const vec3 probeSpaceHitPoint = distanceFromProbeToSurface * directionFromProbe;
+      const float distanceAlongRay = dot(probeSpaceHitPoint - ray.origin, ray.direction);
+
+      const vec3 normal =
+          normalFromProbe(floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y));
+
+      const float surfaceThickness = minThickness
+          + (maxThickness - minThickness) * max(dot(ray.direction, directionFromProbe), 0.0)
+              * (2.0 - abs(dot(ray.direction, normal))) * clamp(distanceAlongRay * 0.1, 0.05, 1.0);
+
+      if ((minDistanceFromProbeToRay < distanceFromProbeToSurface + surfaceThickness)
+          && (dot(normal, ray.direction) < 0.0)) {
+        tMax = distanceAlongRay;
+        result.hitTexCoord = texCoord;
+        result.traceResult = TRACE_RESULT_HIT;
+        return result;
+      } else {
+        const vec3 probeSpaceHitPointBefore = distanceFromProbeToRayBefore * directionFromProbeBefore;
+        const float distanceAlongRayBefore = dot(probeSpaceHitPointBefore - ray.origin, ray.direction);
+        tMin = max(tMin, min(distanceAlongRay, distanceAlongRayBefore));
+        result.traceResult = TRACE_RESULT_UNKNOWN;
+        return result;
+      }
+    }
+    distanceFromProbeToRayBefore = distanceFromProbeToRayAfter;
+  }
+  result.traceResult = TRACE_RESULT_MISS;
+  return result;
+}
+
+const float rayBumpEpsilon = 0.001;// meters
+
+SegmentTraceResult traceOneRaySegment(Ray ray, float t0, float t1, PROBE_INDEX probeIndex, inout float tMin,
+                                      inout float tMax) {
+  vec3 probeSpaceStartPoint = ray.origin + ray.direction * (t0 + rayBumpEpsilon);
+  const vec3 probeSpaceEndPoint = ray.origin + ray.direction * (t1 - rayBumpEpsilon);
+
+  if (lengthSquared(probeSpaceStartPoint) < 0.001) { probeSpaceStartPoint = ray.direction; }
+
+  const vec2 startOctCoord = octEncode(normalize(probeSpaceStartPoint));
+  const vec2 endOctCoord = octEncode(normalize(probeSpaceEndPoint));
+
+  if (isPrintThread()) {
+    debugPrintfEXT("SE: %f, %f, %f, %f", startOctCoord.x, startOctCoord.y, endOctCoord.x, endOctCoord.y);
+  }
+
+  vec2 texCoord = startOctCoord * 0.5 + 0.5;
+  const vec2 segmentEndTexCoord = endOctCoord * 0.5 + 0.5;
+
+  SegmentTraceResult result;
+  while (true) {
+    vec2 endTexCoord;
+
+    const vec2 originalStartCoord = texCoord;
+
+    result = fullResolutionTraceOneRaySegment(ray, texCoord, segmentEndTexCoord, probeIndex, tMin, tMax);
+    endTexCoord = result.hitTexCoord;
+    if (result.traceResult != TRACE_RESULT_MISS) { return result; }
+
+    const vec2 texCoordRayDirection = normalize(segmentEndTexCoord - texCoord);
+
+    if (dot(texCoordRayDirection, segmentEndTexCoord - endTexCoord) <= INV_TEX_SIZE.x) {
+      result.traceResult = TRACE_RESULT_MISS;
+      return result;
+    } else {
+      texCoord = endTexCoord + texCoordRayDirection * INV_TEX_SIZE.x * 0.1;
+    }
+  }
+  result.traceResult = TRACE_RESULT_MISS;
+  return result;
+}
+
+SegmentTraceResult traceOneProbe(PROBE_INDEX probeIndex, Ray ray, inout float tMin, inout float tMax) {
+  SegmentTraceResult result;
+  const float degenerateEpsilon = 0.001;
+  const vec3 probeOrigin = lfp_probeIndexToProbeCoord(probeIndex);
+
+  Ray probeSpaceRay;
+  probeSpaceRay.origin = ray.origin - probeOrigin;
+  probeSpaceRay.direction = ray.direction;
+
+  float segmentBoundaries[5] = createRaySegments(probeSpaceRay.origin, vec3(1.0) / probeSpaceRay.direction, tMin, tMax);
+
+  for (int i = 0; i < 4; ++i) {
+    if (abs(segmentBoundaries[i] - segmentBoundaries[i + 1]) >= degenerateEpsilon) {
+      result =
+          traceOneRaySegment(probeSpaceRay, segmentBoundaries[i], segmentBoundaries[i + 1], probeIndex, tMin, tMax);
+      if (result.traceResult == TRACE_RESULT_HIT || result.traceResult == TRACE_RESULT_UNKNOWN) { return result; }
+    }
+  }
+  result.traceResult = TRACE_RESULT_MISS;
+  return result;
+}
+
+// limited so that the cube doesn't fall outside the grid
+PROBE_INDEX selectNearestProbe(Ray ray) {
+  GRID_COORD gridCoords = GRID_COORD(clamp(round((ray.origin - grid.gridPos.xyz) / grid.gridStep), vec3(0, 0, 0),
+                                           vec3(grid.gridSize.xyz) - vec3(2, 2, 2)));
+  return lfp_gridCoordToProbeIndex(gridCoords);
+}
+
+bool isRayInsideCube(PROBE_INDEX index, Ray ray) {
+  const PROBE_COORD bMin = lfp_probeIndexToProbeCoord(index);
+  const PROBE_COORD bMax = bMin + grid.gridStep;
+  const vec3 p = ray.origin;
+
+  return bMin.x <= p.x && bMin.y <= p.y && bMin.z <= p.z && bMax.x >= p.x && bMax.y >= p.y && bMax.z >= p.z;
+}
+
+struct ProbeTraceResult {
+  vec2 hitTexCoord;
+  PROBE_INDEX probeIndex;
+  bool hit;
+  TRACE_RESULT traceResult;
+};
+
+ProbeTraceResult trace(Ray ray, inout float tMax) {
+  ProbeTraceResult result;
+  result.probeIndex = INVALID_PROBE;
+
+  PROBE_INDEX probeIndex = selectNearestProbe(ray);// limited so that the cube doesn't fall outside the grid
+  PROBE_CUBE_INDEX groupIndex = lfp_findNearestProbeInGroup(ray.origin);
+
+  uint probesUsedInCube = 0;
+  float tMin = 0.0f;
+  while (true) {
+    PROBE_INDEX probeCubeIndex = relativeProbeIndex(probeIndex, groupIndex);
+    SegmentTraceResult segmentResult = traceOneProbe(probeCubeIndex, ray, tMin, tMax);
+    result.traceResult = segmentResult.traceResult;
+    return result;
+    if (segmentResult.traceResult == TRACE_RESULT_HIT) {
+      result.probeIndex = probeCubeIndex;
+      result.hitTexCoord = segmentResult.hitTexCoord;
+      break;
+    } else if (segmentResult.traceResult == TRACE_RESULT_MISS) {
+      break;
+    }
+    ray.origin += ray.direction * tMin;
+    if (isRayInsideCube(probeIndex, ray)) {
+      if (++probesUsedInCube == 8) { break; }
+      groupIndex = getNextNeighborIndex(groupIndex);
+    } else {
+      probesUsedInCube = 0;
+      PROBE_INDEX newIndex = selectNearestProbe(ray);
+      groupIndex = lfp_findNearestProbeInGroup(ray.origin);
+      if (newIndex == probeIndex) { break; }
+    }
+  }
+
+  // missed if ((result.probeIndex == INVALID_PROBE))
+  result.hit = result.probeIndex != INVALID_PROBE;
+  return result;
+}
+
+void main() {
+  ivec3 probeTextureSize = imageSize(probeImages);
+  if (gl_GlobalInvocationID.x > probeTextureSize.x || gl_GlobalInvocationID.y > probeTextureSize.y) { return; }
+
+  if (debug.probeVisualType == PROBE_VISUAL_TYPE_DISABLED) { return; }
+
+  if (debug.probeVisualType == PROBE_VISUAL_TYPE_CAMERA_VIEW) {
+
+    ivec2 dimensions = imageSize(debugProbeImage);
+    Ray ray;
+    const vec2 uv = normalizeScreenCoords(vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec2(dimensions));
+    const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
+    ray.origin = (camera.invProjView * nearPlanePos).xyz;
+    ray.direction = normalize(
+        (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
+            .xyz);
+
+    float tMax = 1000.0;
+    ProbeTraceResult traceResult = trace(ray, tMax);
+    vec3 color = vec3(1, 1, 1);
+    if (traceResult.traceResult == TRACE_RESULT_MISS) {
+      color = vec3(1, 0, 0);
+    } else if (traceResult.traceResult == TRACE_RESULT_HIT) {
+      color = vec3(0, 1, 0);
+    } else if (traceResult.traceResult == TRACE_RESULT_UNKNOWN) {
+      color = vec3(0, 0, 1);
+    }
+    if (traceResult.hit && false) {
+      uint savedColorBytes = floatBitsToUint(
+          imageLoad(probeImages, ivec3((traceResult.hitTexCoord + 0.5) * dimensions, traceResult.probeIndex)).x);
+      color = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+                   float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+    }
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(color, 1));
+
+    return;
+  }
+
+  uint savedColorBytes = floatBitsToUint(
+      imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, debug.probeToRender)).x);
+  const vec3 probeColor =
+      vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+           float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+
+  int savedDepthAndNormalBytes = floatBitsToInt(
+      imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, debug.probeToRender)).y);
+
+  float probeDepth = float(savedDepthAndNormalBytes & DEPTH_MASK) / DEPTH_MAX;
+
+  float probeNormalEncoded1 =
+      float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  float probeNormalEncoded2 =
+      float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  vec3 probeNormal = decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+  if (debug.probeVisualType == PROBE_VISUAL_TYPE_COLOR) {
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(probeColor, 1));
+  } else if (debug.probeVisualType == PROBE_VISUAL_TYPE_NORMALS) {
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y),
+               vec4(probeNormal * 0.5f + 0.5f, 1));
+  } else if (debug.probeVisualType == PROBE_VISUAL_TYPE_DEPTH) {
+    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y),
+               vec4(probeDepth, probeDepth, probeDepth, 1));
+  }
+}

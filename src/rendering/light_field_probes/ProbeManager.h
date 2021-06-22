@@ -39,9 +39,9 @@ class ProbeManager {
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageView() const;
 
   [[nodiscard]] cppcoro::generator<glm::vec3> getProbePositions() const {
-    for (int x = 0; x < probeCount.x; ++x) {
-      for (int y = 0; y < probeCount.x; ++y) {
-        for (int z = 0; z < probeCount.x; ++z) {
+    for (int z = 0; z < probeCount.z; ++z) {
+      for (int y = 0; y < probeCount.y; ++y) {
+        for (int x = 0; x < probeCount.x; ++x) {
           co_yield glm::vec3{x * gridStep, y * gridStep, z * gridStep} + gridStart;
         }
       }

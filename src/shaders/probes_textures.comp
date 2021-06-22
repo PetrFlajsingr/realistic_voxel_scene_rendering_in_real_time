@@ -635,6 +635,15 @@ const uint NORMAL_ELEMENT_MASK = 0xFF;
 const uint NORMALS_SHIFT = 16;
 const uint NORMAL1_SHIFT = 0;
 const uint NORMAL2_SHIFT = 8;
+
+#define TMP_FAR 10.0
+
+vec3 octDecode(vec2 o) {
+  vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+  if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+  return normalize(v);
+}
+
 void main() {
   ivec3 probeTextureSize = imageSize(probeImages);
   if (gl_GlobalInvocationID.x > probeTextureSize.x || gl_GlobalInvocationID.y > probeTextureSize.y
@@ -645,9 +654,10 @@ void main() {
   const uint probeId = gl_GlobalInvocationID.z;
 
   vec2 normalisedOctCoords = (vec2(gl_GlobalInvocationID.xy) - 512.0) / 512.0;
-  vec3 v = vec3(normalisedOctCoords.xy, 1.0 - abs(normalisedOctCoords.x) - abs(normalisedOctCoords.y));
+  /*vec3 v = vec3(normalisedOctCoords.xy, 1.0 - abs(normalisedOctCoords.x) - abs(normalisedOctCoords.y));
   if (v.z < 0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
-  v = normalize(v);
+  v = normalize(v);*/
+  vec3 v = octDecode(normalisedOctCoords);
 
   Ray probeRay;
   probeRay.origin = lfp_probeIndexToProbeCoord(probeId);
@@ -663,7 +673,7 @@ void main() {
 
   const vec3 color = traceResult.color;
   const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);
-  const float depth = traceResult.hit ? traceResult.distanceInWorldSpace / 10.f : INF;
+  const float depth = traceResult.hit ? (traceResult.distanceInWorldSpace / TMP_FAR) : TMP_FAR;
 
   const float colorBytes =
       uintBitsToFloat(uint(color.r * R_MAX) | (uint(color.g * G_MAX) << G_SHIFT) | (uint(color.b * B_MAX) << B_SHIFT));

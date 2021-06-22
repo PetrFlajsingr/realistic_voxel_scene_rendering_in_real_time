@@ -6,6 +6,7 @@
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
 
 #include "ProbeManager.h"
+#include "enums.h"
 #include <memory>
 #include <pf_common/ByteLiterals.h>
 #include <pf_glfw_vulkan/vulkan/types/Buffer.h>
@@ -24,17 +25,15 @@
 #include <pf_glfw_vulkan/vulkan/types/Shader.h>
 #include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
 #include <toml++/toml.h>
-#include "enums.h"
 namespace pf::lfp {
 
 class ProbeRenderer {
  public:
-
   ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
                 std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
                 std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
                 std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
-                std::unique_ptr<ProbeManager> probeManag);
+                std::shared_ptr<vulkan::Buffer> camBuffer, std::unique_ptr<ProbeManager> probeManag);
 
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesDebugImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesDebugImageView() const;
@@ -74,7 +73,6 @@ class ProbeRenderer {
     std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
   } probeGenData;
 
-
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
@@ -90,18 +88,18 @@ class ProbeRenderer {
     std::shared_ptr<vulkan::Semaphore> vkComputeSemaphore;
     std::shared_ptr<vulkan::CommandBuffer> vkCommandBuffer;
     std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
-  }renderData;
+  } renderData;
+
+  std::shared_ptr<vulkan::Buffer> cameraBuffer;
 
  public:
   std::unique_ptr<ProbeManager> probeManager;
 
  private:
-
   void createProbeGenDescriptorPool();
   void createProbeGenPipeline();
   void createProbeGenCommands();
   void recordProbeGenCommands();
-
 
   void createRenderDescriptorPool();
   void createRenderPipeline();
@@ -115,7 +113,6 @@ class ProbeRenderer {
   std::shared_ptr<vulkan::Image> vkProbesDebugImage;
 
   std::shared_ptr<vulkan::ImageView> vkProbesDebugImageView;
-
 
   std::shared_ptr<vulkan::TextureSampler> vkProbesDebugImageSampler;
 };

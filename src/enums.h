@@ -10,7 +10,7 @@
 namespace pf {
 enum class ViewType : int { Color = 0, Normals, Iterations, Distance, ChildIndex, TreeLevel };
 
-enum class ProbeVisualisation : uint32_t { Disabled = 0, Color = 1, Normals = 2, Depth = 3 };
+enum class ProbeVisualisation : uint32_t { Disabled = 0, Color = 1, Normals = 2, Depth = 3, CameraView = 4 };
 // TODO: figure out why PF_ENUM_OUT doesn't work
 inline std::ostream &operator<<(std::ostream &o, ViewType viewType) {
   o << magic_enum::enum_name(viewType);

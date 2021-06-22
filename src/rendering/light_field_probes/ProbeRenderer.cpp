@@ -12,10 +12,11 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
                              std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
                              std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice,
                              std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
-                             std::shared_ptr<vulkan::Buffer> bvhBuffer, std::unique_ptr<ProbeManager> probeManag)
+                             std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
+                             std::unique_ptr<ProbeManager> probeManag)
     : config(std::move(config)), vkInstance(std::move(vkInstance)), vkDevice(std::move(vkDevice)),
       vkLogicalDevice(std::move(vkLogicalDevice)), svoBuffer(std::move(svoBuffer)),
-      modelInfoBuffer(std::move(modelInfoBuffer)), bvhBuffer(std::move(bvhBuffer)),
+      modelInfoBuffer(std::move(modelInfoBuffer)), bvhBuffer(std::move(bvhBuffer)), cameraBuffer(std::move(camBuffer)),
       probeManager(std::move(probeManag)) {
   createProbeGenDescriptorPool();
   createTextures();
@@ -277,6 +278,7 @@ void ProbeRenderer::createRenderDescriptorPool() {
                                                  {vk::DescriptorType::eUniformBuffer, 1},// grid info
                                                  {vk::DescriptorType::eStorageImage, 1}, // probe images
                                                  {vk::DescriptorType::eStorageImage, 1}, // probe debug image
+                                                 {vk::DescriptorType::eUniformBuffer, 1},// camera info
                                              }});
 }
 void ProbeRenderer::createRenderPipeline() {
@@ -300,6 +302,10 @@ void ProbeRenderer::createRenderPipeline() {
             .type = vk::DescriptorType::eStorageImage,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe debug image
+           {.binding = 4,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// camera info
        }});
 
   const auto setLayouts = std::vector{**renderData.vkComputeDescSetLayout};
@@ -358,7 +364,17 @@ void ProbeRenderer::createRenderPipeline() {
                                                               .descriptorType = vk::DescriptorType::eStorageImage,
                                                               .pImageInfo = &computeDebugProbesInfo};
 
-  const auto writeSets = std::vector{uniformDebugWrite, computeDebugProbesWrite, computeProbesWrite, gridInfoWrite};
+  const auto cameraDebugInfo =
+      vk::DescriptorBufferInfo{.buffer = **cameraBuffer, .offset = 0, .range = cameraBuffer->getSize()};
+  const auto cameraDebugWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
+                                                       .dstBinding = 4,
+                                                       .dstArrayElement = {},
+                                                       .descriptorCount = 1,
+                                                       .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                       .pBufferInfo = &cameraDebugInfo};
+
+  const auto writeSets =
+      std::vector{uniformDebugWrite, computeDebugProbesWrite, computeProbesWrite, gridInfoWrite, cameraDebugWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
