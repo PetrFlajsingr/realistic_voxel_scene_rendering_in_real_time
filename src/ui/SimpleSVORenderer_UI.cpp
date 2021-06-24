@@ -172,6 +172,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       renderProbesButton(probesDebugWindow.createChild<Button>("render_probes_button", "Render probes in next pass")),
       selectedProbeSpinner(probesDebugWindow.createChild<SpinInput<int>>("selected_prob_spinner", "Selected probe",
                                                                               0, 64, 0, 1, 10)),
+      probesDebugIntSpinner(probesDebugWindow.createChild<SpinInput<int>>("probes_debug_int_spinner", "Debug int",
+                                                                              0, std::numeric_limits<int>::max(), 0, 1, 10)),
       probesTabBar(probesDebugWindow.createChild<TabBar>("probe_debug_tabbar")),
       probesTexturesTab(probesTabBar.addTab("probes_debug_textures_tab", "Textures")),
       probeTextureCombobox(probesTexturesTab.createChild<Combobox<ProbeVisualisation>>(

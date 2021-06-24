@@ -785,67 +785,6 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
     }
   }
 
-  // if there's no root hit or the stack is empty and there's nothing to check
-  /*while (intersectionA.hit) {
-    // of the hit node is a leaf, intersect the model
-    if (intersectionA.isLeaf) {
-      // if the aabb intersection is further away then the best previous model hit, don't check it
-      if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
-        TraceResult modelTraceResult = traceModel(intersectionA.offset, ray);
-        modelTraceResult.posInWorldSpace =
-            (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1))
-                .xyz;
-        modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
-        if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
-          bestModelResult = modelTraceResult;
-          result.isOnlyAABB = false;
-        }
-        result.iter += modelTraceResult.iter;
-      }
-
-      if (debug.visualizeBVH == 1) {
-        result.hit = true;
-        result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
-        result.isOnlyAABB = result.isOnlyAABB && true;
-      }
-      // stack is empty, end
-      if (stackTop == 0) {
-        intersectionA.hit = false;
-      } else {// read stack
-        intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop);
-      }
-    } else {
-      // intersect child nodes
-      nodeToCheckIdx = intersectionA.offset + 1;
-      currentNode = bvh.nodes[nodeToCheckIdx];
-      boxMin = GET_BVH_MIN_AABB(currentNode);
-      boxMax = GET_BVH_MAX_AABB(currentNode);
-      offset = GET_BVH_NODE_OFFSET(currentNode);
-      AABBIntersection_ALT intersectionB =
-          intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
-
-      nodeToCheckIdx = intersectionA.offset;
-      currentNode = bvh.nodes[nodeToCheckIdx];
-      boxMin = GET_BVH_MIN_AABB(currentNode);
-      boxMax = GET_BVH_MAX_AABB(currentNode);
-      offset = GET_BVH_NODE_OFFSET(currentNode);
-      intersectionA = intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
-
-      // sort child nodes
-      if (intersectionB.distance < intersectionA.distance) {
-        AABBIntersection_ALT tmp = intersectionB;
-        intersectionB = intersectionA;
-        intersectionA = tmp;
-      }
-      // B is present only if both children have been hit, push it onto stack - if it's further away than the closest intersected model skip it
-      if (intersectionB.hit && intersectionB.distance < bestModelResult.distanceInWorldSpace) {
-        WRITE_BVH_STACK_ALT(bvhStack_ALT, stackTop++, intersectionB);
-      }
-      // there was no hit, read stack
-      if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
-    }
-  }*/
-
   if (bestModelResult.hit) {
     bestModelResult.normal = normalize(
         (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);

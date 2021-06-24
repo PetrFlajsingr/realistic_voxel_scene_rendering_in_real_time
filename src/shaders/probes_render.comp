@@ -45,6 +45,7 @@ layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = 
 layout(binding = 0, std140) uniform Debug {
   PROBE_VISUAL_TYPE probeVisualType;
   uint probeToRender;
+  int debugInt;
 }
 debug;
 
@@ -666,6 +667,187 @@ bool trace(Ray worldSpaceRay, inout float tMax, out Point2 hitProbeTexCoord, out
   return (hitProbeIndex != -1);
 }
 
+TraceResult testTraceSegment(in Ray probeSpaceRay, in Point2 startTexCoord, in Point2 endTexCoord,
+                             in ProbeIndex probeIndex, inout float tMin, inout float tMax,
+                             inout vec2 hitProbeTexCoord) {
+
+  vec2 texCoordDelta = endTexCoord - startTexCoord;
+  float texCoordDistance = length(texCoordDelta);
+  vec2 texCoordDirection = texCoordDelta * (1.0 / texCoordDistance);
+
+  float texCoordStep = INV_TEX_SIZE.x * (texCoordDistance / maxComponent(abs(texCoordDelta)));
+
+  vec3 directionFromProbeBefore = octDecode(startTexCoord * 2.0 - 1.0);
+  float distanceFromProbeToRayBefore = max(0.0, distanceToIntersection(probeSpaceRay, directionFromProbeBefore));
+
+  for (float d = 0.0f; d <= texCoordDistance; d += texCoordStep) {
+    Point2 texCoord = (texCoordDirection * min(d + texCoordStep * 0.5, texCoordDistance)) + startTexCoord;
+
+    int savedDepthAndNormalBytes =
+        floatBitsToInt(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);// TODO: check the coords
+    float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
+
+    float probeNormalEncoded1 =
+        float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    float probeNormalEncoded2 =
+        float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    vec3 normal = decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+
+    // Find the corresponding point in probe space. This defines a line through the
+    // probe origin
+    vec3 directionFromProbe = octDecode(texCoord * 2.0 - 1.0);
+
+    Point2 texCoordAfter = (texCoordDirection * min(d + texCoordStep, texCoordDistance)) + startTexCoord;
+    vec3 directionFromProbeAfter = octDecode(texCoordAfter * 2.0 - 1.0);
+    float distanceFromProbeToRayAfter = max(0.0, distanceToIntersection(probeSpaceRay, directionFromProbeAfter));
+    float maxDistFromProbeToRay = max(distanceFromProbeToRayBefore, distanceFromProbeToRayAfter);
+
+    if (maxDistFromProbeToRay >= distanceFromProbeToSurface) {
+      // At least a one-sided hit; see if the ray actually passed through the surface, or was behind it
+
+      float minDistFromProbeToRay = min(distanceFromProbeToRayBefore, distanceFromProbeToRayAfter);
+
+      // Find the 3D point *on the trace ray* that corresponds to the tex coord.
+      // This is the intersection of the ray out of the probe origin with the trace ray.
+      float distanceFromProbeToRay = (minDistFromProbeToRay + maxDistFromProbeToRay) * 0.5;
+
+      // Use probe information
+      Point3 probeSpaceHitPoint = distanceFromProbeToSurface * directionFromProbe;
+      float distAlongRay = dot(probeSpaceHitPoint - probeSpaceRay.origin, probeSpaceRay.direction);
+
+      // Only extrude towards and away from the view ray, not perpendicular to it
+      // Don't allow extrusion TOWARDS the viewer, only away
+      float surfaceThickness = minThickness
+          + (maxThickness - minThickness) *
+
+              // Alignment of probe and view ray
+              max(dot(probeSpaceRay.direction, directionFromProbe), 0.0) *
+
+              // Alignment of probe and normal (glancing surfaces are assumed to be thicker because they extend into the pixel)
+              (2 - abs(dot(probeSpaceRay.direction, normal))) *
+
+              // Scale with distance along the ray
+              clamp(distAlongRay * 0.1, 0.05, 1.0);
+
+      if ((minDistFromProbeToRay < distanceFromProbeToSurface + surfaceThickness)
+          /*&& (dot(normal, probeSpaceRay.direction) < 0)*/) {
+        // Two-sided hit
+        // Use the probe's measure of the point instead of the ray distance, since
+        // the probe is more accurate (floating point precision vs. ray march iteration/oct resolution)
+        tMax = distAlongRay;
+        hitProbeTexCoord = texCoord;
+
+        return TRACE_RESULT_HIT;
+      } else {
+        // "Unknown" case. The ray passed completely behind a surface. This should trigger moving to another
+        // probe and is distinguished from "I successfully traced to infinity"
+
+        // Back up conservatively so that we don't set tMin too large
+        Point3 probeSpaceHitPointBefore = distanceFromProbeToRayBefore * directionFromProbeBefore;
+        float distAlongRayBefore = dot(probeSpaceHitPointBefore - probeSpaceRay.origin, probeSpaceRay.direction);
+
+        // Max in order to disallow backing up along the ray (say if beginning of this texel is before tMin from probe switch)
+        // distAlongRayBefore in order to prevent overstepping
+        // min because sometimes distAlongRayBefore > distAlongRay
+        tMin = max(tMin, min(distAlongRay, distAlongRayBefore));
+
+        return TRACE_RESULT_UNKNOWN;
+      }
+    }
+    distanceFromProbeToRayBefore = distanceFromProbeToRayAfter;
+  }// ray march
+
+  return TRACE_RESULT_MISS;
+}
+
+//const ProbeIndex DEBUG_PROBE = 6;
+void test() {
+  ProbeIndex DEBUG_PROBE = debug.debugInt;
+  ivec2 dimensions = imageSize(debugProbeImage);
+  Ray worldSpaceRay;
+  const vec2 uv = normalizeScreenCoords(vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec2(dimensions));
+  const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
+  worldSpaceRay.origin = (camera.invProjView * nearPlanePos).xyz;
+  worldSpaceRay.direction = normalize(
+      (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
+          .xyz);
+
+  Point3 probeOrigin = probeLocation(DEBUG_PROBE);
+
+  Ray probeSpaceRay;
+  probeSpaceRay.origin = worldSpaceRay.origin - probeOrigin;
+  probeSpaceRay.direction = worldSpaceRay.direction;
+
+  float tMin = 0;
+  float tMax = 10;
+
+  uint savedColorBytes =
+      floatBitsToUint(imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, DEBUG_PROBE)).x);
+  const vec3 probeColor =
+      vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+           float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+
+  int savedDepthAndNormalBytes =
+      floatBitsToInt(imageLoad(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, DEBUG_PROBE))
+                         .y);// TODO: check the coords
+  float depth = float(savedDepthAndNormalBytes & DEPTH_MASK) / DEPTH_MAX;
+
+  //imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(probeColor, 1));
+  //imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(depth, depth, depth, 1));
+
+  barrier();
+  //if (!isPrintThread()) return;
+  //if ((gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * gl_WorkGroupSize.x * gl_NumWorkGroups.x) != debug.debugInt)
+  //  return;
+
+  // Maximum of 5 boundary points when projecting ray onto octahedral map;
+  // ray origin, ray end, intersection with each of the XYZ planes.
+  float boundaryTs[5];
+  computeRaySegments(probeSpaceRay.origin, vec3(1.0) / probeSpaceRay.direction, tMin, tMax, boundaryTs);
+
+  vec3 col = vec3(1);
+  bool wasUnknown = false;
+  for (int i = 0; i < 4; ++i) {
+    float t0 = boundaryTs[i];
+    float t1 = boundaryTs[i + 1];
+
+    vec3 probeSpaceStartPoint = probeSpaceRay.origin + probeSpaceRay.direction * (t0 + rayBumpEpsilon);
+    vec3 probeSpaceEndPoint = probeSpaceRay.origin + probeSpaceRay.direction * (t1 - rayBumpEpsilon);
+
+    // If the original ray origin is really close to the probe origin, then probeSpaceStartPoint will be close to zero
+    // and we get NaN when we normalize it. One common case where this can happen is when the camera is at the probe
+    // center. (The end point is also potentially problematic, but the chances of the end landing exactly on a probe
+    // are relatively low.) We only need the *direction* to the start point, and using probeSpaceRay.direction
+    // is safe in that case.
+    if (squaredLength(probeSpaceStartPoint) < 0.001) { probeSpaceStartPoint = probeSpaceRay.direction; }
+
+    // Corresponding octahedral ([-1, +1]^2) space line segment.
+    // Because the points are in probe space, we don't have to subtract off the probe's origin
+    Point2 startOctCoord = octEncode(normalize(probeSpaceStartPoint));
+    Point2 endOctCoord = octEncode(normalize(probeSpaceEndPoint));
+
+    // Texture coordinates on [0, 1]
+    Point2 texCoord = startOctCoord * 0.5 + 0.5;
+    Point2 segmentEndTexCoord = endOctCoord * 0.5 + 0.5;
+
+    vec2 hitCoord;
+    TraceResult traceResult =
+        testTraceSegment(probeSpaceRay, texCoord, segmentEndTexCoord, DEBUG_PROBE, tMin, tMax, hitCoord);
+    if (traceResult == TRACE_RESULT_HIT) {
+      uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, DEBUG_PROBE)).x);
+      const vec3 probeColor =
+          vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+               float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+      col = probeColor;
+      wasUnknown = false;
+      break;
+    }
+    wasUnknown = traceResult == TRACE_RESULT_UNKNOWN;
+  }
+  if (wasUnknown) { col = vec3(0, 1, 0); }
+  imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(col, 1));
+}
+
 void main() {
   ivec3 probeTextureSize = imageSize(probeImages);
   if (gl_GlobalInvocationID.x > probeTextureSize.x || gl_GlobalInvocationID.y > probeTextureSize.y) { return; }
@@ -673,8 +855,8 @@ void main() {
   if (debug.probeVisualType == PROBE_VISUAL_TYPE_DISABLED) { return; }
 
   if (debug.probeVisualType == PROBE_VISUAL_TYPE_CAMERA_VIEW) {
-
-    ivec2 dimensions = imageSize(debugProbeImage);
+    test();
+    /* ivec2 dimensions = imageSize(debugProbeImage);
     Ray ray;
     const vec2 uv = normalizeScreenCoords(vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec2(dimensions));
     const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
@@ -683,7 +865,7 @@ void main() {
         (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
             .xyz);
 
-    float tMax = 10.0;
+    float tMax = 1.0;
     vec3 color = vec3(1, 1, 1);
     vec2 hitTexCoord;
     ProbeIndex hitProbeIndex;
@@ -691,7 +873,7 @@ void main() {
       uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitTexCoord * dimensions, hitProbeIndex)).x);
       color = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
                    float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
-    }
+    }*/
     /*if (traceResult.traceResult == TRACE_RESULT_MISS) {
       color = vec3(1, 0, 0);
     } else if (traceResult.traceResult == TRACE_RESULT_HIT) {
@@ -705,7 +887,7 @@ void main() {
       color = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
                    float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
     }*/
-    imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(color, 1));
+    //imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(color, 1));
 
     return;
   }

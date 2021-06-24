@@ -26,7 +26,6 @@ using namespace pf::byte_literals;
 using namespace ui::ig;
 
 // TODO: fix memo race issues
-// TODO: remove this and make it work from pf_common/enums.h
 std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
   o << magic_enum::enum_name(e);
   return o;
@@ -227,14 +226,14 @@ void SVORenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   auto probeSample = mainSample.blockSampler("probes");
-  //auto probeSemaphore = probeRenderer->render();
+  auto probeSemaphore = probeRenderer->render();
   probeSample.end();
 
   auto computeSample = mainSample.blockSampler("compute");
   vkCommandBuffers[commandBufferIndex]->submit(
-      {.waitSemaphores = {semaphore/*, *probeSemaphore*/},
+      {.waitSemaphores = {semaphore, *probeSemaphore},
        .signalSemaphores = {*computeSemaphore},
-       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput/*, vk::PipelineStageFlagBits::eComputeShader*/},
+       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eComputeShader},
        .fence = fence,
        .wait = true});
 
@@ -1073,6 +1072,8 @@ void SVORenderer::initUI() {
     probeRenderer->setProbeToRender(val);
     debugUniformBuffer->mapping().set(val, 8);
   });
+
+  ui->probesDebugIntSpinner.addValueListener([this](auto val) { probeRenderer->setShaderDebugInt(val); });
 
   ui->imgui->setStateFromConfig();
 }

@@ -176,6 +176,7 @@ class SimpleSVORenderer_UI {
   ui::ig::Window &probesDebugWindow;
     ui::ig::Button &renderProbesButton;
     ui::ig::SpinInput<int> &selectedProbeSpinner;
+    ui::ig::SpinInput<int> &probesDebugIntSpinner;
     ui::ig::TabBar &probesTabBar;
       ui::ig::Tab &probesTexturesTab;
         ui::ig::Combobox<ProbeVisualisation> &probeTextureCombobox;

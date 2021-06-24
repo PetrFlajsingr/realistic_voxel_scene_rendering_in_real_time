@@ -28,6 +28,21 @@ ProbeManager::ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, fl
   probesImageView = probesImage->createImageView(
       vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2DArray,
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, getTotalProbeCount()});
+  probesImageSmall =
+      logicalDevice->createImage({.imageType = vk::ImageType::e2D,
+                                  .format = vk::Format::eR16Sfloat,
+                                  .extent = vk::Extent3D{.width = TEXTURE_SIZE_SMALL.x, .height = TEXTURE_SIZE_SMALL.y, .depth = 1},
+                                  .mipLevels = 1,
+                                  .arrayLayers = getTotalProbeCount(),
+                                  .sampleCount = vk::SampleCountFlagBits::e1,
+                                  .tiling = vk::ImageTiling::eOptimal,
+                                  .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+                                      | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+                                  .sharingQueues = {},
+                                  .layout = vk::ImageLayout::eUndefined});
+  probesImageViewSmall = probesImageSmall->createImageView(
+      vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2DArray,
+      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, getTotalProbeCount()});
 }
 
 uint32_t ProbeManager::getTotalProbeCount() const { return probeCount.x * probeCount.y * probeCount.z; }
@@ -41,6 +56,17 @@ float ProbeManager::getGridStep() const { return gridStep; }
 const std::shared_ptr<vulkan::Image> &ProbeManager::getProbesImage() const { return probesImage; }
 
 const std::shared_ptr<vulkan::ImageView> &ProbeManager::getProbesImageView() const { return probesImageView; }
+const std::shared_ptr<vulkan::Image> &ProbeManager::getProbesImageSmall() const { return probesImageSmall; }
+const std::shared_ptr<vulkan::ImageView> &ProbeManager::getProbesImageViewSmall() const { return probesImageViewSmall; }
+cppcoro::generator<glm::vec3> ProbeManager::getProbePositions() const {
+  for (int z = 0; z < probeCount.z; ++z) {
+    for (int y = 0; y < probeCount.y; ++y) {
+      for (int x = 0; x < probeCount.x; ++x) {
+        co_yield glm::vec3{x * gridStep, y * gridStep, z * gridStep} + gridStart;
+      }
+    }
+  }
+}
 
 ProbeCount::operator glm::ivec3() const { return value; }
 }// namespace pf::lfp

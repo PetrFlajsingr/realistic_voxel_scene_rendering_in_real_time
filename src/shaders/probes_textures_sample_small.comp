@@ -1,0 +1,48 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+#extension GL_EXT_debug_printf : enable
+
+#ifndef LOCAL_SIZE_X
+#define LOCAL_SIZE_X 8
+#endif
+#ifndef LOCAL_SIZE_Y
+#define LOCAL_SIZE_Y 8
+#endif
+#ifndef LOCAL_SIZE_Z
+#define LOCAL_SIZE_Z 1
+#endif
+
+#define INF 1000000000
+
+layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = LOCAL_SIZE_Z) in;
+
+layout(binding = 0, rg32f) uniform image2DArray probeImages;
+layout(binding = 1, r16) uniform image2DArray probeImagesSmall;
+
+const uint DEPTH_MASK = 0xFFFF;
+
+uint depthFromProbe(uint data) { return data & DEPTH_MASK; }
+
+void main() {
+  const ivec3 probeTextureSize = imageSize(probeImages);
+  const ivec3 probeTextureSmallSize = imageSize(probeImagesSmall);
+  if (gl_GlobalInvocationID.x > probeTextureSmallSize.x || gl_GlobalInvocationID.y > probeTextureSmallSize.y
+      || gl_GlobalInvocationID.z > probeTextureSmallSize.z) {
+    return;
+  }
+  const ivec2 factor = probeTextureSize.xy / probeTextureSmallSize.xy;
+  const uint probeIndex = gl_GlobalInvocationID.z;
+  const ivec2 startCoord = ivec2(gl_GlobalInvocationID.xy) * factor;
+  uint minDepth = INF;
+  for (int y = 0; y < factor.y; ++y) {
+    for (int x = 0; x < factor.x; ++x) {
+      const ivec2 coord = startCoord + ivec2(x, y);
+      const uint probeDataDepthNormal = floatBitsToUint(imageLoad(probeImages, ivec3(coord, probeIndex)).y);
+      const uint probeDepth = depthFromProbe(probeDataDepthNormal);
+      minDepth = min(probeDepth, minDepth);
+    }
+  }
+  imageStore(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeIndex),
+             vec4(uintBitsToFloat(minDepth), 0, 0, 1));
+}

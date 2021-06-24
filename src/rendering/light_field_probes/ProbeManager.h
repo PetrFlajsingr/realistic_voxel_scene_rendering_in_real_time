@@ -27,6 +27,7 @@ struct ProbeCount {
 class ProbeManager {
  public:
   constexpr static glm::ivec2 TEXTURE_SIZE{1024, 1024};
+  constexpr static glm::ivec2 TEXTURE_SIZE_SMALL = TEXTURE_SIZE / 16;
 
   ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, float gridStep,
                const std::shared_ptr<vulkan::LogicalDevice> &logicalDevice);
@@ -37,16 +38,10 @@ class ProbeManager {
   [[nodiscard]] float getGridStep() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageView() const;
+  [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImageSmall() const;
+  [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageViewSmall() const;
 
-  [[nodiscard]] cppcoro::generator<glm::vec3> getProbePositions() const {
-    for (int z = 0; z < probeCount.z; ++z) {
-      for (int y = 0; y < probeCount.y; ++y) {
-        for (int x = 0; x < probeCount.x; ++x) {
-          co_yield glm::vec3{x * gridStep, y * gridStep, z * gridStep} + gridStart;
-        }
-      }
-    }
-  }
+  [[nodiscard]] cppcoro::generator<glm::vec3> getProbePositions() const;
 
  private:
   glm::ivec3 probeCount;
@@ -54,7 +49,9 @@ class ProbeManager {
   float gridStep;
 
   std::shared_ptr<vulkan::Image> probesImage;
+  std::shared_ptr<vulkan::Image> probesImageSmall;
   std::shared_ptr<vulkan::ImageView> probesImageView;
+  std::shared_ptr<vulkan::ImageView> probesImageViewSmall;
 };
 }// namespace pf::lfp
 #endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEMANAGER_H

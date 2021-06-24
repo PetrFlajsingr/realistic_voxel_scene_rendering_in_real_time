@@ -25,6 +25,11 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
   createFences();
   recordProbeGenCommands();
 
+  createSmallProbeGenDescriptorPool();
+  createSmallProbeGenPipeline();
+  createSmallProbeGenCommands();
+  recordSmallProbeGenCommands();
+
   createRenderDescriptorPool();
   createRenderPipeline();
   createRenderCommands();
@@ -39,19 +44,6 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
   setProbeToRender(0);
 }
 
-void ProbeRenderer::createProbeGenDescriptorPool() {
-  probeGenData.vkDescPool =
-      vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-                                             .maxSets = 1,
-                                             .poolSizes = {
-                                                 {vk::DescriptorType::eStorageBuffer, 1},// svo
-                                                 {vk::DescriptorType::eUniformBuffer, 1},// debug
-                                                 {vk::DescriptorType::eStorageBuffer, 1},// model infos
-                                                 {vk::DescriptorType::eStorageBuffer, 1},// bvh
-                                                 {vk::DescriptorType::eStorageImage, 1}, // probe array
-                                                 {vk::DescriptorType::eUniformBuffer, 1},// grid info
-                                             }});
-}
 void ProbeRenderer::createTextures() {
   using namespace vulkan;
   vkProbesDebugImage =
@@ -81,6 +73,20 @@ void ProbeRenderer::createTextures() {
                            .unnormalizedCoordinates = false,
                            .compareOp = std::nullopt,
                            .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
+}
+
+void ProbeRenderer::createProbeGenDescriptorPool() {
+  probeGenData.vkDescPool =
+      vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                                             .maxSets = 1,
+                                             .poolSizes = {
+                                                 {vk::DescriptorType::eStorageBuffer, 1},// svo
+                                                 {vk::DescriptorType::eUniformBuffer, 1},// debug
+                                                 {vk::DescriptorType::eStorageBuffer, 1},// model infos
+                                                 {vk::DescriptorType::eStorageBuffer, 1},// bvh
+                                                 {vk::DescriptorType::eStorageImage, 1}, // probe array
+                                                 {vk::DescriptorType::eUniformBuffer, 1},// grid info
+                                             }});
 }
 void ProbeRenderer::createProbeGenPipeline() {
   using namespace vulkan;
@@ -225,6 +231,7 @@ void ProbeRenderer::createProbeGenCommands() {
 void ProbeRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   probeGenData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
+  smallProbeGenData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
   renderData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
 }
 const std::shared_ptr<vulkan::Image> &ProbeRenderer::getProbesDebugImage() const { return vkProbesDebugImage; }
@@ -257,8 +264,14 @@ const std::shared_ptr<vulkan::Semaphore> &ProbeRenderer::renderProbeTextures() {
                                         .flags = {},
                                         .fence = *vkComputeFence,
                                         .wait = true});
+  vkComputeFence->reset();
+  smallProbeGenData.vkCommandBuffer->submit({.waitSemaphores = {*probeGenData.vkComputeSemaphore},
+                                             .signalSemaphores = {*smallProbeGenData.vkComputeSemaphore},
+                                             .flags = {vk::PipelineStageFlagBits::eComputeShader},
+                                             .fence = *vkComputeFence,
+                                             .wait = true});
 
-  return probeGenData.vkComputeSemaphore;
+  return smallProbeGenData.vkComputeSemaphore;
 }
 ProbeManager &ProbeRenderer::getProbeManager() { return *probeManager; }
 void ProbeRenderer::setProbeToRender(std::uint32_t index) { renderData.debugUniformBuffer->mapping().set(index, 1); }
@@ -318,10 +331,11 @@ void ProbeRenderer::createRenderPipeline() {
   allocInfo.descriptorPool = **renderData.vkDescPool;
   renderData.computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
 
-  renderData.debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(std::uint32_t) + sizeof(std::uint32_t),
-                                                                 .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                                 .sharingMode = vk::SharingMode::eExclusive,
-                                                                 .queueFamilyIndices = {}});
+  renderData.debugUniformBuffer =
+      vkLogicalDevice->createBuffer({.size = sizeof(std::uint32_t) + sizeof(std::uint32_t) + sizeof(int),
+                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
+                                     .sharingMode = vk::SharingMode::eExclusive,
+                                     .queueFamilyIndices = {}});
 
   const auto uniformDebugInfo = vk::DescriptorBufferInfo{.buffer = **renderData.debugUniformBuffer,
                                                          .offset = 0,
@@ -437,5 +451,106 @@ const std::shared_ptr<vulkan::Buffer> &ProbeRenderer::getRenderDebugUniformBuffe
 }
 void ProbeRenderer::setProbeDebugRenderType(ProbeVisualisation type) {
   renderData.debugUniformBuffer->mapping().set(static_cast<uint32_t>(type));
+}
+void ProbeRenderer::setShaderDebugInt(std::int32_t value) { renderData.debugUniformBuffer->mapping().set(value, 2); }
+
+void ProbeRenderer::createSmallProbeGenDescriptorPool() {
+  smallProbeGenData.vkDescPool =
+      vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+                                             .maxSets = 1,
+                                             .poolSizes = {
+                                                 {vk::DescriptorType::eStorageImage, 1},// probe array
+                                                 {vk::DescriptorType::eStorageImage, 1},// small probe depth array
+                                             }});
+}
+void ProbeRenderer::createSmallProbeGenPipeline() {
+  using namespace vulkan;
+  using namespace byte_literals;
+  smallProbeGenData.vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
+      {.bindings = {
+           {.binding = 0,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe textures
+           {.binding = 1,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// small probe depth textures
+       }});
+
+  const auto setLayouts = std::vector{**smallProbeGenData.vkComputeDescSetLayout};
+  const auto pipelineLayoutInfo =
+      vk::PipelineLayoutCreateInfo{.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
+                                   .pSetLayouts = setLayouts.data()};
+  auto computePipelineLayout = (*vkLogicalDevice)->createPipelineLayoutUnique(pipelineLayoutInfo);
+  auto allocInfo = vk::DescriptorSetAllocateInfo{};
+  allocInfo.setSetLayouts(setLayouts);
+  allocInfo.descriptorPool = **smallProbeGenData.vkDescPool;
+  smallProbeGenData.computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
+
+  const auto computeProbesInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                         .imageView = **probeManager->getProbesImageView(),
+                                                         .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeProbesWrite = vk::WriteDescriptorSet{.dstSet = *smallProbeGenData.computeDescriptorSets[0],
+                                                         .dstBinding = 0,
+                                                         .dstArrayElement = {},
+                                                         .descriptorCount = 1,
+                                                         .descriptorType = vk::DescriptorType::eStorageImage,
+                                                         .pImageInfo = &computeProbesInfo};
+
+  const auto computeSmallProbesInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                              .imageView = **probeManager->getProbesImageViewSmall(),
+                                                              .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeSmallProbesWrite = vk::WriteDescriptorSet{.dstSet = *smallProbeGenData.computeDescriptorSets[0],
+                                                              .dstBinding = 1,
+                                                              .dstArrayElement = {},
+                                                              .descriptorCount = 1,
+                                                              .descriptorType = vk::DescriptorType::eStorageImage,
+                                                              .pImageInfo = &computeSmallProbesInfo};
+
+  const auto writeSets = std::vector{computeProbesWrite, computeSmallProbesWrite};
+  (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
+
+  auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
+      .name = "light_field_probes_mip",
+      .type = ShaderType::Compute,
+      .path =
+      (std::filesystem::path(*config["resources"]["path_shaders"].value<std::string>()) /= "probes_textures_sample_small.comp")
+          .string(),
+      .macros = {}/*,
+        .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(computeLocalSize.first)},
+                          {"LOCAL_SIZE_Y", std::to_string(computeLocalSize.second)}}*/});
+
+  const auto computeStageInfo = vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
+                                                                  .module = **computeShader,
+                                                                  .pName = "main"};
+  const auto pipelineInfo = vk::ComputePipelineCreateInfo{.stage = computeStageInfo, .layout = *computePipelineLayout};
+  smallProbeGenData.vkComputePipeline = ComputePipeline::CreateShared(
+      (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
+}
+void ProbeRenderer::createSmallProbeGenCommands() {
+  smallProbeGenData.vkCommandPool = vkLogicalDevice->createCommandPool(
+      {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
+
+  probeManager->getProbesImageSmall()->transitionLayout(
+      *smallProbeGenData.vkCommandPool, vk::ImageLayout::eGeneral,
+      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, probeManager->getTotalProbeCount()});
+
+  smallProbeGenData.vkCommandBuffer =
+      smallProbeGenData.vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1})[0];
+}
+void ProbeRenderer::recordSmallProbeGenCommands() {
+  auto recording = smallProbeGenData.vkCommandBuffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
+  recording.bindPipeline(vk::PipelineBindPoint::eCompute, *smallProbeGenData.vkComputePipeline);
+  const auto vkDescSets = smallProbeGenData.computeDescriptorSets
+      | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
+
+  recording.getCommandBuffer()->bindDescriptorSets(
+      vk::PipelineBindPoint::eCompute, smallProbeGenData.vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
+  recording.dispatch(probeManager->TEXTURE_SIZE_SMALL.x / 8, probeManager->TEXTURE_SIZE_SMALL.y / 8,
+                     probeManager->getTotalProbeCount());// FIXME: dynamic group size
+  recording.end();
 }
 }// namespace pf::lfp
