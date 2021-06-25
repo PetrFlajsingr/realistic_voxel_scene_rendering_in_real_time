@@ -29,13 +29,15 @@ class ProbeManager {
   constexpr static glm::ivec2 TEXTURE_SIZE{1024, 1024};
   constexpr static glm::ivec2 TEXTURE_SIZE_SMALL = TEXTURE_SIZE / 16;
 
-  ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, float gridStep,
+  ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, float gridStep, glm::ivec3 proxGridSize,
                const std::shared_ptr<vulkan::LogicalDevice> &logicalDevice);
 
   [[nodiscard]] uint32_t getTotalProbeCount() const;
   [[nodiscard]] const glm::ivec3 &getProbeCount() const;
   [[nodiscard]] const glm::vec3 &getGridStart() const;
   [[nodiscard]] float getGridStep() const;
+  [[nodiscard]] const glm::ivec3 &getProximityGridSize() const;
+  [[nodiscard]] const glm::vec3 &getProximityGridStep() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageView() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImageSmall() const;
@@ -47,6 +49,8 @@ class ProbeManager {
   glm::ivec3 probeCount;
   glm::vec3 gridStart;
   float gridStep;
+  glm::ivec3 proximityGridSize;
+  glm::vec3 proximityGridStep;
 
   std::shared_ptr<vulkan::Image> probesImage;
   std::shared_ptr<vulkan::Image> probesImageSmall;

@@ -31,7 +31,7 @@ class ProbeRenderer {
  public:
   ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
                 std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
-                std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
+                std::shared_ptr<vulkan::LogicalDevice> logicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
                 std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
                 std::shared_ptr<vulkan::Buffer> camBuffer, std::unique_ptr<ProbeManager> probeManag);
 
@@ -84,6 +84,18 @@ class ProbeRenderer {
     std::shared_ptr<vulkan::Semaphore> vkComputeSemaphore;
     std::shared_ptr<vulkan::CommandBuffer> vkCommandBuffer;
   } smallProbeGenData;
+  struct {
+    std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
+    std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
+    std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
+
+    std::shared_ptr<vulkan::CommandPool> vkCommandPool;
+    std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
+    std::shared_ptr<vulkan::Semaphore> vkComputeSemaphore;
+    std::shared_ptr<vulkan::CommandBuffer> vkCommandBuffer;
+    std::shared_ptr<vulkan::Buffer> proximityBuffer;
+    std::shared_ptr<vulkan::Buffer> gridInfoBuffer;
+  } proximityGridData;
 
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
@@ -117,6 +129,11 @@ class ProbeRenderer {
   void createSmallProbeGenPipeline();
   void createSmallProbeGenCommands();
   void recordSmallProbeGenCommands();
+
+  void createProximityDescriptorPool();
+  void createProximityPipeline();
+  void createProximityCommands();
+  void recordProximityCommands();
 
   void createRenderDescriptorPool();
   void createRenderPipeline();

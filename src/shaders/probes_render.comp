@@ -74,6 +74,27 @@ layout(binding = 5) uniform UniformCamera {
 }
 camera;
 
+layout(std430, binding = 6) buffer ProxGridData { uint[] data; }
+proxGrid;
+
+layout(binding = 7) uniform ProxGridInfo {
+  ivec4 gridSize;
+  vec4 gridStep;
+}
+proxGridInfo;
+
+uint gridCoordToProxGridIndex(ivec3 voxelCoord) {
+  return uint(voxelCoord.x + voxelCoord.y * proxGridInfo.gridSize.x
+              + voxelCoord.z * proxGridInfo.gridSize.x * proxGridInfo.gridSize.y);
+}
+
+ivec3 nearestVoxelGridCoord(vec3 X) {
+  return clamp(ivec3((X - grid.gridPos.xyz) / proxGridInfo.gridStep.xyz), ivec3(0, 0, 0),
+               ivec3(proxGridInfo.gridSize.xyz) - ivec3(1, 1, 1));
+}
+
+uint nearestProxVoxelIndex(vec3 pos) { return gridCoordToProxGridIndex(nearestVoxelGridCoord(pos)); }
+
 vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
   vec2 result = 2.0 * (screenCoord / resolution.xy - 0.5);
   result.x *= resolution.x / float(resolution.y);
@@ -86,55 +107,6 @@ struct Ray {
   vec3 direction;
   float directionSize;
 };
-
-/*
-ProbeTraceResult probeTrace(Ray ray, uint probeIndex) {
-  // compute polyline segments for the 4 faces which are traversed
-  // for each of these segments - step by 16:1 mipmap and then do course when we get close?
-  // for each pixel and thus 3D point on the segment do:
-  // if ray intersects given pixel based on its radial distance
-  // return ProbeTraceResult(HIT, hitpoint);
-  // if ray is further away than the radial distance
-  // return ProbeTraceResult(UNKNOWN, vec3());
-  //return ProbeTraceResult(MISS, last endpoint of polyline);
-  return ProbeTraceResult(PROBE_TRACE_STATE_UNRESOLVABLE, vec3(0));
-}
-
-void lightFieldTrace(Ray ray) {
-  PROBE_TRACE_STATE result = PROBE_TRACE_STATE_UNKNOWN;
-  while (result == PROBE_TRACE_STATE_UNKNOWN) {
-    uint probeIndex = chooseNextProbe();
-    if (probeIndex == INVALID_PROBE) {
-      result = PROBE_TRACE_STATE_UNRESOLVABLE;
-      break;
-    }
-    ProbeTraceResult probeTraceResult = probeTrace(ray, probeIndex);
-    ray.origin = endpoint;
-  }
-}*/
-
-/*
-Probe selection:
-Order in cube of probes:
-    index calc: next index = (index + 3) % 8 == (index + 3) & 0xF
-    0: 0 0 0 <- first probe in group
-    1: x 0 0
-    2: 0-y 0
-    3: x-y 0
-    4: 0 0 z
-    5: x 0 z
-    6: 0-y z
-    7: x-y z
-First probe: 
-    select a probe so that its center is nearest the ray origin
-Next probe: 
-    if the new endpoint isn't in bounding box of last probe group:
-        select a probe so that its center is nearest the ray origin
-    else:
-        select next probe in local probe box based on heuristic above
-if all in group tested but returning UNKNOWN return the last occlusion as HIT
-
-*/
 
 const float minThickness = 0.03;// meters
 const float maxThickness = 0.50;// meters
@@ -416,8 +388,7 @@ TraceResult traceSegmentHighRes(in Ray probeSpaceRay, in Point2 startTexCoord, i
   for (float d = 0.0f; d <= texCoordDistance; d += texCoordStep) {
     Point2 texCoord = (texCoordDirection * min(d + texCoordStep * 0.5, texCoordDistance)) + startTexCoord;
 
-    int savedDepthAndNormalBytes =
-        floatBitsToInt(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);// TODO: check the coords
+    int savedDepthAndNormalBytes = floatBitsToInt(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
     float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
 
     float probeNormalEncoded1 =
@@ -651,50 +622,21 @@ TraceResult traceProbe(ProbeIndex probeIndex, Ray ray, inout float tMin, inout f
   return TRACE_RESULT_MISS;
 }
 
-//const ProbeIndex DEBUG_PROBE = 6;
-void test_OLD() {
-  ProbeIndex DEBUG_PROBE = debug.debugInt;
-
-  ivec2 dimensions = imageSize(debugProbeImage);
-  Ray worldSpaceRay;
-  const vec2 uv = normalizeScreenCoords(vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec2(dimensions));
-  const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
-  worldSpaceRay.origin = (camera.invProjView * nearPlanePos).xyz;
-  worldSpaceRay.direction = normalize(
-      (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
-          .xyz);
-
-  Point3 probeOrigin = probeLocation(DEBUG_PROBE);
-
-  Ray probeSpaceRay;
-  probeSpaceRay.origin = worldSpaceRay.origin - probeOrigin;
-  probeSpaceRay.direction = worldSpaceRay.direction;
-
-  float tMin = 0;
-  float tMax = 10;
-
-  float boundaryTs[5];
-  computeRaySegments(probeSpaceRay.origin, vec3(1.0) / probeSpaceRay.direction, tMin, tMax, boundaryTs);
-
-  vec3 col = vec3(1);
-  vec2 hitCoord;
-  TraceResult traceResult = traceProbe(DEBUG_PROBE, worldSpaceRay, tMin, tMax, hitCoord);
-  if (traceResult == TRACE_RESULT_HIT) {
-    uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, DEBUG_PROBE)).x);
-    col = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
-               float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
-  } else if (traceResult == TRACE_RESULT_UNKNOWN) {
-    col = vec3(1, 0, 0);
-  }
-  imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(col, 1));
-}
-
 bool isRayInsideCube(ProbeIndex index, vec3 origin) {
   const vec3 bMin = probeLocation(index);
   const vec3 bMax = bMin + grid.gridStep;
   const vec3 p = origin;
 
   return bMin.x <= p.x && bMin.y <= p.y && bMin.z <= p.z && bMax.x >= p.x && bMax.y >= p.y && bMax.z >= p.z;
+}
+
+#define INVALID_PROX_IDX 0xFFFFu
+#define PROX_MASK 0xFFFFu
+
+int getProxProbeIdx(uint proxIdx, uint idx) {
+  uint val = (proxGrid.data[proxIdx * 2 + idx / 2] >> (16 * (idx % 2)) & PROX_MASK);
+  if ((val & PROX_MASK) == INVALID_PROX_IDX) { return -1; }
+  return int(val);
 }
 
 void test() {
@@ -714,23 +656,87 @@ void test() {
   vec2 hitCoord;
   bool isUnknown = false;
   ProbeIndex hitProbeIndex = -1;
-  ProbeIndex baseProbeIndex = nearestProbeIndex(worldSpaceRay.origin, probeCoords);
-  CycleIndex probeIndexInCube = nearestProbeIndices(worldSpaceRay.origin);
-  uint cubeCnt = 0;
   bool isMiss = false;
-  /*for (int i = 0; i < grid.gridSize.x * grid.gridSize.y * grid.gridSize.z; ++i) {
-    ProbeIndex probeIndex = i;
-    TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
-    if (traceResult != TRACE_RESULT_UNKNOWN) {
-      isMiss = traceResult == TRACE_RESULT_MISS;
-      if (traceResult == TRACE_RESULT_HIT) {
-        hitProbeIndex = probeIndex;
-        isUnknown = false;
-      }
-      break;
+
+  if (debug.debugInt == 0) {
+    uint currentProxIdx = nearestProxVoxelIndex(worldSpaceRay.origin);
+
+    ProbeIndex baseProbeIndex = 0;
+    ProbeIndex probeFromProx = getProxProbeIdx(currentProxIdx, 0);
+    CycleIndex probeIndexInCube = 0;
+    if (probeFromProx != -1) {
+      baseProbeIndex = probeFromProx;
+    } else {
+      probeIndexInCube = nearestProbeIndices(worldSpaceRay.origin);
     }
-  }*/
-  while (true) {
+
+    uint cubeCnt = 0;
+    uint proxCnt = 0;
+    while (true) {
+      ProbeIndex probeIndex = relativeProbeIndex(baseProbeIndex, probeIndexInCube);
+      TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
+      if (traceResult != TRACE_RESULT_UNKNOWN) {
+        isMiss = traceResult == TRACE_RESULT_MISS;
+        if (traceResult == TRACE_RESULT_HIT) { hitProbeIndex = probeIndex; }
+        isUnknown = false;
+        break;
+      }
+      const vec3 tmpOrigin = worldSpaceRay.origin + worldSpaceRay.direction * tMin;
+
+      const uint currentlyNearestProxIdx =
+          nearestProxVoxelIndex(tmpOrigin);// decide based on distance to the center of the voxel?
+      if (currentlyNearestProxIdx == currentProxIdx) {
+        if (++cubeCnt == 8) {
+          if (++proxCnt < 4) {
+            cubeCnt = 0;
+            probeFromProx = getProxProbeIdx(currentProxIdx, proxCnt);
+            if (probeFromProx != -1) {
+              baseProbeIndex = probeFromProx;
+            } else {
+              break;
+            }
+          } else {
+            break;
+          }
+        }
+        probeIndexInCube = nextCycleIndex(probeIndexInCube);
+      } else {
+        cubeCnt = 0;
+        proxCnt = 0;
+        currentProxIdx = currentlyNearestProxIdx;
+        probeFromProx = getProxProbeIdx(currentProxIdx, proxCnt);
+        if (probeFromProx != -1) {
+          baseProbeIndex = probeFromProx;
+          probeIndexInCube = 0;
+        } else {
+          break;
+          /*ProbeIndex newBaseProbeIndex = nearestProbeIndex(tmpOrigin, probeCoords);
+          if (baseProbeIndex == newBaseProbeIndex) { break; }
+          baseProbeIndex = newBaseProbeIndex;
+          probeIndexInCube = nearestProbeIndices(tmpOrigin);*/
+        }
+      }
+    }
+  } else {
+
+    ProbeIndex baseProbeIndex = nearestProbeIndex(worldSpaceRay.origin, probeCoords);
+    CycleIndex probeIndexInCube = nearestProbeIndices(worldSpaceRay.origin);
+    uint cubeCnt = 0;
+    bool isMiss = false;
+    for (int i = 0; i < grid.gridSize.x * grid.gridSize.y * grid.gridSize.z; ++i) {
+      ProbeIndex probeIndex = i;
+      TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
+      if (traceResult != TRACE_RESULT_UNKNOWN) {
+        isMiss = traceResult == TRACE_RESULT_MISS;
+        if (traceResult == TRACE_RESULT_HIT) {
+          hitProbeIndex = probeIndex;
+          isUnknown = false;
+        }
+        break;
+      }
+    }
+  }
+  /*while (true) {
     ProbeIndex probeIndex = relativeProbeIndex(baseProbeIndex, probeIndexInCube);
     TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
     if (traceResult != TRACE_RESULT_UNKNOWN) {
@@ -753,32 +759,8 @@ void test() {
       baseProbeIndex = newBaseProbeIndex;
       probeIndexInCube = nearestProbeIndices(worldSpaceRay.origin + worldSpaceRay.direction * tMin);
     }
-  }
-
-  /* vec3 probeCoords;
-  ProbeIndex baseProbeIndex = nearestProbeIndex(worldSpaceRay.origin, probeCoords);
-  ProbeIndex hitProbeIndex = -1;
-  CycleIndex nearestProbeInCube = nearestProbeIndices(worldSpaceRay.origin);
-  int probesLeft = 8;
-  float tMin = 0;
-  float tMax = 10;
-  vec2 hitCoord;
-  bool isUnknown = false;
-  while (probesLeft > 0) {
-    ProbeIndex probeIndex = relativeProbeIndex(baseProbeIndex, nearestProbeInCube);
-    TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
-    if (traceResult == TRACE_RESULT_UNKNOWN) {
-      nearestProbeInCube = nextCycleIndex(nearestProbeInCube);
-      isUnknown = true;
-      --probesLeft;
-    } else {
-      if (traceResult == TRACE_RESULT_HIT) {
-        hitProbeIndex = probeIndex;
-        isUnknown = false;
-      }
-      break;
-    }
   }*/
+
   /*if (hitProbeIndex == -1 && fillHoles) {
 
   }*/
@@ -803,39 +785,6 @@ void main() {
 
   if (debug.probeVisualType == PROBE_VISUAL_TYPE_CAMERA_VIEW) {
     test();
-    /* ivec2 dimensions = imageSize(debugProbeImage);
-    Ray ray;
-    const vec2 uv = normalizeScreenCoords(vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec2(dimensions));
-    const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
-    ray.origin = (camera.invProjView * nearPlanePos).xyz;
-    ray.direction = normalize(
-        (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
-            .xyz);
-
-    float tMax = 1.0;
-    vec3 color = vec3(1, 1, 1);
-    vec2 hitTexCoord;
-    ProbeIndex hitProbeIndex;
-    if (trace(ray, tMax, hitTexCoord, hitProbeIndex, true)) {
-      uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitTexCoord * dimensions, hitProbeIndex)).x);
-      color = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
-                   float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
-    }*/
-    /*if (traceResult.traceResult == TRACE_RESULT_MISS) {
-      color = vec3(1, 0, 0);
-    } else if (traceResult.traceResult == TRACE_RESULT_HIT) {
-      color = vec3(0, 1, 0);
-    } else if (traceResult.traceResult == TRACE_RESULT_UNKNOWN) {
-      color = vec3(0, 0, 1);
-    }
-    if (traceResult.hit && false) {
-      uint savedColorBytes = floatBitsToUint(
-          imageLoad(probeImages, ivec3((traceResult.hitTexCoord + 0.5) * dimensions, traceResult.probeIndex)).x);
-      color = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
-                   float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
-    }*/
-    //imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(color, 1));
-
     return;
   }
 
