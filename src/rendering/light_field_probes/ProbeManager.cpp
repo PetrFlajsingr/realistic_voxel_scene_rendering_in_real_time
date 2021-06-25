@@ -30,7 +30,7 @@ ProbeManager::ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, fl
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, getTotalProbeCount()});
   probesImageSmall =
       logicalDevice->createImage({.imageType = vk::ImageType::e2D,
-                                  .format = vk::Format::eR16Sfloat,
+                                  .format = vk::Format::eR32Sfloat,
                                   .extent = vk::Extent3D{.width = TEXTURE_SIZE_SMALL.x, .height = TEXTURE_SIZE_SMALL.y, .depth = 1},
                                   .mipLevels = 1,
                                   .arrayLayers = getTotalProbeCount(),

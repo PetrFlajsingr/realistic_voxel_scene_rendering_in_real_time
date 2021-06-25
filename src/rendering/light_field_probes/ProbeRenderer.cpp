@@ -290,6 +290,7 @@ void ProbeRenderer::createRenderDescriptorPool() {
                                                  {vk::DescriptorType::eUniformBuffer, 1},// debug
                                                  {vk::DescriptorType::eUniformBuffer, 1},// grid info
                                                  {vk::DescriptorType::eStorageImage, 1}, // probe images
+                                                 {vk::DescriptorType::eStorageImage, 1}, // probe images small
                                                  {vk::DescriptorType::eStorageImage, 1}, // probe debug image
                                                  {vk::DescriptorType::eUniformBuffer, 1},// camera info
                                              }});
@@ -314,8 +315,12 @@ void ProbeRenderer::createRenderPipeline() {
            {.binding = 3,
             .type = vk::DescriptorType::eStorageImage,
             .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe debug image
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe images small
            {.binding = 4,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe debug image
+           {.binding = 5,
             .type = vk::DescriptorType::eUniformBuffer,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// camera info
@@ -367,12 +372,23 @@ void ProbeRenderer::createRenderPipeline() {
                                                          .descriptorType = vk::DescriptorType::eStorageImage,
                                                          .pImageInfo = &computeProbesInfo};
 
+  const auto computeSmallProbesInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                              .imageView = **probeManager->getProbesImageViewSmall(),
+                                                              .imageLayout = vk::ImageLayout::eGeneral};
+
+  const auto computeSmallProbesWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
+                                                              .dstBinding = 3,
+                                                              .dstArrayElement = {},
+                                                              .descriptorCount = 1,
+                                                              .descriptorType = vk::DescriptorType::eStorageImage,
+                                                              .pImageInfo = &computeSmallProbesInfo};
+
   const auto computeDebugProbesInfo = vk::DescriptorImageInfo{.sampler = {},
                                                               .imageView = **vkProbesDebugImageView,
                                                               .imageLayout = vk::ImageLayout::eGeneral};
 
   const auto computeDebugProbesWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                              .dstBinding = 3,
+                                                              .dstBinding = 4,
                                                               .dstArrayElement = {},
                                                               .descriptorCount = 1,
                                                               .descriptorType = vk::DescriptorType::eStorageImage,
@@ -381,14 +397,14 @@ void ProbeRenderer::createRenderPipeline() {
   const auto cameraDebugInfo =
       vk::DescriptorBufferInfo{.buffer = **cameraBuffer, .offset = 0, .range = cameraBuffer->getSize()};
   const auto cameraDebugWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                       .dstBinding = 4,
+                                                       .dstBinding = 5,
                                                        .dstArrayElement = {},
                                                        .descriptorCount = 1,
                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
                                                        .pBufferInfo = &cameraDebugInfo};
 
-  const auto writeSets =
-      std::vector{uniformDebugWrite, computeDebugProbesWrite, computeProbesWrite, gridInfoWrite, cameraDebugWrite};
+  const auto writeSets = std::vector{uniformDebugWrite,       computeDebugProbesWrite, computeProbesWrite,
+                                     computeSmallProbesWrite, gridInfoWrite,           cameraDebugWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
