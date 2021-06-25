@@ -652,7 +652,7 @@ TraceResult traceProbe(ProbeIndex probeIndex, Ray ray, inout float tMin, inout f
 }
 
 //const ProbeIndex DEBUG_PROBE = 6;
-void test() {
+void test_OLD() {
   ProbeIndex DEBUG_PROBE = debug.debugInt;
 
   ivec2 dimensions = imageSize(debugProbeImage);
@@ -684,6 +684,112 @@ void test() {
     col = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
                float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
   } else if (traceResult == TRACE_RESULT_UNKNOWN) {
+    col = vec3(1, 0, 0);
+  }
+  imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(col, 1));
+}
+
+bool isRayInsideCube(ProbeIndex index, vec3 origin) {
+  const vec3 bMin = probeLocation(index);
+  const vec3 bMax = bMin + grid.gridStep;
+  const vec3 p = origin;
+
+  return bMin.x <= p.x && bMin.y <= p.y && bMin.z <= p.z && bMax.x >= p.x && bMax.y >= p.y && bMax.z >= p.z;
+}
+
+void test() {
+
+  ivec2 dimensions = imageSize(debugProbeImage);
+  Ray worldSpaceRay;
+  const vec2 uv = normalizeScreenCoords(vec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec2(dimensions));
+  const vec4 nearPlanePos = vec4(uv, 0, 1) * camera.near;
+  worldSpaceRay.origin = (camera.invProjView * nearPlanePos).xyz;
+  worldSpaceRay.direction = normalize(
+      (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
+          .xyz);
+
+  vec3 probeCoords;
+  float tMin = 0;
+  float tMax = 10;
+  vec2 hitCoord;
+  bool isUnknown = false;
+  ProbeIndex hitProbeIndex = -1;
+  ProbeIndex baseProbeIndex = nearestProbeIndex(worldSpaceRay.origin, probeCoords);
+  CycleIndex probeIndexInCube = nearestProbeIndices(worldSpaceRay.origin);
+  uint cubeCnt = 0;
+  bool isMiss = false;
+  /*for (int i = 0; i < grid.gridSize.x * grid.gridSize.y * grid.gridSize.z; ++i) {
+    ProbeIndex probeIndex = i;
+    TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
+    if (traceResult != TRACE_RESULT_UNKNOWN) {
+      isMiss = traceResult == TRACE_RESULT_MISS;
+      if (traceResult == TRACE_RESULT_HIT) {
+        hitProbeIndex = probeIndex;
+        isUnknown = false;
+      }
+      break;
+    }
+  }*/
+  while (true) {
+    ProbeIndex probeIndex = relativeProbeIndex(baseProbeIndex, probeIndexInCube);
+    TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
+    if (traceResult != TRACE_RESULT_UNKNOWN) {
+      isMiss = traceResult == TRACE_RESULT_MISS;
+      if (traceResult == TRACE_RESULT_HIT) {
+        hitProbeIndex = probeIndex;
+        isUnknown = false;
+      }
+      break;
+    }
+
+    if (isRayInsideCube(baseProbeIndex, worldSpaceRay.origin + worldSpaceRay.direction * tMin)) {
+      if (++cubeCnt == 8) { break; }
+      probeIndexInCube = nextCycleIndex(probeIndexInCube);
+    } else {
+      cubeCnt = 0;
+      ProbeIndex newBaseProbeIndex =
+          nearestProbeIndex(worldSpaceRay.origin + worldSpaceRay.direction * tMin, probeCoords);
+      if (baseProbeIndex == newBaseProbeIndex) { break; }
+      baseProbeIndex = newBaseProbeIndex;
+      probeIndexInCube = nearestProbeIndices(worldSpaceRay.origin + worldSpaceRay.direction * tMin);
+    }
+  }
+
+  /* vec3 probeCoords;
+  ProbeIndex baseProbeIndex = nearestProbeIndex(worldSpaceRay.origin, probeCoords);
+  ProbeIndex hitProbeIndex = -1;
+  CycleIndex nearestProbeInCube = nearestProbeIndices(worldSpaceRay.origin);
+  int probesLeft = 8;
+  float tMin = 0;
+  float tMax = 10;
+  vec2 hitCoord;
+  bool isUnknown = false;
+  while (probesLeft > 0) {
+    ProbeIndex probeIndex = relativeProbeIndex(baseProbeIndex, nearestProbeInCube);
+    TraceResult traceResult = traceProbe(probeIndex, worldSpaceRay, tMin, tMax, hitCoord);
+    if (traceResult == TRACE_RESULT_UNKNOWN) {
+      nearestProbeInCube = nextCycleIndex(nearestProbeInCube);
+      isUnknown = true;
+      --probesLeft;
+    } else {
+      if (traceResult == TRACE_RESULT_HIT) {
+        hitProbeIndex = probeIndex;
+        isUnknown = false;
+      }
+      break;
+    }
+  }*/
+  /*if (hitProbeIndex == -1 && fillHoles) {
+
+  }*/
+
+  vec3 col = vec3(1, 0, 0);
+  if (isMiss) { col = vec3(0, 1, 0); }
+  if (hitProbeIndex != -1) {
+    uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, hitProbeIndex)).x);
+    col = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+               float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+  } else if (isUnknown) {
     col = vec3(1, 0, 0);
   }
   imageStore(debugProbeImage, ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y), vec4(col, 1));
