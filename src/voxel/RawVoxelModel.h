@@ -5,17 +5,18 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_RAWVOXELMODEL_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_RAWVOXELMODEL_H
 
-#include <glm/vec4.hpp>
 #include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 #include <string>
 #include <vector>
 
 namespace pf::vox {
 
 struct VoxelInfo {
-  VoxelInfo(const glm::vec4 &position, const glm::vec4 &color);
+  VoxelInfo(const glm::vec4 &position, const glm::vec4 &color, std::uint32_t matId);
   glm::vec4 position;
   glm::vec4 color;
+  std::uint32_t materialId;
 };
 
 class RawVoxelModel {

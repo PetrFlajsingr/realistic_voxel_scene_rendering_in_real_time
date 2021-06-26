@@ -216,12 +216,14 @@ set(SOURCES
         src/voxel/GPUModelInfo.cpp
         src/voxel/SparseVoxelOctreeCreation.cpp
         src/voxel/AABB_BVH.cpp
+        src/voxel/Materials.cpp
         src/voxel/GPUModelManager.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
         src/rendering/light_field_probes/GridProbeGenerator.cpp
         src/voxel/TeardownMaps.cpp
         src/rendering/light_field_probes/ProbeRenderer.cpp
-        src/rendering/light_field_probes/ProbeManager.cpp )
+        src/rendering/light_field_probes/ProbeManager.cpp
+        )
 
 set(INCLUDES
         src/logging/loggers.h
@@ -255,6 +257,7 @@ set(INCLUDES
         src/voxel/GPUModelInfo.h
         src/voxel/SceneFileManager.h
         src/voxel/GPUModelManager.h
+        src/voxel/Materials.h
         src/rendering/light_field_probes/ProbeGenerator.h
         src/rendering/light_field_probes/GridProbeGenerator.h
         src/rendering/light_field_probes/ProbeRenderer.h

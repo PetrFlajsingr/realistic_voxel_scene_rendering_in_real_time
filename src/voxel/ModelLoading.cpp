@@ -44,11 +44,13 @@ std::optional<FileType> details::detectFileType(const std::filesystem::path &src
 
 RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
   const auto fileData = std::vector<uint8_t>(std::istreambuf_iterator(istream), {});
-  const auto ogtScene = ogt_vox_read_scene(fileData.data(), fileData.size());
-  const auto freeScene = RAII{[&] { ogt_vox_destroy_scene(ogtScene); }};
+  const auto ogtSceneDeleter = [](const ogt_vox_scene *ogtScene) { ogt_vox_destroy_scene(ogtScene); };
+  auto ogtScene = std::unique_ptr<const ogt_vox_scene, decltype(ogtSceneDeleter)>(
+      ogt_vox_read_scene(fileData.data(), fileData.size()), ogtSceneDeleter);
 
   const auto ogtModels = std::span{ogtScene->models, ogtScene->num_models};
   const auto ogtInstances = std::span{ogtScene->instances, ogtScene->num_instances};
+  const auto ogtMaterials = std::span{ogtScene->materials.matl, 256};
 
   struct ModelWithTransform {
     const ogt_vox_model *model;
@@ -62,6 +64,9 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
                                   glm::vec3{instance.transform.m30, instance.transform.m31, instance.transform.m32}};
       })
       | ranges::to_vector;
+
+  auto materials = ogtMaterials
+      | std::views::transform([](const auto &material) { return MaterialProperties{material}; }) | ranges::to_vector;
 
   [[maybe_unused]] const auto minModelOffset = [&] {
     auto minCoords = glm::vec3{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
@@ -126,10 +131,11 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
     for (const auto ogtVoxel : ogtVoxels) {
       if (ogtVoxel != 0) {
         const auto ogtColor = ogtScene->palette.color[ogtVoxel];
-        voxels.emplace_back(
-            glm::vec4{currentPos + ogtModel.translate.xzy() - glm::vec3{modelCenter}.xzy(), 0},
-            //glm::vec4{currentPos + ogtModel.translate.yxz(), 0},
-            glm::vec4{ogtColor.r / 255.0f, ogtColor.g / 255.0f, ogtColor.b / 255.0f, ogtColor.a / 255.0f});
+        voxels.emplace_back(glm::vec4{currentPos + ogtModel.translate.xzy() - glm::vec3{modelCenter}.xzy(), 0},
+                            //glm::vec4{currentPos + ogtModel.translate.yxz(), 0},
+                            glm::vec4{static_cast<float>(ogtColor.r) / 255.0f, static_cast<float>(ogtColor.g) / 255.0f,
+                                      static_cast<float>(ogtColor.b) / 255.0f, static_cast<float>(ogtColor.a) / 255.0f},
+                            ogtVoxel);
       }
       movePos();
     }
@@ -139,6 +145,6 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
         glm::ivec3{ogtModel.model->size_x, ogtModel.model->size_y, ogtModel.model->size_z}));
   }
 
-  return RawVoxelScene("vox scene", std::move(models), minModelOffset);
+  return RawVoxelScene("vox scene", std::move(models), minModelOffset, materials);
 }
 }// namespace pf::vox
