@@ -37,6 +37,9 @@ void GPUModelInfo::updateInfoToGPU() {
   const auto AABB2 = glm::vec4{AABB.p2.yz(), 0, 0};
   mapping.setRawOffset(AABB1, sizeof(glm::vec4) + sizeof(glm::mat4) * 2);
   mapping.setRawOffset(AABB2, sizeof(glm::vec4) + sizeof(glm::mat4) * 2 + sizeof(glm::vec4));
+  const auto materialsOffset = materialsMemoryBlock->getOffset() / vox::ONE_MATERIAL_SIZE;
+  mapping.setRawOffset(glm::ivec4(materialsOffset, 0, 0, 0),
+                       sizeof(glm::vec4) + sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 2);
 }
 
 std::ostream &operator<<(std::ostream &os, const GPUModelInfo &info) {

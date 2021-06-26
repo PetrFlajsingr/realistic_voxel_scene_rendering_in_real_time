@@ -39,7 +39,7 @@ copySvoToMemoryBlock([[maybe_unused]] const SparseVoxelOctree &svo,
 
   const auto &attachments = svo.getBlocks()[0].infoSection.attachments.attachments;
   addData(
-      std::span(reinterpret_cast<const std::byte *>(attachments.data()), attachments.size() * sizeof(PhongAttachment)));
+      std::span(reinterpret_cast<const std::byte *>(attachments.data()), attachments.size() * sizeof(MaterialIndexAttachment)));
   auto memBlock = memoryPool.leaseMemory(data.size());
   auto mapping = memBlock->mapping();
   mapping.set(data);

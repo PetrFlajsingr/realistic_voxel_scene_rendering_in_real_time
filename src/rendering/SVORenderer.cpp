@@ -109,7 +109,7 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
       TextureData{*probeRenderer->getProbesDebugImage(), *probeRenderer->getProbesDebugImageView(),
                   *probeRenderer->getProbesDebugSampler()});
 
-  modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, 5);
+  modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, materialMemoryPool, 5);
 
   auto probeMapping = probePosBuffer->mapping();
   const auto totalProbeCount = probeRenderer->probeManager->getTotalProbeCount();
@@ -130,6 +130,7 @@ void SVORenderer::buildVulkanObjects() {
   createBuffers();
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
+      materialBuffer,
       std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{128, 128, 128},
                                           vkLogicalDevice));
 
@@ -357,6 +358,7 @@ void SVORenderer::createDescriptorPool() {
                                                           {vk::DescriptorType::eStorageBuffer, 1},// model infos
                                                           {vk::DescriptorType::eStorageBuffer, 1},// bvh
                                                           {vk::DescriptorType::eStorageBuffer, 1},// probes
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// materials
                                                       }});
 }
 
@@ -401,6 +403,10 @@ void SVORenderer::createPipeline() {
             .type = vk::DescriptorType::eStorageBuffer,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe positions
+           {.binding = 9,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// materials
        }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -495,10 +501,18 @@ void SVORenderer::createPipeline() {
                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
                                                     .pBufferInfo = &probePosInfo};
 
-  const auto writeSets = std::vector{
-      computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,      uniformDebugWrite,
-      computeIterWrite,  modelInfoWrite,     bvhWrite,      probePosWrite,
-  };
+  const auto materialsInfo =
+      vk::DescriptorBufferInfo{.buffer = **materialBuffer, .offset = 0, .range = materialBuffer->getSize()};
+  const auto materialsWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
+                                                     .dstBinding = 9,
+                                                     .dstArrayElement = {},
+                                                     .descriptorCount = 1,
+                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                     .pBufferInfo = &materialsInfo};
+
+  const auto writeSets =
+      std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,      uniformDebugWrite,
+                  computeIterWrite,  modelInfoWrite,     bvhWrite,      probePosWrite, materialsWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -1017,8 +1031,8 @@ void SVORenderer::initUI() {
   ui->teardownMapMenuItem.addClickListener([this] {
     ui->imgui->openDirDialog(
         "Select file to load scene info",
-        [this](const auto &selected) {
-          const auto sceneFolder = selected[0];
+        [this]([[maybe_unused]] const auto &selected) {
+          /*const auto sceneFolder = selected[0];
           auto doc = tinyxml2::XMLDocument{};
           doc.LoadFile((sceneFolder / "main.xml").string().c_str());
           [[maybe_unused]] auto scene = TeardownMap::Scene::FromXml(doc.RootElement(), sceneFolder);
@@ -1063,7 +1077,7 @@ void SVORenderer::initUI() {
           };
           c(glm::vec3{0, 0, 0}, glm::vec3{1, 1, 1}, dataGroup);
 
-          rebuildAndUploadBVH();
+          rebuildAndUploadBVH();*/
         },
         [] {}, Size{500, 400}, *config.get()["resources"]["path_models"].value<std::string>());
   });
@@ -1236,6 +1250,13 @@ void SVORenderer::createBuffers() {
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
                                              .sharingMode = vk::SharingMode::eExclusive,
                                              .queueFamilyIndices = {}});
+
+  // TODO: size
+  materialBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
+                                                  .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
+                                                  .sharingMode = vk::SharingMode::eExclusive,
+                                                  .queueFamilyIndices = {}});
+  materialMemoryPool = BufferMemoryPool::CreateShared(materialBuffer, 1);
 }
 
 }// namespace pf

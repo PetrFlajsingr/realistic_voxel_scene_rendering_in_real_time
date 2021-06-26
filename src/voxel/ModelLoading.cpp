@@ -16,6 +16,8 @@
 #include <fstream>
 #include <glm/vec3.hpp>
 #include <numeric>
+#include <range/v3/view/transform.hpp>
+#include <range/v3/view/zip.hpp>
 #include <ranges>
 
 namespace pf::vox {
@@ -51,6 +53,7 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
   const auto ogtModels = std::span{ogtScene->models, ogtScene->num_models};
   const auto ogtInstances = std::span{ogtScene->instances, ogtScene->num_instances};
   const auto ogtMaterials = std::span{ogtScene->materials.matl, 256};
+  const auto ogtPalette = std::span{ogtScene->palette.color, 256};
 
   struct ModelWithTransform {
     const ogt_vox_model *model;
@@ -65,8 +68,14 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
       })
       | ranges::to_vector;
 
-  auto materials = ogtMaterials
-      | std::views::transform([](const auto &material) { return MaterialProperties{material}; }) | ranges::to_vector;
+  auto materials =
+      ranges::views::zip(ogtMaterials, ogtPalette) | ranges::views::transform([](const auto &materialColor) {
+        const auto &[material, color] = materialColor;
+        const auto voxelColor = glm::vec4{static_cast<float>(color.r) / 255.0f, static_cast<float>(color.g) / 255.0f,
+                                          static_cast<float>(color.b) / 255.0f, static_cast<float>(color.a) / 255.0f};
+        return MaterialProperties{material, voxelColor};
+      })
+      | ranges::to_vector;
 
   [[maybe_unused]] const auto minModelOffset = [&] {
     auto minCoords = glm::vec3{std::numeric_limits<float>::max(), std::numeric_limits<float>::max(),
@@ -106,6 +115,18 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
   auto models = std::vector<std::unique_ptr<RawVoxelModel>>();
   models.reserve(ogtScene->num_models);
 
+  auto usedMaterials = std::vector<std::pair<std::uint32_t, MaterialProperties>>{};
+
+  auto getIndexOfMaterial = [&usedMaterials, &materials](std::uint32_t id) -> std::uint32_t {
+    if (const auto iter =
+            std::ranges::find_if(usedMaterials, [id](const auto &matInfo) { return matInfo.first == id; });
+        iter != usedMaterials.end()) {
+      return std::ranges::distance(usedMaterials.begin(), iter);
+    }
+    usedMaterials.emplace_back(id, materials[id]);
+    return usedMaterials.size() - 1;
+  };
+
   for (const auto [idx, ogtModel] : ranges::views::enumerate(ogtModelsWithTransform)) {
     const auto volSize = ogtModel.model->size_x * ogtModel.model->size_y * ogtModel.model->size_z;
     const auto modelCenter =
@@ -130,12 +151,9 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
     voxels.reserve(volSize);
     for (const auto ogtVoxel : ogtVoxels) {
       if (ogtVoxel != 0) {
-        const auto ogtColor = ogtScene->palette.color[ogtVoxel];
+        const auto materialId = getIndexOfMaterial(ogtVoxel);
         voxels.emplace_back(glm::vec4{currentPos + ogtModel.translate.xzy() - glm::vec3{modelCenter}.xzy(), 0},
-                            //glm::vec4{currentPos + ogtModel.translate.yxz(), 0},
-                            glm::vec4{static_cast<float>(ogtColor.r) / 255.0f, static_cast<float>(ogtColor.g) / 255.0f,
-                                      static_cast<float>(ogtColor.b) / 255.0f, static_cast<float>(ogtColor.a) / 255.0f},
-                            ogtVoxel);
+                            materialId);
       }
       movePos();
     }
@@ -145,6 +163,7 @@ RawVoxelScene details::loadVoxScene(std::ifstream &&istream) {
         glm::ivec3{ogtModel.model->size_x, ogtModel.model->size_y, ogtModel.model->size_z}));
   }
 
-  return RawVoxelScene("vox scene", std::move(models), minModelOffset, materials);
+  return RawVoxelScene("vox scene", std::move(models), minModelOffset,
+                       usedMaterials | std::views::values | ranges::to_vector);
 }
 }// namespace pf::vox

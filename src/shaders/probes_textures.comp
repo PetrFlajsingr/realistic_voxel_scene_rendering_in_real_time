@@ -25,6 +25,7 @@ struct ModelInfo {
   mat4 inverseObjectMatrix;
   vec4 AABB1;// xyz is p1.xyz, w is p2.x
   vec4 AABB2;// xy is p2.yz
+  ivec4 materialsOffset;
 };
 
 struct BVHNode {
@@ -55,6 +56,33 @@ layout(binding = 5, std140) uniform Grid {
   float gridStep;
 }
 grid;
+#define MATERIAL_TYPE uint
+#define MATERIAL_TYPE_DIFFUSE 0
+#define MATERIAL_TYPE_METAL 1
+#define MATERIAL_TYPE_GLASS 2
+#define MATERIAL_TYPE_EMIT 3
+#define MATERIAL_TYPE_BLEND 4
+#define MATERIAL_TYPE_MEDIA 5
+#define MATERIAL_TYPE_CLOUD 6
+struct Material {
+  MATERIAL_TYPE type;
+  float metalness;
+  float rougness;
+  float specular;
+  float indexOfRefraction;
+  float flux;
+  float emission;
+  float lowDynamicRange;
+  float transparency;
+  float alpha;
+  float density;
+  float red;
+  float green;
+  float blue;
+  float colorAlpha;
+};
+layout(std430, binding = 6) buffer Materials { Material data[]; }
+materials;
 
 #define SVO_HEADER_SIZE 2
 
@@ -214,7 +242,7 @@ const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
 
 #define MAX_RAYCAST_ITERATIONS 10000
 
-TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
+TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) {
   const float epsilon = exp2(-SVO_CAST_STACK_DEPTH);
   float ray_orig_sz = ray.originSize;
   int iter = 0;
@@ -332,9 +360,12 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
           uint siblingOffset = bitCount(lookupEntryMask << (8 - child_shift) & 0xFFu);
           uint attPtr = lookupEntry >> 8u & 0xFFFFFFu;
           attPtr += siblingOffset + svo.data[offsetInSVOBuffer + 1];
-          uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-          color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
-                       (phongAttrib >> 8 & 0xFFu) / 255.f);
+          //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+          //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
+          //             (phongAttrib >> 8 & 0xFFu) / 255.f);
+          uint materialId = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+          Material material = materials.data[offsetInMaterialBuffer + materialId];
+          color = vec3(material.red, material.green, material.blue);
           //color = lut[child_shift] * 0.5f + 0.5f;
 
           //if ((lookupEntry & 0xFFu) != 0) {
@@ -498,7 +529,8 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 
   ray.origin += vec3(1, 1, 1);
 
-  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w));
+  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w),
+                 modelInfos.infos[modelIndex].materialsOffset.x);
   result.objectId = modelIndex;
 
   return result;

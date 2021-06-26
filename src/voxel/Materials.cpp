@@ -4,7 +4,7 @@
 
 #include "Materials.h"
 
-pf::vox::MaterialProperties::MaterialProperties(const ogt_vox_matl &source) {
+pf::vox::MaterialProperties::MaterialProperties(const ogt_vox_matl &source, glm::vec4 col) {
   type = static_cast<MatType>(source.type);
   metalness = source.metal;
   rougness = source.rough;
@@ -16,4 +16,5 @@ pf::vox::MaterialProperties::MaterialProperties(const ogt_vox_matl &source) {
   transparency = source.trans;
   alpha = source.alpha;
   density = source.d;
+  color = col;
 }

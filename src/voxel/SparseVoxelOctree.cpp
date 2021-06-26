@@ -116,7 +116,8 @@ std::vector<std::byte> Block::serialize() const {
   const auto rawPages = pages | views::transform([](const auto &page) { return page.serialize(); }) | to_vector;
   const auto rawInfoSectionAttachments =
       std::span(reinterpret_cast<const std::byte *>(infoSection.attachments.attachments.data()),
-                infoSection.attachments.attachments.size() * sizeof(PhongAttachment));
+                infoSection.attachments.attachments.size() * sizeof(MaterialIndexAttachment));
+  //infoSection.attachments.attachments.size() * sizeof(PhongAttachment));
   const auto rawInfoSectionLookupEntries =
       std::span(reinterpret_cast<const std::byte *>(infoSection.attachments.lookupEntries.data()),
                 infoSection.attachments.lookupEntries.size() * sizeof(AttachmentLookupEntry));
@@ -141,10 +142,10 @@ Block Block::Deserialize(std::span<const std::byte> data) {
   const auto infoSectionAttachmentsSize = fromBytes<uint64_t>(data.subspan(offset, 8));
   offset += 8;
 
-  const auto attachmentCount = infoSectionAttachmentsSize / sizeof(PhongAttachment);
+  const auto attachmentCount = infoSectionAttachmentsSize / sizeof(MaterialIndexAttachment);
   result.infoSection.attachments.attachments.resize(attachmentCount);
   auto infoSectionAttachmentsSpan =
-      std::span(reinterpret_cast<const PhongAttachment *>(data.data() + offset), attachmentCount);
+      std::span(reinterpret_cast<const MaterialIndexAttachment *>(data.data() + offset), attachmentCount);
   std::ranges::copy(infoSectionAttachmentsSpan, result.infoSection.attachments.attachments.begin());
 
   offset += infoSectionAttachmentsSize;

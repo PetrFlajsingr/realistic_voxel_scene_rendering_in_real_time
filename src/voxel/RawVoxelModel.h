@@ -13,9 +13,8 @@
 namespace pf::vox {
 
 struct VoxelInfo {
-  VoxelInfo(const glm::vec4 &position, const glm::vec4 &color, std::uint32_t matId);
+  VoxelInfo(const glm::vec4 &position, std::uint32_t matId);
   glm::vec4 position;
-  glm::vec4 color;
   std::uint32_t materialId;
 };
 

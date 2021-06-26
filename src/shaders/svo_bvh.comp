@@ -37,6 +37,7 @@ struct ModelInfo {
   mat4 inverseObjectMatrix;
   vec4 AABB1;// xyz is p1.xyz, w is p2.x
   vec4 AABB2;// xy is p2.yz
+  ivec4 materialsOffset;
 };
 
 struct BVHNode {
@@ -92,6 +93,34 @@ layout(std430, binding = 7) buffer BVHModelAABBs { BVHNode nodes[]; }
 bvh;
 layout(std430, binding = 8) buffer LightFieldProbes { vec4 probes[]; }
 lfp;
+
+#define MATERIAL_TYPE uint
+#define MATERIAL_TYPE_DIFFUSE 0
+#define MATERIAL_TYPE_METAL 1
+#define MATERIAL_TYPE_GLASS 2
+#define MATERIAL_TYPE_EMIT 3
+#define MATERIAL_TYPE_BLEND 4
+#define MATERIAL_TYPE_MEDIA 5
+#define MATERIAL_TYPE_CLOUD 6
+struct Material {
+  MATERIAL_TYPE type;
+  float metalness;
+  float rougness;
+  float specular;
+  float indexOfRefraction;
+  float flux;
+  float emission;
+  float lowDynamicRange;
+  float transparency;
+  float alpha;
+  float density;
+  float red;
+  float green;
+  float blue;
+  float colorAlpha;
+};
+layout(std430, binding = 9) buffer Materials { Material data[]; }
+materials;
 
 #define SVO_HEADER_SIZE 2
 
@@ -313,7 +342,7 @@ const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
 
 #define MAX_RAYCAST_ITERATIONS 10000
 
-TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
+TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) {
   const float epsilon = exp2(-SVO_CAST_STACK_DEPTH);
   float ray_orig_sz = ray.originSize;
   int iter = 0;
@@ -431,9 +460,12 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
           uint siblingOffset = bitCount(lookupEntryMask << (8 - child_shift) & 0xFFu);
           uint attPtr = lookupEntry >> 8u & 0xFFFFFFu;
           attPtr += siblingOffset + svo.data[offsetInSVOBuffer + 1];
-          uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-          color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
-                       (phongAttrib >> 8 & 0xFFu) / 255.f);
+          //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+          //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
+          //             (phongAttrib >> 8 & 0xFFu) / 255.f);
+          uint materialId = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+          Material material = materials.data[offsetInMaterialBuffer + materialId];
+          color = vec3(material.red, material.green, material.blue);
           //color = lut[child_shift] * 0.5f + 0.5f;
 
           //if ((lookupEntry & 0xFFu) != 0) {
@@ -611,7 +643,8 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 
   ray.origin += vec3(1, 1, 1);
 
-  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w));
+  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w),
+                 modelInfos.infos[modelIndex].materialsOffset.x);
   result.objectId = modelIndex;
 
   return result;
@@ -621,73 +654,6 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 #define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
 #define GET_BVH_MIN_AABB(node) node.AABB1.xyz
 #define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
-//TODO: change bvh visualisation
-
-TraceResult traceBVH(Ray ray, uint idx, uint idy) {
-  uint stackTop = 0;
-  WRITE_BVH_STACK(bvhStack, stackTop++, 0);
-
-  Ray aabbRay = ray;
-  aabbRay.direction = normalize(aabbRay.direction);
-
-  TraceResult result;
-  result.hit = false;
-  result.isOnlyAABB = true;
-  if (debug.visualizeBVH == 1) {
-    result.color = vec3(1);
-  } else {
-    result.color = vec3(0);
-  }
-  result.iter = 0;
-  result.normal = vec3(0);
-  TraceResult bestModelResult;
-  bestModelResult.hit = false;
-  bestModelResult.t = INF;
-  bestModelResult.iter = 0;
-  while (stackTop != 0) {
-    const uint nodeToCheckIdx = READ_BVH_STACK(bvhStack, --stackTop);
-    const BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
-    const vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
-    const vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
-    if (debug.visualizeBVH == 1) { ++result.iter; }
-    if (intersectAABB(aabbRay, boxMin, boxMax)) {
-      if (debug.visualizeBVH == 1) {
-        result.hit = true;
-        result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
-        result.isOnlyAABB = result.isOnlyAABB && true;
-      }
-      // TODO: if distance to BVH is further away than sucessful hit don't do SVO intersection
-      const uint offset = GET_BVH_NODE_OFFSET(currentNode);
-      if (IS_BVH_NODE_LEAF(currentNode)) {
-        TraceResult modelTraceResult = traceModel(offset, ray);
-        if (modelTraceResult.hit && modelTraceResult.t < bestModelResult.t) {
-          bestModelResult = modelTraceResult;
-          result.isOnlyAABB = false;
-        }
-        result.iter += modelTraceResult.iter;
-      } else {
-        WRITE_BVH_STACK(bvhStack, stackTop++, offset);
-        WRITE_BVH_STACK(bvhStack, stackTop++, offset + 1);
-      }
-    }
-  }
-  if (bestModelResult.hit) {
-    bestModelResult.color += result.color;
-    bestModelResult.iter = result.iter;
-    bestModelResult.isOnlyAABB = result.isOnlyAABB;
-    bestModelResult.posInWorldSpace =
-        (modelInfos.infos[bestModelResult.objectId].objectMatrix * vec4(bestModelResult.pos - vec3(1, 1, 1), 1)).xyz;
-    bestModelResult.distanceInWorldSpace = distance(ray.origin, bestModelResult.posInWorldSpace);
-    return bestModelResult;
-  }
-  result.normal = vec3(0, 0, 0);
-  return result;
-}
-
-struct BVHDistanceInfo {
-  uint modelId;
-  float distance;
-};
 
 #define READ_BVH_STACK_ALT(stack, idx) stack[idx]
 #define WRITE_BVH_STACK_ALT(stack, idx, n) stack[idx] = n;

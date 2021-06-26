@@ -30,10 +30,10 @@ namespace pf::lfp {
 class ProbeRenderer {
  public:
   ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
-                std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
-                std::shared_ptr<vulkan::LogicalDevice> logicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
-                std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
-                std::shared_ptr<vulkan::Buffer> camBuffer, std::unique_ptr<ProbeManager> probeManag);
+                std::shared_ptr<vulkan::PhysicalDevice> vkDevice, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
+                std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
+                std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
+                std::shared_ptr<vulkan::Buffer> materialBuffer, std::unique_ptr<ProbeManager> probeManag);
 
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesDebugImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesDebugImageView() const;
@@ -115,6 +115,7 @@ class ProbeRenderer {
   } renderData;
 
   std::shared_ptr<vulkan::Buffer> cameraBuffer;
+  std::shared_ptr<vulkan::Buffer> materialsBuffer;
 
  public:
   std::unique_ptr<ProbeManager> probeManager;

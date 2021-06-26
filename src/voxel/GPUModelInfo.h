@@ -16,10 +16,12 @@
 #include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <string>
 #include <toml++/toml.h>
+#include "Materials.h"
 
 namespace pf::vox {
 
-constexpr static auto MODEL_INFO_BLOCK_SIZE = sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 3;
+constexpr static auto MODEL_INFO_BLOCK_SIZE = sizeof(glm::mat4) * 2 + sizeof(glm::vec4) * 3 + sizeof(glm::ivec4);
+constexpr static auto ONE_MATERIAL_SIZE = sizeof(std::uint32_t) + 14 * sizeof(float);
 
 struct GPUModelInfo {
   std::filesystem::path path;
@@ -31,8 +33,10 @@ struct GPUModelInfo {
   glm::vec3 rotateVec{0, 0, 0};
   glm::vec3 center{};
   math::BoundingBox<3> AABB{};
+  std::vector<MaterialProperties> materials;
   std::shared_ptr<vulkan::BufferMemoryPool::Block> svoMemoryBlock = nullptr;
   std::shared_ptr<vulkan::BufferMemoryPool::Block> modelInfoMemoryBlock = nullptr;
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> materialsMemoryBlock = nullptr;
   std::uint32_t id = getNext(IdGenerator);
   glm::mat4 transformMatrix{};
 

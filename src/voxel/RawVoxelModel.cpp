@@ -8,8 +8,8 @@
 
 namespace pf::vox {
 
-VoxelInfo::VoxelInfo(const glm::vec4 &position, const glm::vec4 &color, std::uint32_t matId)
-    : position(position), color(color), materialId(matId) {}
+VoxelInfo::VoxelInfo(const glm::vec4 &position, std::uint32_t matId)
+    : position(position), materialId(matId) {}
 
 RawVoxelModel::RawVoxelModel(std::string name, std::vector<VoxelInfo> voxels, glm::ivec3 size)
     : name(std::move(name)), voxels(std::move(voxels)), modelSize(size) {}

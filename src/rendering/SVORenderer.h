@@ -204,6 +204,7 @@ class SVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> svoBuffer;
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
+  std::shared_ptr<vulkan::Buffer> materialBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
   std::shared_ptr<vulkan::Buffer> probePosBuffer;
@@ -231,6 +232,7 @@ class SVORenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool;
   std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool;
+  std::shared_ptr<vulkan::BufferMemoryPool> materialMemoryPool;
 
   std::unique_ptr<vox::GPUModelManager> modelManager;
 

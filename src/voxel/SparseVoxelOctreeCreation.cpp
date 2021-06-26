@@ -60,9 +60,13 @@ SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene) {
   const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
   bb.p2 = bb.p1 + bbDiff;
   auto resultTree = rawTreeToSVO(tree);
-  auto createInfo =
-      SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0,
-                                  bb,           std::move(resultTree.first),          scene.getSceneCenter().xzy()};
+  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels,
+                                                static_cast<uint32_t>(voxels.size()),
+                                                0,
+                                                bb,
+                                                std::move(resultTree.first),
+                                                scene.getSceneCenter().xzy(),
+                                                scene.getMaterials()};
   createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
   return createInfo;
 }
@@ -89,15 +93,20 @@ std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &
     const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
     bb.p2 = bb.p1 + bbDiff;
     auto resultTree = rawTreeToSVO(tree);
-    auto createInfo =
-        SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0,
-                                    bb,           std::move(resultTree.first),          scene.getSceneCenter().xzy()};
+    auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels,
+                                                  static_cast<uint32_t>(voxels.size()),
+                                                  0,
+                                                  bb,
+                                                  std::move(resultTree.first),
+                                                  scene.getSceneCenter().xzy(),
+                                                  scene.getMaterials()};
     createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
     return {createInfo};
   } else {
     return scene.getModels() | views::transform([&](const auto &model) {
              auto result = convertModelToSVO(*model);
              result.center = scene.getSceneCenter().xzy();
+             result.materials = scene.getMaterials();
              return result;
            })
         | ranges::to_vector;
@@ -122,8 +131,8 @@ SparseVoxelOctreeCreateInfo convertModelToSVO(const RawVoxelModel &model) {
   const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
   bb.p2 = bb.p1 + bbDiff;
   auto resultTree = rawTreeToSVO(tree);
-  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels, static_cast<uint32_t>(voxels.size()), 0,
-                                                bb,           std::move(resultTree.first),          glm::vec3{}};
+  auto createInfo = SparseVoxelOctreeCreateInfo{
+      octreeLevels, static_cast<uint32_t>(voxels.size()), 0, bb, std::move(resultTree.first), glm::vec3{}, {}};
   createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
   return createInfo;
 }
@@ -136,6 +145,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istrea
 }
 
 std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istream) {
+  assert(false && "change and test this thing");
   auto data = std::vector<char>((std::istreambuf_iterator<char>(istream)), std::istreambuf_iterator<char>());
   auto dataView = std::span{reinterpret_cast<const std::byte *>(data.data()), data.size()};
   std::size_t offset = 0;
@@ -148,7 +158,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istr
   const auto center = fromBytes<glm::vec3>(dataView.subspan(offset, sizeof(glm::vec3)));
   offset += sizeof(glm::vec3);
   const auto svo = SparseVoxelOctree::Deserialize(dataView.subspan(offset, dataView.size() - offset));
-  return {SparseVoxelOctreeCreateInfo{svoDepth, svoVoxelCount, svoVoxelCount, aabb, std::move(svo), center}};
+  return {SparseVoxelOctreeCreateInfo{svoDepth, svoVoxelCount, svoVoxelCount, aabb, std::move(svo), center, {/* MATERIALS TODO */}}};
 }
 
 math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene) {
@@ -242,7 +252,7 @@ void addVoxelToTree(Tree<TemporaryTreeNode> &tree, const VoxelInfo &voxel, uint3
     } else {
       childNode = &*childNodeIter;
     }
-    (*childNode)->color = voxel.color;
+    (*childNode)->materialId = voxel.materialId;
     (*childNode)->debug.position = fmt::format("{}x{}x{}", voxel.position.x, voxel.position.y, voxel.position.z);
     node = childNode;
   }
@@ -323,24 +333,21 @@ AttachmentLookupEntry attLookupEntryForNode(const Node<TemporaryTreeNode> &node)
   return result;
 }
 
-PhongAttachment attachmentForNode(const Node<TemporaryTreeNode> &node) {
-  constexpr auto COLOR_MULTIPLIER = 255.f;
-  return PhongAttachment{.color = {.alpha = static_cast<uint8_t>(node->color.a * COLOR_MULTIPLIER),
-                                   .blue = static_cast<uint8_t>(node->color.b * COLOR_MULTIPLIER),
-                                   .green = static_cast<uint8_t>(node->color.g * COLOR_MULTIPLIER),
-                                   .red = static_cast<uint8_t>(node->color.r * COLOR_MULTIPLIER)}};
+MaterialIndexAttachment attachmentForNode(const Node<TemporaryTreeNode> &node) {
+  return MaterialIndexAttachment{.materialId = node->materialId};
 }
-std::pair<AttachmentLookupEntry, std::vector<PhongAttachment>> attDataForNode(const Node<TemporaryTreeNode> &node) {
+std::pair<AttachmentLookupEntry, std::vector<MaterialIndexAttachment>>
+attDataForNode(const Node<TemporaryTreeNode> &node) {
   auto lookupEntry = attLookupEntryForNode(node);
   auto attachments =
       getLeafChildren(node) | views::transform([](const auto &child) { return attachmentForNode(*child); }) | to_vector;
   return {lookupEntry, attachments};
 }
 
-std::pair<std::vector<AttachmentLookupEntry>, std::vector<PhongAttachment>>
+std::pair<std::vector<AttachmentLookupEntry>, std::vector<MaterialIndexAttachment>>
 buildAttLookupEntriesWithAttachments(const std::vector<const Node<TemporaryTreeNode> *> &nodes, uint32_t &attOffset) {
   auto resultLookups = std::vector<AttachmentLookupEntry>();
-  auto resultAttachments = std::vector<PhongAttachment>();
+  auto resultAttachments = std::vector<MaterialIndexAttachment>();
   for (const auto &node : nodes) {
     auto [lookupEntry, attachments] = attDataForNode(*node);
     if (!attachments.empty()) {
@@ -369,12 +376,13 @@ void setFilledNodesToLeaf(Node<TemporaryTreeNode> &node) {
   if (node->isLeaf) { return; }
   if (isNodeFilled(node)) {
     auto children = node.children();
-    const auto colorOfFirstChild = children[0]->color;
-    if (std::ranges::all_of(children,
-                            [colorOfFirstChild](const auto &child) { return child->color == colorOfFirstChild; })) {
+    const auto materialsOfFirstChild = children[0]->materialId;
+    if (std::ranges::all_of(children, [materialsOfFirstChild](const auto &child) {
+          return child->materialId == materialsOfFirstChild;
+        })) {
       node.clearChildren();
       node->isLeaf = true;
-      node->color = colorOfFirstChild;
+      node->materialId = materialsOfFirstChild;
     }
   } else {
     std::ranges::for_each(node.children(), setFilledNodesToLeaf);
@@ -397,7 +405,7 @@ std::pair<SparseVoxelOctree, uint32_t> rawTreeToSVO(Tree<TemporaryTreeNode> &tre
   auto childDescriptors = std::vector<ChildDescriptor>();
 
   auto attLookups = std::vector<AttachmentLookupEntry>();
-  auto attachments = std::vector<PhongAttachment>();
+  auto attachments = std::vector<MaterialIndexAttachment>();
 
   const auto &root = tree.getRoot();
   auto rootDescriptor = childDescriptorForNode(root);

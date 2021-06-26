@@ -13,11 +13,11 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
                              std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
                              std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
                              std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
-                             std::unique_ptr<ProbeManager> probeManag)
+                             std::shared_ptr<vulkan::Buffer> materialBuffer, std::unique_ptr<ProbeManager> probeManag)
     : config(std::move(config)), vkInstance(std::move(vkInstance)), vkDevice(std::move(vkDevice)),
       vkLogicalDevice(std::move(logicalDevice)), svoBuffer(std::move(svoBuffer)),
       modelInfoBuffer(std::move(modelInfoBuffer)), bvhBuffer(std::move(bvhBuffer)), cameraBuffer(std::move(camBuffer)),
-      probeManager(std::move(probeManag)) {
+      materialsBuffer(std::move(materialBuffer)), probeManager(std::move(probeManag)) {
   using namespace byte_literals;
   proximityGridData.proximityBuffer =
       vkLogicalDevice->createBuffer({.size = 100_MB,
@@ -107,6 +107,7 @@ void ProbeRenderer::createProbeGenDescriptorPool() {
                                                  {vk::DescriptorType::eStorageBuffer, 1},// bvh
                                                  {vk::DescriptorType::eStorageImage, 1}, // probe array
                                                  {vk::DescriptorType::eUniformBuffer, 1},// grid info
+                                                 {vk::DescriptorType::eStorageBuffer, 1},// materials
                                              }});
 }
 void ProbeRenderer::createProbeGenPipeline() {
@@ -138,6 +139,10 @@ void ProbeRenderer::createProbeGenPipeline() {
             .type = vk::DescriptorType::eUniformBuffer,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// grid info
+           {.binding = 6,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// materials
        }});
 
   const auto setLayouts = std::vector{**probeGenData.vkComputeDescSetLayout};
@@ -217,8 +222,18 @@ void ProbeRenderer::createProbeGenPipeline() {
                                                     .descriptorType = vk::DescriptorType::eUniformBuffer,
                                                     .pBufferInfo = &gridInfoInfo};
 
-  const auto writeSets =
-      std::vector{svoWrite, uniformDebugWrite, modelInfoWrite, bvhWrite, computeProbesWrite, gridInfoWrite};
+  const auto materialsInfo =
+      vk::DescriptorBufferInfo{.buffer = **materialsBuffer, .offset = 0, .range = materialsBuffer->getSize()};
+
+  const auto materialsWrite = vk::WriteDescriptorSet{.dstSet = *probeGenData.computeDescriptorSets[0],
+                                                     .dstBinding = 6,
+                                                     .dstArrayElement = {},
+                                                     .descriptorCount = 1,
+                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                     .pBufferInfo = &materialsInfo};
+
+  const auto writeSets = std::vector{svoWrite,           uniformDebugWrite, modelInfoWrite, bvhWrite,
+                                     computeProbesWrite, gridInfoWrite,     materialsWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{

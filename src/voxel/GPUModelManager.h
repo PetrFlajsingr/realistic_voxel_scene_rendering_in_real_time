@@ -20,7 +20,8 @@ namespace pf::vox {
 class GPUModelManager {
  public:
   GPUModelManager(std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool,
-                  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool, std::size_t defaultSvoHeightSize);
+                  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool,
+                  std::shared_ptr<vulkan::BufferMemoryPool> materialMemoryPool, std::size_t defaultSvoHeightSize);
   using ModelPtr = std::experimental::observer_ptr<GPUModelInfo>;
 
   struct Callbacks {
@@ -33,7 +34,8 @@ class GPUModelManager {
 
   // TODO: fix this interface
   tl::expected<std::vector<ModelPtr>, std::string> loadModel(RawVoxelScene &scene, bool autoScale = true);
-  tl::expected<ModelPtr, std::string> loadModel(RawVoxelModel &model, bool autoScale = true);
+  tl::expected<ModelPtr, std::string> loadModel(RawVoxelModel &model, const std::vector<MaterialProperties> &materials,
+                                                bool autoScale = true);
   tl::expected<ModelPtr, std::string> createModelInstance(ModelPtr model);
   tl::expected<ModelPtr, std::string> duplicateModel(ModelPtr model);
 
@@ -52,6 +54,7 @@ class GPUModelManager {
   std::vector<std::unique_ptr<GPUModelInfo>> models{};
   std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool;
   std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool;
+  std::shared_ptr<vulkan::BufferMemoryPool> materialsMemoryPool;
   std::mutex mutex;
   BVHCreateInfo bvh;
 };

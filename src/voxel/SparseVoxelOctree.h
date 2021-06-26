@@ -70,7 +70,7 @@ struct alignas(4) AttachmentLookupEntry {
   uint32_t mask : 8;         //< if 1 then the voxel has an attribute entry else it doesn't
   uint32_t valuePointer : 24;//< points to an attachment in consecutive buffer
 };
-
+/*
 struct alignas(4) PhongAttachment {
   struct alignas(4) {
     uint8_t alpha;
@@ -78,6 +78,9 @@ struct alignas(4) PhongAttachment {
     uint8_t green;
     uint8_t red;
   } color;
+};*/
+struct alignas(4) MaterialIndexAttachment {
+  std::uint32_t materialId;
 };
 
 struct alignas(8) PageHeader {
@@ -102,7 +105,7 @@ struct ContourData {
 
 struct Attachments {
   std::vector<AttachmentLookupEntry> lookupEntries;
-  std::vector<PhongAttachment> attachments;
+  std::vector<MaterialIndexAttachment> attachments;
 };
 
 // TODO

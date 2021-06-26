@@ -5,6 +5,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MATERIALS_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MATERIALS_H
 
+#include <glm/vec4.hpp>
 #include <ogt_vox.h>
 
 namespace pf::vox {
@@ -30,10 +31,10 @@ namespace pf::vox {
  *  - transparency <0, 100>
  * Media and cloud unsupported
  */
-enum class MatType { Diffuse = 0, Metal = 1, Glass = 2, Emit = 3, Blend = 4, Media = 5, Cloud = 6 };
+enum class MatType : std::uint8_t { Diffuse = 0, Metal = 1, Glass = 2, Emit = 3, Blend = 4, Media = 5, Cloud = 6 };
 
 struct MaterialProperties {
-  explicit MaterialProperties(const ogt_vox_matl &source);
+  explicit MaterialProperties(const ogt_vox_matl &source, glm::vec4 col);
   MatType type;
   float metalness;
   float rougness;
@@ -45,6 +46,7 @@ struct MaterialProperties {
   float transparency;
   float alpha;
   float density;
+  glm::vec4 color;
 };
 
 }// namespace pf::vox

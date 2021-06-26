@@ -13,9 +13,10 @@ namespace pf::vox {
 
 GPUModelManager::GPUModelManager(std::shared_ptr<vulkan::BufferMemoryPool> svoMemoryPool,
                                  std::shared_ptr<vulkan::BufferMemoryPool> modelInfoMemoryPool,
+                                 std::shared_ptr<vulkan::BufferMemoryPool> materialMemoryPool,
                                  std::size_t defaultSvoHeightSize)
     : defaultSVOHeightSize(defaultSvoHeightSize), svoMemoryPool(std::move(svoMemoryPool)),
-      modelInfoMemoryPool(std::move(modelInfoMemoryPool)) {}
+      modelInfoMemoryPool(std::move(modelInfoMemoryPool)), materialsMemoryPool(materialMemoryPool) {}
 
 tl::expected<std::vector<GPUModelManager::ModelPtr>, std::string>
 GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &callbacks, bool sceneAsOneSVO,
@@ -37,10 +38,13 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
       newModelInfo->translateVec = glm::vec3{0, 0, 0};
       newModelInfo->scaleVec = glm::vec3{1, 1, 1};
       newModelInfo->rotateVec = glm::vec3{0, 0, 0};
+      newModelInfo->materials = svo.materials;
       auto svoData = vox::SparseVoxelOctree{std::move(svo.data)};
       auto svoBlockResult = copySvoToMemoryBlock(svoData, *svoMemoryPool);
 
       auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+      auto materialsBlockResult =
+          materialsMemoryPool->leaseMemory(vox::ONE_MATERIAL_SIZE * newModelInfo->materials.size());
       std::string err;
       if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
@@ -50,6 +54,9 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
       newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));
       newModelInfo->modelInfoMemoryBlock =
           std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelInfoBlockResult));
+      newModelInfo->materialsMemoryBlock =
+          std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*materialsBlockResult));
+      newModelInfo->materialsMemoryBlock->mapping().set(newModelInfo->materials);
       if (autoScale) {
         newModelInfo->scaleVec =
             glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
@@ -77,6 +84,7 @@ GPUModelManager::createModelInstance(GPUModelManager::ModelPtr model) {
   auto newItem = std::move(newItemResult.value());
 
   newItem->svoMemoryBlock = model->svoMemoryBlock;
+  newItem->materialsMemoryBlock = model->materialsMemoryBlock;
 
   auto lock = std::unique_lock{mutex};
   models.emplace_back(std::move(newItem));
@@ -88,8 +96,12 @@ tl::expected<GPUModelManager::ModelPtr, std::string> GPUModelManager::duplicateM
   auto newItem = std::move(newItemResult.value());
 
   auto svoBlockAllocResult = svoMemoryPool->leaseMemory(model->svoMemoryBlock->getSize());
+  auto materialsAllocResult = materialsMemoryPool->leaseMemory(vox::ONE_MATERIAL_SIZE * newItem->materials.size());
   if (!svoBlockAllocResult.has_value()) { return tl::make_unexpected(svoBlockAllocResult.error()); }
+  if (!materialsAllocResult.has_value()) { return tl::make_unexpected(materialsAllocResult.error()); }
   newItem->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockAllocResult));
+  newItem->materialsMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockAllocResult));
+  newItem->materialsMemoryBlock->mapping().set(newItem->materials);
   auto data = std::vector<std::byte>(model->svoMemoryBlock->getSize());
   std::ranges::copy(model->svoMemoryBlock->mapping().data<std::byte>(), data.begin());
   newItem->svoMemoryBlock->mapping().set(data);
@@ -144,18 +156,27 @@ tl::expected<std::vector<GPUModelManager::ModelPtr>, std::string> GPUModelManage
     newModelInfo->translateVec = glm::vec3{0, 0, 0};
     newModelInfo->scaleVec = glm::vec3{1, 1, 1};
     newModelInfo->rotateVec = glm::vec3{0, 0, 0};
+    newModelInfo->materials = scene.getMaterials();
     auto svoData = vox::SparseVoxelOctree{std::move(svo.data)};
     auto svoBlockResult = copySvoToMemoryBlock(svoData, *svoMemoryPool);
 
     auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+
+    auto materialsBlockResult =
+        materialsMemoryPool->leaseMemory(vox::ONE_MATERIAL_SIZE * newModelInfo->materials.size());
+
     std::string err;
     if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
-    if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
+    if (!svoBlockResult.has_value()) { err += svoBlockResult.error(); }
+    if (!materialsBlockResult.has_value()) { err += materialsBlockResult.error(); }
     if (!err.empty()) { return tl::make_unexpected(err); }
 
     newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));
     newModelInfo->modelInfoMemoryBlock =
         std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelInfoBlockResult));
+    newModelInfo->materialsMemoryBlock =
+        std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*materialsBlockResult));
+    newModelInfo->materialsMemoryBlock->mapping().set(newModelInfo->materials);
     if (autoScale) {
       newModelInfo->scaleVec =
           glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
@@ -169,7 +190,8 @@ tl::expected<std::vector<GPUModelManager::ModelPtr>, std::string> GPUModelManage
   for (auto &newModel : newModels) { models.emplace_back(std::move(newModel)); }// TODO: <algorithm>
   return resultModels;
 }
-tl::expected<GPUModelManager::ModelPtr, std::string> GPUModelManager::loadModel(RawVoxelModel &model, bool autoScale) {
+tl::expected<GPUModelManager::ModelPtr, std::string>
+GPUModelManager::loadModel(RawVoxelModel &model, const std::vector<MaterialProperties> &materials, bool autoScale) {
   const auto svo = convertModelToSVO(model);
   auto resultModels = std::vector<ModelPtr>{};
   auto newModelInfo = std::make_unique<GPUModelInfo>();
@@ -181,10 +203,14 @@ tl::expected<GPUModelManager::ModelPtr, std::string> GPUModelManager::loadModel(
   newModelInfo->translateVec = glm::vec3{0, 0, 0};
   newModelInfo->scaleVec = glm::vec3{1, 1, 1};
   newModelInfo->rotateVec = glm::vec3{0, 0, 0};
+  newModelInfo->materials = materials;
   auto svoData = vox::SparseVoxelOctree{std::move(svo.data)};
   auto svoBlockResult = copySvoToMemoryBlock(svoData, *svoMemoryPool);
 
   auto modelInfoBlockResult = modelInfoMemoryPool->leaseMemory(vox::MODEL_INFO_BLOCK_SIZE);
+
+  auto materialsBlockResult = materialsMemoryPool->leaseMemory(vox::ONE_MATERIAL_SIZE * newModelInfo->materials.size());
+
   std::string err;
   if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
   if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
@@ -193,6 +219,9 @@ tl::expected<GPUModelManager::ModelPtr, std::string> GPUModelManager::loadModel(
   newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));
   newModelInfo->modelInfoMemoryBlock =
       std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*modelInfoBlockResult));
+  newModelInfo->materialsMemoryBlock =
+      std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*materialsBlockResult));
+  newModelInfo->materialsMemoryBlock->mapping().set(newModelInfo->materials);
   if (autoScale) {
     newModelInfo->scaleVec = glm::vec3{static_cast<float>(std::pow(2, svo.depth) / std::pow(2, defaultSVOHeightSize))};
   }

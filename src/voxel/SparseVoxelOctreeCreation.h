@@ -23,6 +23,7 @@ struct SparseVoxelOctreeCreateInfo {
   math::BoundingBox<3> AABB;
   SparseVoxelOctree data;
   glm::vec3 center;
+  std::vector<MaterialProperties> materials;
 };
 
 std::vector<SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::path &srcFile, bool sceneAsOneSVO,
@@ -37,9 +38,9 @@ SparseVoxelOctreeCreateInfo convertModelToSVO(const RawVoxelModel &model);
 namespace details {
 struct TemporaryTreeNode {
   bool isLeaf;
-  uint32_t idx;
-  glm::vec4 color;
-  uint32_t paletteIdx;
+  std::uint32_t idx;
+  std::uint32_t materialId;
+  std::uint32_t paletteIdx;
   struct {
     std::string position;
   } debug;
