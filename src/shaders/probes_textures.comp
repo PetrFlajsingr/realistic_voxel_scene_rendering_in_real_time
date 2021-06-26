@@ -189,7 +189,7 @@ struct TraceResult {
   float t;
   int iter;
   int stackPtr;
-  vec3 color;
+  uint materialId;
   vec3 normal;
   bool isOnlyAABB;
   uint objectId;
@@ -299,7 +299,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
   }
 
   TraceResult res;
-  vec3 color = vec3(0);
+  uint hitMaterial;
   bool fetch = true;
 
   while (scale < SVO_CAST_STACK_DEPTH) {
@@ -363,9 +363,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
           //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
           //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
           //             (phongAttrib >> 8 & 0xFFu) / 255.f);
-          uint materialId = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-          Material material = materials.data[offsetInMaterialBuffer + materialId];
-          color = vec3(material.red, material.green, material.blue);
+          hitMaterial = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
           //color = lut[child_shift] * 0.5f + 0.5f;
 
           //if ((lookupEntry & 0xFFu) != 0) {
@@ -511,7 +509,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
   res.node = parent;
   res.childIdx = idx ^ octant_mask ^ 7;
   res.stackPtr = scale;
-  res.color = color;
+  res.materialId = hitMaterial;
   res.hit = !(scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
   return res;
 }
@@ -531,6 +529,7 @@ TraceResult traceModel(uint modelIndex, Ray ray) {
 
   result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w),
                  modelInfos.infos[modelIndex].materialsOffset.x);
+  result.materialId += modelInfos.infos[modelIndex].materialsOffset.x;
   result.objectId = modelIndex;
 
   return result;
@@ -555,7 +554,6 @@ TraceResult traceBVHImproved(Ray ray) {
   aabbRay.direction = normalize(aabbRay.direction);
 
   TraceResult result;
-  result.color = vec3(0);
   result.hit = false;
   result.isOnlyAABB = true;
   result.iter = 0;
@@ -699,11 +697,14 @@ void main() {
   traceResult.hit = false;
   traceResult.t = INF;
   traceResult.iter = 0;
-  traceResult.color;
 
   traceResult = traceBVHImproved(probeRay);
 
-  const vec3 color = traceResult.color;
+  vec3 color = vec3(1);
+  if (traceResult.hit) {
+    Material material = materials.data[traceResult.materialId];
+    color = vec3(material.red, material.green, material.blue);
+  }
   const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);
   const float depth = traceResult.hit ? (traceResult.distanceInWorldSpace / TMP_FAR) : TMP_FAR;
 

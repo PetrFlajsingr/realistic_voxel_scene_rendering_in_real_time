@@ -267,9 +267,10 @@ struct TraceResult {
   float t;
   int iter;
   int stackPtr;
-  vec3 color;
+  uint materialId;
   vec3 normal;
   bool isOnlyAABB;
+  bool aabbHit;
   uint objectId;
 };
 
@@ -399,7 +400,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
   }
 
   TraceResult res;
-  vec3 color = vec3(0);
+  uint hitMaterial;
   bool fetch = true;
 
   while (scale < SVO_CAST_STACK_DEPTH) {
@@ -463,9 +464,7 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
           //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
           //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
           //             (phongAttrib >> 8 & 0xFFu) / 255.f);
-          uint materialId = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-          Material material = materials.data[offsetInMaterialBuffer + materialId];
-          color = vec3(material.red, material.green, material.blue);
+          hitMaterial = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
           //color = lut[child_shift] * 0.5f + 0.5f;
 
           //if ((lookupEntry & 0xFFu) != 0) {
@@ -489,8 +488,8 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
         uint ptr = child_descriptor.data2;// child pointer
 
         /* if ((child_descriptor.childData & 0x10000) != 0) { // FAR
-          ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
-        }*/
+                  ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
+                }*/
 
         uint validMask = (child_descriptor.data1 >> 8u) & 0xFFu;
         uint leafMask = child_descriptor.data1 & 0xFFu;
@@ -611,23 +610,21 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
   res.node = parent;
   res.childIdx = idx ^ octant_mask ^ 7;
   res.stackPtr = scale;
-  res.color = color;
+  res.materialId = hitMaterial;
   res.hit = !(scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
   return res;
 }
 
-vec3 calcLight(TraceResult traceResult, vec3 lightDir, bool isInShadow) {
+vec3 calcLight(vec3 color, vec3 pos, vec3 normal, vec3 lightDir, bool isInShadow) {
   const vec3 LAmbient = light.ambientColor.xyz;
-  if (isInShadow) { return traceResult.color * LAmbient; }
+  if (isInShadow) { return color * LAmbient; }
 
-  const vec3 pos = traceResult.pos;
-  const vec3 normal = traceResult.normal;
   const float NoL = max(dot(normal, -lightDir), 0.0);
   const vec3 LDirectional = light.diffuseColor.xyz * NoL;
   const vec3 diffuse = (LDirectional + LAmbient);
   const float specular = dot(normalize(light.pos.xyz - pos), reflect(normalize(pos - camera.pos.xyz), normal));
   vec3 intensity = diffuse + light.specularColor.xyz * (0.25 * pow(clamp(specular, 0.0, 1.0), 200.0));
-  return traceResult.color * intensity;
+  return color * intensity;
 }
 
 TraceResult traceModel(uint modelIndex, Ray ray) {
@@ -667,14 +664,9 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   TraceResult result;
   result.hit = false;
   result.isOnlyAABB = true;
+  result.aabbHit = false;
   result.iter = 0;
   result.normal = vec3(0);
-
-  if (debug.visualizeBVH == 1) {
-    result.color = vec3(1);
-  } else {
-    result.color = vec3(0);
-  }
 
   TraceResult bestModelResult;
   bestModelResult.hit = false;
@@ -723,7 +715,7 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
       // there was no hit, read stack
       if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
     }
-    if (intersectionA.isLeaf) {
+    if (intersectionA.isLeaf && intersectionA.hit) {
       if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
         TraceResult modelTraceResult = traceModel(intersectionA.offset, ray);
         modelTraceResult.posInWorldSpace =
@@ -738,9 +730,8 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
       }
 
       if (debug.visualizeBVH == 1) {
-        result.hit = true;
-        result.color -= lut[nodeToCheckIdx % 7 + 1] / debug.debugFloatVal;
         result.isOnlyAABB = result.isOnlyAABB && true;
+        result.aabbHit = true;
       }
       // stack is empty, end
       if (stackTop == 0) {
@@ -754,9 +745,9 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
   if (bestModelResult.hit) {
     bestModelResult.normal = normalize(
         (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);
-    bestModelResult.color += result.color;
     bestModelResult.iter = result.iter;
     bestModelResult.isOnlyAABB = result.isOnlyAABB;
+    bestModelResult.aabbHit = result.aabbHit;
     return bestModelResult;
   }
   return result;
@@ -804,6 +795,7 @@ void main() {
     traceResult.iter += shadowTraceResult.iter;
   }
 
+  bool hitProbe = false;
   if (debug.visualizeProbes == 1) {
     int probeCount = int(lfp.probes[0].w);
     ray.direction = normalize(ray.direction);
@@ -811,9 +803,10 @@ void main() {
       Sphere sphere = LFP_SPHERE;
       sphere.radius = 0.2f;
       sphere.position = lfp.probes[i].xyz;
-      if (SphereIntersection(ray, sphere) > 0) {
-        traceResult.hit = true;
-        traceResult.color = debug.selectedProbeIdx == i ? vec3(1, 0, 0) : vec3(0, 1, 0);
+      const float sphereIntersection = SphereIntersection(ray, sphere);
+      if (sphereIntersection > 0 && traceResult.distanceInWorldSpace > sphereIntersection) {
+        hitProbe = true;
+        break;
       }
     }
   }
@@ -823,7 +816,10 @@ void main() {
     finalColor += vec3(traceResult.iter / debug.iterDivide);
   } else if (traceResult.hit) {
     if (debug.viewType == COLOR_VIEW) {
-      finalColor += calcLight(traceResult, lightDir, shadowTraceResult.hit);
+      vec3 color = vec3(1);
+      Material material = materials.data[traceResult.materialId];
+      color = vec3(material.red, material.green, material.blue);
+      finalColor += calcLight(color, traceResult.pos, traceResult.normal, lightDir, shadowTraceResult.hit);
       if (debug.debugVal == traceResult.objectId && !traceResult.isOnlyAABB) { finalColor += vec3(0.5, 0, 0); }
     } else if (debug.viewType == NORMAL_VIEW) {
       finalColor += traceResult.normal * 0.5f + 0.5f;
@@ -842,6 +838,11 @@ void main() {
     } else {
       finalColor += vec3(1);
     }
+  }
+
+  if (hitProbe && debug.viewType == COLOR_VIEW) { finalColor = vec3(0, 1, 0); }
+  if (debug.visualizeBVH == 1 && traceResult.isOnlyAABB && traceResult.aabbHit && debug.viewType == COLOR_VIEW) {
+    finalColor = lut[traceResult.objectId % 8];
   }
 
   finalColor = vec3(clamp(finalColor.x, 0.0, 1.0), clamp(finalColor.y, 0.0, 1.0), clamp(finalColor.z, 0.0, 1.0));

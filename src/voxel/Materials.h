@@ -31,7 +31,7 @@ namespace pf::vox {
  *  - transparency <0, 100>
  * Media and cloud unsupported
  */
-enum class MatType : std::uint8_t { Diffuse = 0, Metal = 1, Glass = 2, Emit = 3, Blend = 4, Media = 5, Cloud = 6 };
+enum class MatType : std::uint32_t { Diffuse = 0, Metal = 1, Glass = 2, Emit = 3, Blend = 4, Media = 5, Cloud = 6 };
 
 struct MaterialProperties {
   explicit MaterialProperties(const ogt_vox_matl &source, glm::vec4 col);
