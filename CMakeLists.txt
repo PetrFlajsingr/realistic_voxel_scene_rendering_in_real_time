@@ -202,10 +202,7 @@ set(SOURCES
         src/rendering/SVORenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
-        src/ui/ImGuiGlfwVulkan.cpp
         src/ui/SimpleSVORenderer_UI.cpp
-        include/imgui/imgui_impl_glfw.cpp
-        include/imgui/imgui_impl_vulkan.cpp
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
@@ -223,6 +220,10 @@ set(SOURCES
         src/voxel/TeardownMaps.cpp
         src/rendering/light_field_probes/ProbeRenderer.cpp
         src/rendering/light_field_probes/ProbeManager.cpp
+        ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/ImGuiGlfwVulkanInterface.cpp
+        ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/impl/imgui_impl_glfw.cpp
+        ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/impl/imgui_impl_vulkan.cpp
+
         )
 
 set(INCLUDES
@@ -241,9 +242,6 @@ set(INCLUDES
         src/utils/common_enums.h
         src/logging/CallbackSink.h
         src/utils/config.h
-        src/ui/ImGuiGlfwVulkan.h
-        include/imgui/imgui_impl_glfw.h
-        include/imgui/imgui_impl_vulkan.h
         src/utils/Camera.h
         src/utils/FPSCounter.h
         src/utils/FlameGraphSampler.h

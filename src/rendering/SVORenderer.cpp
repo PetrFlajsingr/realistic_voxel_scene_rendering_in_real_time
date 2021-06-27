@@ -14,6 +14,7 @@
 #include <pf_common/enums.h>
 #include <pf_common/files.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
+#include <pf_imgui/backends/ImGuiGlfwVulkanInterface.h>
 #include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SceneFileManager.h>
@@ -81,9 +82,23 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
 
   auto imguiConfig =
       config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
-  auto imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
-                                                         windowHandle, ImGuiConfigFlags{}, imguiConfig);
-
+  auto imgui = std::make_unique<ui::ig::ImGuiGlfwVulkanInterface>(ui::ig::ImGuiVulkanGlfwConfig{
+      .instance = **vkInstance,
+      .physicalDevice = **vkDevice,
+      .device = **vkLogicalDevice,
+      .renderPass = **vkRenderPass,
+      .surface = **vkSurface,
+      .swapchain = **vkSwapChain,
+      .graphicsQueue = vkLogicalDevice->getQueue(vk::QueueFlagBits::eGraphics),
+      .presentQueue = vkLogicalDevice->getPresentQueue(),
+      .swapchainImageCount = static_cast<std::uint32_t>(vkSwapChain->getImageViews().size()),
+      .handle = windowHandle,
+      .flags = {},
+      .enableMultiViewport = false,
+      .config = imguiConfig,
+      .pathToIconFolder = *imguiConfig["path_icons"].value<std::string>(),
+      .enabledIconPacks = IconPack::FontAwesome5Regular,
+      .defaultFontSize = 13.f});
 
   window->addKeyboardListener(events::KeyEventType::Pressed, [this](const events::KeyEvent &event) {
     if (event.key == 'H') {
@@ -625,7 +640,7 @@ void SVORenderer::recordCommands() {
                                   .frameBuffer = *vkSwapChain->getFrameBuffers()[vkSwapChain->getCurrentImageIndex()],
                                   .clearValues = {},
                                   .extent = vkSwapChain->getExtent()});
-  ui->imgui->addToCommandBuffer(graphRecording);
+  ui->imgui->addToCommandBuffer(*graphRecording.getCommandBuffer());
   graphRecording.endRenderPass();
 }
 void SVORenderer::createFences() {

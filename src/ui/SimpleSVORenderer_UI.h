@@ -12,6 +12,7 @@
 #include <pf_common/math/BoundingBox.h>
 #include <pf_common/parallel/ThreadPool.h>
 #include <pf_imgui/elements/Checkbox.h>
+#include <pf_imgui/ImGuiInterface.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/Combobox.h>
 #include <pf_imgui/elements/DragInput.h>
@@ -33,12 +34,15 @@
 #include <pf_imgui/elements/plots/types/Line.h>
 #include <pf_imgui/layouts/AbsoluteLayout.h>
 #include <pf_imgui/layouts/StretchLayout.h>
+#include <pf_imgui/backends/ImGuiGlfwVulkanInterface.h>
 #include <range/v3/view/cache1.hpp>
 #include <range/v3/view/join.hpp>
 #include <tuple>
-#include <ui/ImGuiGlfwVulkan.h>
 #include <utils/Camera.h>
 #include <voxel/GPUModelInfo.h>
+#include <pf_glfw_vulkan/vulkan/types/Image.h>
+#include <pf_glfw_vulkan/vulkan/types/ImageView.h>
+#include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
 
 namespace pf {
 
@@ -67,11 +71,11 @@ struct ModelFileInfo {
 
 class SimpleSVORenderer_UI {
  public:
-  explicit SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
+  explicit SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
                                 std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
                                 TextureData probesColorTextureData);
 
-  std::unique_ptr<ui::ig::ImGuiGlfwVulkan> imgui;
+  std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> imgui;
   std::shared_ptr<ui::Window> window;
 
   // clang-format off

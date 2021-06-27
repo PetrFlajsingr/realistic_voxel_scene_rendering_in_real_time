@@ -9,6 +9,7 @@
 #include <pf_imgui/elements/DockSpace.h>
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
+#include <pf_imgui/backends/impl/imgui_impl_vulkan.h>
 #include <string>
 #include <utility>
 
@@ -24,7 +25,7 @@ std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info) {
   return os;
 }
 
-SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkan> &&imguiInterface,
+SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
                                            std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
                                            TextureData iterTextureData, TextureData probesColorTextureData)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
