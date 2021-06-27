@@ -131,11 +131,11 @@ class SimpleSVORenderer_UI {
       ui::ig::Slider<float> &cameraMoveSpeedSlider;
       ui::ig::Slider<float> &cameraMouseSpeedSlider;
       ui::ig::Slider<int> &cameraFOVSlider;
-  ui::ig::Group &sceneGroup;
-    ui::ig::Text &sceneModelCountText;
-    ui::ig::Text &sceneVoxelCountText;
-    ui::ig::Text &sceneBVHNodeCountText;
-    ui::ig::Text &sceneBVHDepthText;
+    ui::ig::Group &sceneGroup;
+      ui::ig::Text &sceneModelCountText;
+      ui::ig::Text &sceneVoxelCountText;
+      ui::ig::Text &sceneBVHNodeCountText;
+      ui::ig::Text &sceneBVHDepthText;
   ui::ig::Window &debugImagesWindow;
     ui::ig::StretchLayout &imageStretchLayout;
       ui::ig::Image &iterationImage;

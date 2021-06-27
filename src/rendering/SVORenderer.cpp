@@ -83,6 +83,8 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
       config.get()["ui"].as_table()->contains("imgui") ? *config.get()["ui"]["imgui"].as_table() : toml::table{};
   auto imgui = std::make_unique<ui::ig::ImGuiGlfwVulkan>(vkLogicalDevice, vkRenderPass, vkSurface, vkSwapChain,
                                                          windowHandle, ImGuiConfigFlags{}, imguiConfig);
+
+
   window->addKeyboardListener(events::KeyEventType::Pressed, [this](const events::KeyEvent &event) {
     if (event.key == 'H') {
       switch (ui->imgui->getVisibility()) {

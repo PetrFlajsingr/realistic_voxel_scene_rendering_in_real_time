@@ -6,6 +6,7 @@
 #include <logging/loggers.h>
 #include <pf_imgui/elements/Bullet.h>
 #include <pf_imgui/elements/Slider2D.h>
+#include <pf_imgui/elements/DockSpace.h>
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 #include <string>
@@ -189,8 +190,6 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           Size{400, 400}))
 
 {
-  //resetFpsButton.setColor<style::ColorOf::Button>(ImVec4{1, 0, 0, 1});
-  //resetFpsButton.setColor<style::ColorOf::Text>(ImVec4{0, 0, 1, 1});
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);
   modelDetailLayout.setScrollable(true);
@@ -319,6 +318,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelList.setDragAllowed(true);
   activeModelList.setDropAllowed(true);
   modelListsLayout.setDrawBorder(true);
+
 }
 void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
