@@ -102,6 +102,7 @@ layout(binding = 0, std140) uniform Debug {
   PROBE_VISUAL_TYPE probeVisualType;
   uint probeToRender;
   int debugInt;
+  int fillHoles;
 }
 debug;
 
@@ -732,9 +733,23 @@ void test() {
     }
   }
 
-  /*if (hitProbeIndex == -1 && fillHoles) {
+  if ((hitProbeIndex == -1) && !isMiss && debug.fillHoles == 1) {
+    // No probe found a solution, so force some backup plan
+    vec3 ignore;
 
-  }*/
+    uint currentProxIdx = nearestProxVoxelIndex(worldSpaceRay.origin);
+    hitProbeIndex = getProxProbeIdx(currentProxIdx, 0);
+    if (hitProbeIndex == -1) { hitProbeIndex = nearestProbeIndex(worldSpaceRay.origin, ignore); }
+    hitCoord = octEncode(worldSpaceRay.direction) * 0.5 + 0.5;
+
+    float probeDistance =
+        depthFromProbe(floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, hitProbeIndex)).y));
+
+    if (probeDistance < 10000.0) {
+      vec3 hitLocation = probeLocation(hitProbeIndex) + worldSpaceRay.direction * probeDistance;
+      tMax = length(worldSpaceRay.origin - hitLocation);
+    }
+  }
 
   vec3 col = vec3(1, 0, 0);
   if (isMiss) { col = vec3(0, 1, 0); }

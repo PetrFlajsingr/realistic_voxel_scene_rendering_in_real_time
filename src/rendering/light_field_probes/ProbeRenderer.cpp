@@ -63,6 +63,7 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
   proxGridInfoMapping.set(glm::vec4{probeManager->getProximityGridStep(), 0}, 1);
 
   setProbeToRender(0);
+  setFillHoles(false);
 }
 
 void ProbeRenderer::createTextures() {
@@ -390,7 +391,7 @@ void ProbeRenderer::createRenderPipeline() {
   renderData.computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
 
   renderData.debugUniformBuffer =
-      vkLogicalDevice->createBuffer({.size = sizeof(std::uint32_t) + sizeof(std::uint32_t) + sizeof(int),
+      vkLogicalDevice->createBuffer({.size = sizeof(std::uint32_t) + sizeof(std::uint32_t) + sizeof(int) * 2,
                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
                                      .sharingMode = vk::SharingMode::eExclusive,
                                      .queueFamilyIndices = {}});
@@ -783,5 +784,8 @@ void ProbeRenderer::recordProximityCommands() {
   const auto proxGridSize = probeManager->getProximityGridSize();
   recording.dispatch(proxGridSize.x / 8, proxGridSize.y / 8, proxGridSize.z / 8);
   recording.end();
+}
+void ProbeRenderer::setFillHoles(bool fillHoles) {
+  renderData.debugUniformBuffer->mapping().set(fillHoles ? 1 : 0, 3);
 }
 }// namespace pf::lfp

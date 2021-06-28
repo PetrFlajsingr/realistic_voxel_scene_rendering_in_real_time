@@ -15,12 +15,12 @@
 #include <pf_common/files.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
 #include <pf_imgui/backends/ImGuiGlfwVulkanInterface.h>
+#include <pf_imgui/elements/DockSpace.h>
 #include <utils/FlameGraphSampler.h>
 #include <voxel/SVO_utils.h>
 #include <voxel/SceneFileManager.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 #include <voxel/TeardownMaps.h>
-#include <pf_imgui/elements/DockSpace.h>
 
 namespace pf {
 using namespace vulkan;
@@ -1108,6 +1108,8 @@ void SVORenderer::initUI() {
 
   ui->probesDebugIntSpinner.addValueListener([this](auto val) { probeRenderer->setShaderDebugInt(val); });
 
+  ui->fillProbeHolesButton.addValueListener([this](auto checked) { probeRenderer->setFillHoles(checked); });
+
   ui->imgui->setStateFromConfig();
 }
 std::vector<std::filesystem::path> SVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
@@ -1220,7 +1222,8 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   auto ostream = std::ofstream{dst, std::ios::binary};
   const auto materialsSize = toBytes<std::uint32_t>(svoCreate[0].materials.size() * sizeof(vox::MaterialProperties));
   ostream.write(reinterpret_cast<const char *>(materialsSize.data()), materialsSize.size());
-  ostream.write(reinterpret_cast<const char *>(svoCreate[0].materials.data()), svoCreate[0].materials.size() * sizeof(vox::MaterialProperties));
+  ostream.write(reinterpret_cast<const char *>(svoCreate[0].materials.data()),
+                svoCreate[0].materials.size() * sizeof(vox::MaterialProperties));
   ostream.write(reinterpret_cast<const char *>(&svoCreate[0].voxelCount), sizeof(uint32_t));
   ostream.write(reinterpret_cast<const char *>(&svoCreate[0].depth), sizeof(uint32_t));
   const auto aabbData = toBytes(svoCreate[0].AABB);
@@ -1228,7 +1231,6 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   const auto centerData = toBytes(svoCreate[0].center);
   ostream.write(reinterpret_cast<const char *>(centerData.data()), centerData.size());
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
-
 }
 void SVORenderer::createBuffers() {
   cameraUniformBuffer =

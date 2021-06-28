@@ -4,11 +4,11 @@
 
 #include "SimpleSVORenderer_UI.h"
 #include <logging/loggers.h>
+#include <pf_imgui/backends/impl/imgui_impl_vulkan.h>
 #include <pf_imgui/elements/Bullet.h>
 #include <pf_imgui/elements/Slider2D.h>
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
-#include <pf_imgui/backends/impl/imgui_impl_vulkan.h>
 #include <string>
 #include <utility>
 
@@ -171,10 +171,12 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
                                                                                0.01, 10, glm::vec3{1, 1, 1})),
       probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes debug")),
       renderProbesButton(probesDebugWindow.createChild<Button>("render_probes_button", "Render probes in next pass")),
-      selectedProbeSpinner(probesDebugWindow.createChild<SpinInput<int>>("selected_prob_spinner", "Selected probe",
-                                                                              0, 64, 0, 1, 10)),
-      probesDebugIntSpinner(probesDebugWindow.createChild<SpinInput<int>>("probes_debug_int_spinner", "Debug int",
-                                                                              0, std::numeric_limits<int>::max(), 0, 1, 10)),
+      fillProbeHolesButton(
+          probesDebugWindow.createChild<Checkbox>("fill_probe_holes_button", "Fill holes while rendering")),
+      selectedProbeSpinner(
+          probesDebugWindow.createChild<SpinInput<int>>("selected_prob_spinner", "Selected probe", 0, 64, 0, 1, 10)),
+      probesDebugIntSpinner(probesDebugWindow.createChild<SpinInput<int>>("probes_debug_int_spinner", "Debug int", 0,
+                                                                          std::numeric_limits<int>::max(), 0, 1, 10)),
       probesTabBar(probesDebugWindow.createChild<TabBar>("probe_debug_tabbar")),
       probesTexturesTab(probesTabBar.addTab("probes_debug_textures_tab", "Textures")),
       probeTextureCombobox(probesTexturesTab.createChild<Combobox<ProbeVisualisation>>(
@@ -319,7 +321,6 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   modelList.setDragAllowed(true);
   activeModelList.setDropAllowed(true);
   modelListsLayout.setDrawBorder(true);
-
 }
 void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);

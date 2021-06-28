@@ -56,6 +56,8 @@ class ProbeRenderer {
 
   void renderProbesInNextPass();
 
+  void setFillHoles(bool fillHoles);
+
  private:
   bool renderingProbesInNextPass = false;
   toml::table config;

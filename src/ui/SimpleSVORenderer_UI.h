@@ -179,6 +179,7 @@ class SimpleSVORenderer_UI {
       ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
   ui::ig::Window &probesDebugWindow;
     ui::ig::Button &renderProbesButton;
+    ui::ig::Checkbox &fillProbeHolesButton;
     ui::ig::SpinInput<int> &selectedProbeSpinner;
     ui::ig::SpinInput<int> &probesDebugIntSpinner;
     ui::ig::TabBar &probesTabBar;
