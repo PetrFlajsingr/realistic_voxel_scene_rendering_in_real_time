@@ -1,3 +1,6 @@
+/**
+ * Create depth texture from atlas created in probes_textures.comp at 1/16th resolution.
+ **/
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
@@ -13,14 +16,18 @@
 #define LOCAL_SIZE_Z 1
 #endif
 
-#define INF 1000000000
-
 layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y, local_size_z = LOCAL_SIZE_Z) in;
+
+/********************************************* CONSTANTS *******************************************/
+#define INF 1000000000
+const uint DEPTH_MASK = 0xFFFF;
+
+/********************************************* BINDINGS *******************************************/
 
 layout(binding = 0, rg32f) uniform image2DArray probeImages;
 layout(binding = 1, r32f) uniform image2DArray probeImagesSmall;
 
-const uint DEPTH_MASK = 0xFFFF;
+/********************************************* UTIL FUNCTIONS *******************************************/
 
 uint depthFromProbe(uint data) { return data & DEPTH_MASK; }
 
