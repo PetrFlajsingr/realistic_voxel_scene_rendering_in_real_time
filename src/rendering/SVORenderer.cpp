@@ -1218,6 +1218,9 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   logd("CONVERT", "Binary size for: {} is: {} bytes", src.string(), svoBinData.size());
 
   auto ostream = std::ofstream{dst, std::ios::binary};
+  const auto materialsSize = toBytes<std::uint32_t>(svoCreate[0].materials.size() * sizeof(vox::MaterialProperties));
+  ostream.write(reinterpret_cast<const char *>(materialsSize.data()), materialsSize.size());
+  ostream.write(reinterpret_cast<const char *>(svoCreate[0].materials.data()), svoCreate[0].materials.size() * sizeof(vox::MaterialProperties));
   ostream.write(reinterpret_cast<const char *>(&svoCreate[0].voxelCount), sizeof(uint32_t));
   ostream.write(reinterpret_cast<const char *>(&svoCreate[0].depth), sizeof(uint32_t));
   const auto aabbData = toBytes(svoCreate[0].AABB);
@@ -1225,6 +1228,7 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   const auto centerData = toBytes(svoCreate[0].center);
   ostream.write(reinterpret_cast<const char *>(centerData.data()), centerData.size());
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
+
 }
 void SVORenderer::createBuffers() {
   cameraUniformBuffer =

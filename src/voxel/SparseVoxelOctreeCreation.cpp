@@ -145,11 +145,22 @@ std::vector<SparseVoxelOctreeCreateInfo> loadVoxFileAsSVO(std::ifstream &&istrea
 }
 
 std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istream) {
-  assert(false && "change and test this thing");
+
   auto data = std::vector<char>((std::istreambuf_iterator<char>(istream)), std::istreambuf_iterator<char>());
   auto dataView = std::span{reinterpret_cast<const std::byte *>(data.data()), data.size()};
   std::size_t offset = 0;
-  const auto svoVoxelCount = fromBytes<uint32_t>(dataView.first(sizeof(uint32_t)));
+  const auto materialDataCount = fromBytes<uint32_t>(dataView.first(sizeof(uint32_t)));
+  const auto materialItemCount = materialDataCount / sizeof(MaterialProperties);
+  offset += sizeof(std::uint32_t);
+
+  auto materials = std::vector<MaterialProperties>(materialItemCount);
+  const auto matSrcSpan = std::span{reinterpret_cast<const MaterialProperties *>(dataView.subspan(offset).data()), materialItemCount};
+  std::ranges::copy(
+      matSrcSpan,
+      materials.begin());
+  offset += materialDataCount;
+
+  const auto svoVoxelCount = fromBytes<uint32_t>(dataView.subspan(offset, sizeof(uint32_t)));
   offset += sizeof(uint32_t);
   const auto svoDepth = fromBytes<uint32_t>(dataView.subspan(offset, sizeof(uint32_t)));
   offset += sizeof(uint32_t);
@@ -158,7 +169,7 @@ std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istr
   const auto center = fromBytes<glm::vec3>(dataView.subspan(offset, sizeof(glm::vec3)));
   offset += sizeof(glm::vec3);
   const auto svo = SparseVoxelOctree::Deserialize(dataView.subspan(offset, dataView.size() - offset));
-  return {SparseVoxelOctreeCreateInfo{svoDepth, svoVoxelCount, svoVoxelCount, aabb, std::move(svo), center, {/* MATERIALS TODO */}}};
+  return {SparseVoxelOctreeCreateInfo{svoDepth, svoVoxelCount, svoVoxelCount, aabb, std::move(svo), center, materials}};
 }
 
 math::BoundingBox<3> findSceneBB(const RawVoxelScene &scene) {

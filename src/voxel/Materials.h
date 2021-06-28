@@ -34,6 +34,7 @@ namespace pf::vox {
 enum class MatType : std::uint32_t { Diffuse = 0, Metal = 1, Glass = 2, Emit = 3, Blend = 4, Media = 5, Cloud = 6 };
 
 struct MaterialProperties {
+  MaterialProperties() = default;
   explicit MaterialProperties(const ogt_vox_matl &source, glm::vec4 col);
   MatType type;
   float metalness;
