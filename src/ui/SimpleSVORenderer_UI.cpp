@@ -6,7 +6,6 @@
 #include <logging/loggers.h>
 #include <pf_imgui/elements/Bullet.h>
 #include <pf_imgui/elements/Slider2D.h>
-#include <pf_imgui/elements/DockSpace.h>
 #include <pf_imgui/interface/decorators/WidthDecorator.h>
 #include <pf_imgui/styles/dark.h>
 #include <pf_imgui/backends/impl/imgui_impl_vulkan.h>

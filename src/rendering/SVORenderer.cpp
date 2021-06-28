@@ -20,6 +20,7 @@
 #include <voxel/SceneFileManager.h>
 #include <voxel/SparseVoxelOctreeCreation.h>
 #include <voxel/TeardownMaps.h>
+#include <pf_imgui/elements/DockSpace.h>
 
 namespace pf {
 using namespace vulkan;
