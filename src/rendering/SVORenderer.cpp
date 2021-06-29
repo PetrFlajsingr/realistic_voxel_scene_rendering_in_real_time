@@ -149,7 +149,7 @@ void SVORenderer::buildVulkanObjects() {
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
       materialBuffer,
-      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{128, 128, 128},
+      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{32, 32, 32},
                                           vkLogicalDevice));
 
   createSwapchain();

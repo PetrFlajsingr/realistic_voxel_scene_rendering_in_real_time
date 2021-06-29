@@ -63,7 +63,7 @@ const uint NORMALS_SHIFT = 16;
 const uint NORMAL1_SHIFT = 0;
 const uint NORMAL2_SHIFT = 8;
 
-#define TMP_FAR 10.0
+#define TMP_FAR 100.0
 
 /********************************************* ENUMS *******************************************/
 
@@ -227,6 +227,12 @@ vec3 octDecode(vec2 o) {
   if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
   return normalize(v);
 }
+
+#define LOG_DEPTH_C 1
+
+float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
+
+float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 
 /********************************************* STACK *******************************************/
 #define SVO_STACK_SIZE 23
@@ -715,11 +721,12 @@ void main() {
   const int encodedBitNormal2 = int(encodedNormal.y * NORMAL_ELEMENT_MAX);
   const int encodedBitNormal = (encodedBitNormal1 << NORMAL1_SHIFT) | (encodedBitNormal2 << NORMAL2_SHIFT);
 
-  const float depthAndNormalBytes = intBitsToFloat(int(depth * DEPTH_MAX) | (encodedBitNormal << NORMALS_SHIFT));
+  const float depthAndNormalBytes = uintBitsToFloat(uint(depth * DEPTH_MAX) | (encodedBitNormal << NORMALS_SHIFT));
 
   const vec2 probeData = vec2(colorBytes, depthAndNormalBytes);
 
   imageStore(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeId), vec4(probeData, 0, 0));
+
 
   //--------------
 }

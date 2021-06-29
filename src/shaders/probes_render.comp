@@ -66,7 +66,7 @@ const uint NORMALS_SHIFT = 16;
 const uint NORMAL1_SHIFT = 0;
 const uint NORMAL2_SHIFT = 8;
 
-#define TMP_FAR 10.0
+#define TMP_FAR 100.0
 /********************************************* STRUCTS *******************************************/
 //  zyx bit pattern indicating which probe we're currently using within the cell on [0, 7]
 #define INDEX_IN_PROBE_CUBE int
@@ -191,6 +191,11 @@ void sort(inout vec3 v) {
   minSwap(v[0], v[1]);
 }
 
+#define LOG_DEPTH_C 1
+float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
+
+float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
+
 /********************************************* PROBE  FUNCTIONS *******************************************/
 /** 
  \param probeCoords Integer (stored in float) coordinates of the probe on the probe grid 
@@ -235,7 +240,7 @@ INDEX_IN_PROBE_CUBE nearestProbeIndices(vec3 X) {
   vec3 floatProbeCoords = (X - grid.gridPos.xyz) / grid.gridStep;
   vec3 baseProbeCoords = clamp(floor(floatProbeCoords), vec3(0, 0, 0), maxProbeCoords);
 
-  float minDist = 10.0f;
+  float minDist = TMP_FAR;
   int nearestIndex = -1;
 
   for (int i = 0; i < 8; ++i) {
@@ -294,12 +299,41 @@ uint gridCoordToProxGridIndex(ivec3 voxelCoord) {
               + voxelCoord.z * proxGridInfo.gridSize.x * proxGridInfo.gridSize.y);
 }
 
-ivec3 nearestVoxelGridCoord(vec3 X) {
-  return clamp(ivec3((X - grid.gridPos.xyz) / proxGridInfo.gridStep.xyz), ivec3(0, 0, 0),
+vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
+  vec3 tMin = (boxMin - rayOrigin) / rayDir;
+  vec3 tMax = (boxMax - rayOrigin) / rayDir;
+  vec3 t1 = min(tMin, tMax);
+  vec3 t2 = max(tMin, tMax);
+  float tNear = max(max(t1.x, t1.y), t1.z);
+  float tFar = min(min(t2.x, t2.y), t2.z);
+  return vec2(tNear, tFar);
+}
+
+bool isInAABB(vec3 pos, vec3 boxMin, vec3 boxMax) {
+  return boxMin.x <= pos.x && boxMin.y <= pos.y && boxMin.z <= pos.z && pos.x <= boxMax.x && pos.y <= boxMax.y
+      && pos.z <= boxMax.z;
+}
+
+ivec3 nearestVoxelGridCoord(vec3 pos) {
+  return clamp(ivec3((pos - grid.gridPos.xyz) / proxGridInfo.gridStep.xyz), ivec3(0, 0, 0),
                ivec3(proxGridInfo.gridSize.xyz) - ivec3(1, 1, 1));
 }
 
+ivec3 nearestVoxelGridCoordFirst(Ray ray) {
+  const vec3 gridStart = grid.gridPos.xyz;
+  const vec3 gridEnd = grid.gridPos.xyz + grid.gridSize.xyz * grid.gridStep;
+  if (!isInAABB(ray.origin, gridStart, gridEnd)) {
+    vec2 voxFieldIntersection = intersectAABB(ray.origin, ray.direction, gridStart, gridEnd);
+    if (voxFieldIntersection.x <= voxFieldIntersection.y) {
+      return nearestVoxelGridCoord(ray.origin + voxFieldIntersection.x * ray.direction);
+    }
+  }
+
+  return nearestVoxelGridCoord(ray.origin);
+}
+
 uint nearestProxVoxelIndex(vec3 pos) { return gridCoordToProxGridIndex(nearestVoxelGridCoord(pos)); }
+uint nearestProxVoxelIndexFirst(Ray ray) { return gridCoordToProxGridIndex(nearestVoxelGridCoordFirst(ray)); }
 
 int getProxProbeIdx(uint proxIdx, uint idx) {
   uint val = (proxGrid.data[proxIdx * 2 + idx / 2] >> (16 * (idx % 2)) & PROX_MASK);
@@ -397,7 +431,7 @@ TRACE_RESULT traceSegmentHighRes(in Ray probeSpaceRay, in vec2 startTexCoord, in
   for (float d = 0.0f; d <= texCoordDistance; d += texCoordStep) {
     vec2 texCoord = (texCoordDirection * min(d + texCoordStep * 0.5, texCoordDistance)) + startTexCoord;
 
-    int savedDepthAndNormalBytes = floatBitsToInt(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
+    uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
     float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
 
     float probeNormalEncoded1 =
@@ -606,6 +640,7 @@ TRACE_RESULT traceRaySegment(Ray probeSpaceRay, float t0, float t1, PROBE_INDEX 
         texCoord = endTexCoord + texCoordRayDirection * INV_TEX_SIZE.x * 0.1;
       }
     }
+    // }
   }
   return TRACE_RESULT_MISS;
 }
@@ -652,14 +687,14 @@ void test() {
 
   vec3 probeCoords;
   float tMin = 0;
-  float tMax = 10;
+  float tMax = TMP_FAR;
   vec2 hitCoord;
   bool isUnknown = false;
   PROBE_INDEX hitProbeIndex = -1;
   bool isMiss = false;
 
   if (debug.debugInt == 0) {
-    uint currentProxIdx = nearestProxVoxelIndex(worldSpaceRay.origin);
+    uint currentProxIdx = nearestProxVoxelIndexFirst(worldSpaceRay);
 
     PROBE_INDEX baseProbeIndex = 0;
     PROBE_INDEX probeFromProx = getProxProbeIdx(currentProxIdx, 0);

@@ -32,7 +32,7 @@ const vec2 INV_TEX_SIZE_SMALL = vec2(1.0) / TEX_SIZE_SMALL;
 
 const uint DEPTH_MASK = 0xFFFF;
 const uint DEPTH_MAX = 65535;
-#define TMP_FAR 10.0
+#define TMP_FAR 100.0
 
 /********************************************* STRUCTS *******************************************/
 struct Box {
@@ -95,6 +95,10 @@ bool isIn(uint value, uint values[4]) {
   return false;
 }
 
+#define LOG_DEPTH_C 1
+float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
+
+float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 /********************************************* PROBE FUNCTIONS *******************************************/
 uvec3 probeIndexToGridCoord(uint index) {
   uvec3 iPos;
