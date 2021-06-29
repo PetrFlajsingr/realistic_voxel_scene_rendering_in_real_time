@@ -292,7 +292,7 @@ void ProbeRenderer::recordProbeGenCommands() {
   recording.getCommandBuffer()->bindDescriptorSets(
       vk::PipelineBindPoint::eCompute, probeGenData.vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
   recording.dispatch(probeManager->TEXTURE_SIZE.x / 8, probeManager->TEXTURE_SIZE.y / 8,
-                     probeManager->getTotalProbeCount());// FIXME: dynamic group size
+                     probeManager->getTotalProbeCount());
   recording.end();
 }
 const std::shared_ptr<vulkan::Semaphore> &ProbeRenderer::renderProbeTextures() {
@@ -642,7 +642,7 @@ void ProbeRenderer::recordSmallProbeGenCommands() {
   recording.getCommandBuffer()->bindDescriptorSets(
       vk::PipelineBindPoint::eCompute, smallProbeGenData.vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
   recording.dispatch(probeManager->TEXTURE_SIZE_SMALL.x / 8, probeManager->TEXTURE_SIZE_SMALL.y / 8,
-                     probeManager->getTotalProbeCount());// FIXME: dynamic group size
+                     probeManager->getTotalProbeCount());
   recording.end();
 }
 void ProbeRenderer::createProximityDescriptorPool() {

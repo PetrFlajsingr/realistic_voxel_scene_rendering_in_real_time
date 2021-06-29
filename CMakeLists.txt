@@ -166,14 +166,14 @@ if (ENABLE_STACKTRACE)
     CPMAddPackage(
             NAME pf_imgui
             GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
-            GIT_TAG v0.6.0
+            GIT_TAG master
             OPTIONS "ENABLE_STACKTRACE ON"
     )
 else ()
     CPMAddPackage(
             NAME pf_imgui
             GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
-            GIT_TAG v0.6.0
+            GIT_TAG master
     )
 endif ()
 

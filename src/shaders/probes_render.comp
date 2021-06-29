@@ -691,7 +691,7 @@ void test() {
   float tMin = 0;
   float tMax = TMP_FAR;
   vec2 hitCoord;
-  bool isUnknown = false;
+  bool isUnknown = true;
   PROBE_INDEX hitProbeIndex = -1;
   bool isMiss = false;
 
@@ -720,8 +720,11 @@ void test() {
       }
       const vec3 tmpOrigin = worldSpaceRay.origin + worldSpaceRay.direction * tMin;
 
-      const uint currentlyNearestProxIdx =
-          nearestProxVoxelIndex(tmpOrigin);// decide based on distance to the center of the voxel?
+      const uint currentlyNearestProxIdx = nearestProxVoxelIndex(tmpOrigin);
+
+      //worldSpaceRay.origin += worldSpaceRay.direction * tMin;
+      //tMin = 0;
+      //const uint currentlyNearestProxIdx = nearestProxVoxelIndex(worldSpaceRay.origin);
       if (currentlyNearestProxIdx == currentProxIdx) {
         if (++cubeCnt == 8) {
           if (++proxCnt < 4) {
@@ -788,7 +791,7 @@ void test() {
     }
   }
 
-  vec3 col = vec3(1, 0, 0);
+  vec3 col;// = vec3(1, 0, 0);
   if (isMiss) { col = vec3(0, 1, 0); }
   if (hitProbeIndex != -1) {
     uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, hitProbeIndex)).x);

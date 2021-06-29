@@ -192,6 +192,13 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
           Size{400, 400}))
 
 {
+  renderSettingsWindow.setIsDockable(true);
+  debugWindow.setIsDockable(true);
+  infoWindow.setIsDockable(true);
+  debugImagesWindow.setIsDockable(true);
+  shaderControlsWindow.setIsDockable(true);
+  modelsWindow.setIsDockable(true);
+  probesDebugWindow.setIsDockable(true);
 
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);

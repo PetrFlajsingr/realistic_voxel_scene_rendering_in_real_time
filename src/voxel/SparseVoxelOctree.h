@@ -108,7 +108,6 @@ struct Attachments {
   std::vector<MaterialIndexAttachment> attachments;
 };
 
-// TODO
 struct InfoSection {
   Attachments attachments;
 };

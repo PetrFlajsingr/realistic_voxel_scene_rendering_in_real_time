@@ -44,8 +44,6 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  */
 
 // TODO: teardown map file loading
-// TODO: conversion app for binary svos
-// TODO: read raw svos from disk
 SVORenderer::SVORenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}, {0, 0, -1}, {0, -1, 0}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
@@ -95,7 +93,7 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
       .swapchainImageCount = static_cast<std::uint32_t>(vkSwapChain->getImageViews().size()),
       .handle = windowHandle,
       .flags = {},
-      .enableMultiViewport = false,
+      .enableMultiViewport = true,
       .config = imguiConfig,
       .pathToIconFolder = *imguiConfig["path_icons"].value<std::string>(),
       .enabledIconPacks = IconPack::FontAwesome5Regular,
@@ -149,7 +147,7 @@ void SVORenderer::buildVulkanObjects() {
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
       materialBuffer,
-      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{32, 32, 32},
+      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{64, 64, 64},
                                           vkLogicalDevice));
 
   createSwapchain();

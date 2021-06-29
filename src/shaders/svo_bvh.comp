@@ -779,6 +779,7 @@ void main() {
   }
 
   bool hitProbe = false;
+  bool isSelectedProbe = false;
   if (debug.visualizeProbes == 1) {
     int probeCount = int(lfp.probes[0].w);
     ray.direction = normalize(ray.direction);
@@ -789,6 +790,7 @@ void main() {
       const float sphereIntersection = SphereIntersection(ray, sphere);
       if (sphereIntersection > 0 && traceResult.distanceInWorldSpace > sphereIntersection) {
         hitProbe = true;
+        isSelectedProbe = i == debug.selectedProbeIdx;
         break;
       }
     }
@@ -823,7 +825,7 @@ void main() {
     }
   }
 
-  if (hitProbe && debug.viewType == VIEW_TYPE_COLOR) { finalColor = vec3(0, 1, 0); }
+  if (hitProbe && debug.viewType == VIEW_TYPE_COLOR) { finalColor = isSelectedProbe ? vec3(1, 0, 0) : vec3(0, 1, 0); }
   if (debug.visualizeBVH == 1 && traceResult.isOnlyAABB && traceResult.aabbHit && debug.viewType == VIEW_TYPE_COLOR) {
     finalColor = lut[traceResult.objectId % 8];
   }

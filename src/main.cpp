@@ -69,10 +69,6 @@ int main(int argc, char *argv[]) {
     auto app = Application<ui::GlfwWindow, SVORenderer>(
         SVORenderer(*config.as_table()),
         ApplicationSettings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
-    //auto app = Application<ui::GlfwWindow, TriangleRenderer>(
-    //    TriangleRenderer(*config.as_table()),
-    //    application_settings{.debug = argumentParser.get<bool>("-d"),
-    //                         .window_settings = windowSettings});
     app.run();
   }
 
