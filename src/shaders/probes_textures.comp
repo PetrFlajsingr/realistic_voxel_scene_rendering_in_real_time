@@ -229,9 +229,7 @@ vec3 octDecode(vec2 o) {
 }
 
 #define LOG_DEPTH_C 1
-
 float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
-
 float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 
 /********************************************* STACK *******************************************/
@@ -711,7 +709,8 @@ void main() {
     color = vec3(material.red, material.green, material.blue);
   }
   const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);
-  const float depth = traceResult.hit ? (traceResult.distanceInWorldSpace / TMP_FAR) : TMP_FAR;
+  //const float depth = traceResult.hit ? (traceResult.distanceInWorldSpace / TMP_FAR) : TMP_FAR;
+  const float depth = computeLogDepth(traceResult.hit ? traceResult.distanceInWorldSpace : TMP_FAR);
 
   const float colorBytes =
       uintBitsToFloat(uint(color.r * R_MAX) | (uint(color.g * G_MAX) << G_SHIFT) | (uint(color.b * B_MAX) << B_SHIFT));
@@ -726,7 +725,6 @@ void main() {
   const vec2 probeData = vec2(colorBytes, depthAndNormalBytes);
 
   imageStore(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeId), vec4(probeData, 0, 0));
-
 
   //--------------
 }

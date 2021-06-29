@@ -190,10 +190,8 @@ void sort(inout vec3 v) {
   minSwap(v[1], v[2]);
   minSwap(v[0], v[1]);
 }
-
 #define LOG_DEPTH_C 1
 float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
-
 float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 
 /********************************************* PROBE  FUNCTIONS *******************************************/
@@ -352,7 +350,11 @@ vec3 decodeNormal(vec2 f) {
   return normalize(n);
 }
 
-float depthFromProbe(uint data) { return (float(data & DEPTH_MASK) / DEPTH_MAX) * TMP_FAR; }
+//float depthFromProbe(uint data) { return (float(data & DEPTH_MASK) / DEPTH_MAX) * TMP_FAR; }
+//float depthFromSmallProbe(uint data) { return float(data) / DEPTH_MAX * TMP_FAR; }
+
+float depthFromProbe(uint data) { return linearizeLogDepth(float(data & DEPTH_MASK) / DEPTH_MAX); }
+float depthFromSmallProbe(uint data) { return linearizeLogDepth(float(data) / DEPTH_MAX); }
 
 vec3 normalFromProbe(uint data) {
   const float probeNormalEncoded1 =
@@ -554,7 +556,7 @@ bool traceSegmentLowRes(in Ray probeSpaceRay, in PROBE_INDEX probeIndex, inout v
     vec2 hitPixel = permute ? P.yx : P;
 
     float sceneRadialDistMin =
-        float(floatBitsToUint(imageLoad(probeImagesSmall, ivec3(hitPixel, probeIndex)).x)) / DEPTH_MAX * TMP_FAR;
+        depthFromSmallProbe(floatBitsToUint(imageLoad(probeImagesSmall, ivec3(hitPixel, probeIndex)).x));
 
     // Distance along each axis to the edge of the low-res texel
     vec2 intersectionPixelDistance = (sign(delta) * 0.5 + 0.5) - sign(delta) * fract(P);

@@ -97,8 +97,8 @@ bool isIn(uint value, uint values[4]) {
 
 #define LOG_DEPTH_C 1
 float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
-
 float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
+
 /********************************************* PROBE FUNCTIONS *******************************************/
 uvec3 probeIndexToGridCoord(uint index) {
   uvec3 iPos;
@@ -128,7 +128,8 @@ uint probeIndexToCubeIndex(uint index) {
 
 /********************************************* PROBE ATLAS FUNCTIONS *******************************************/
 
-float depthFromProbe(uint data) { return (float(data & DEPTH_MASK) / DEPTH_MAX) * TMP_FAR; }
+//float depthFromProbe(uint data) { return (float(data & DEPTH_MASK) / DEPTH_MAX) * TMP_FAR; }
+float depthFromProbe(uint data) { return linearizeLogDepth(float(data & DEPTH_MASK) / DEPTH_MAX); }
 
 /********************************************* VOXEL FIELD FUNCTIONS *******************************************/
 int bestMatchProbeForVertex(vec3 vertex, uint savedIndices[4]) {
