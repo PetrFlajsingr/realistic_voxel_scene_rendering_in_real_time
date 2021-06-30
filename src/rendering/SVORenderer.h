@@ -9,7 +9,6 @@
 #include "enums.h"
 #include "light_field_probes/ProbeRenderer.h"
 #include "logging/loggers.h"
-//#include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
 #include <RunInfo.h>
 #include <chaiscript/chaiscript.hpp>
@@ -23,7 +22,7 @@
 #include <range/v3/view/map.hpp>
 #include <thread>
 #include <toml++/toml.h>
-#include <ui/SimpleSVORenderer_UI.h>
+#include <ui/SVOUI.h>
 #include <utility>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
@@ -214,7 +213,7 @@ class SVORenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Fence> vkComputeFence;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
 
-  std::unique_ptr<SimpleSVORenderer_UI> ui;
+  std::unique_ptr<SVOUI> ui;
 
   FPSCounter fpsCounter;
 

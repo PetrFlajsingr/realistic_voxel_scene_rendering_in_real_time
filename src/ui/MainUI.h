@@ -2,8 +2,8 @@
 // Created by petr on 5/21/21.
 //
 
-#ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
-#define REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
+#ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_MAINUI_H
+#define REALISTIC_VOXEL_RENDERING_SRC_UI_MAINUI_H
 
 #include "enums.h"
 #include <glm/glm.hpp>
@@ -43,37 +43,16 @@
 #include <pf_glfw_vulkan/vulkan/types/Image.h>
 #include <pf_glfw_vulkan/vulkan/types/ImageView.h>
 #include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
+#include "UIData.h"
 
 namespace pf {
 
 //template class ui::ig::ComboBox<ProbeVisualisation>;
 
-// TODO: terminal interface in pf_imgui
-
-struct TextureData {
-  vulkan::Image &vkImage;
-  vulkan::ImageView &vkImageView;
-  vulkan::TextureSampler &vkImageSampler;
-};
-
-struct ModelFileInfo {
-  // TODO: group id and group controls
-  ModelFileInfo() = default;
-  ModelFileInfo(std::filesystem::path path);
-  static inline auto IdGenerator = iota<std::size_t>();
-  std::experimental::observer_ptr<vox::GPUModelInfo> modelData = nullptr;
-  std::size_t id = getNext(IdGenerator);
-  std::filesystem::path path{};
-  bool operator==(const ModelFileInfo &rhs) const;
-  bool operator!=(const ModelFileInfo &rhs) const;
-  friend std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info);
-};
-
-class SimpleSVORenderer_UI {
+class MainUI {
  public:
-  explicit SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
-                                std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
-                                TextureData probesColorTextureData);
+  explicit MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
+                                std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData gbufferTexture);
 
   std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> imgui;
   std::shared_ptr<ui::Window> window;
@@ -90,8 +69,6 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuCheckboxItem &infoMenuItem;
       ui::ig::MenuCheckboxItem &renderSettingsMenuItem;
       ui::ig::MenuCheckboxItem &debugMenuItem;
-      ui::ig::MenuCheckboxItem &debugImagesMenuItem;
-      ui::ig::MenuCheckboxItem &shaderControlsMenuItem;
       ui::ig::MenuCheckboxItem &modelsMenuItem;
       ui::ig::MenuSeparatorItem &separatorMenu1;
       ui::ig::MenuButtonItem &hideAllMenuItem;
@@ -100,11 +77,9 @@ class SimpleSVORenderer_UI {
       ui::ig::MenuButtonItem &svoConverterMenuItem;
       ui::ig::MenuButtonItem &teardownMapMenuItem;
   ui::ig::Window &renderSettingsWindow;
-    ui::ig::Combobox<ViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;
     ui::ig::BoxLayout &lightingLayout;
       ui::ig::Slider3D<float> &lightPosSlider;
-      ui::ig::Checkbox &shadowsCheckbox;
       ui::ig::Text &phongParamText;
       ui::ig::BoxLayout &phongParamLayout;
         ui::ig::ColorEdit<glm::vec3> &ambientColPicker;
@@ -140,16 +115,6 @@ class SimpleSVORenderer_UI {
       ui::ig::Text &sceneVoxelCountText;
       ui::ig::Text &sceneBVHNodeCountText;
       ui::ig::Text &sceneBVHDepthText;
-  ui::ig::Window &debugImagesWindow;
-    ui::ig::StretchLayout &imageStretchLayout;
-      ui::ig::Image &iterationImage;
-  ui::ig::Window &shaderControlsWindow;
-    ui::ig::Checkbox &debugPrintEnableCheckbox;
-    ui::ig::Checkbox &bvhVisualizeCheckbox;
-    ui::ig::Checkbox &visualizeProbesCheckbox;
-    ui::ig::SpinInput<int> &shaderDebugValueInput;
-    ui::ig::DragInput<float> &shaderDebugFloatValueSlider;
-    ui::ig::DragInput<float> &shaderDebugIterDivideDrag;
   ui::ig::Window &modelsWindow;
     ui::ig::Text &modelLoadingSettingsTitle;
     ui::ig::BoxLayout &modelLoadingSettings;
@@ -177,16 +142,10 @@ class SimpleSVORenderer_UI {
       ui::ig::DragInput<glm::vec3> &modelDetailTranslateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailRotateDrag;
       ui::ig::DragInput<glm::vec3> &modelDetailScaleDrag;
-  ui::ig::Window &probesDebugWindow;
-    ui::ig::Button &renderProbesButton;
-    ui::ig::Checkbox &fillProbeHolesButton;
-    ui::ig::SpinInput<int> &selectedProbeSpinner;
-    ui::ig::SpinInput<int> &probesDebugIntSpinner;
-    ui::ig::TabBar &probesTabBar;
-      ui::ig::Tab &probesTexturesTab;
-        ui::ig::Combobox<ProbeVisualisation> &probeTextureCombobox;
-        ui::ig::StretchLayout &probeTextureLayout;
-          ui::ig::Image &probesColorImage;
+  ui::ig::Window &gbufferWindow;
+    ui::ig::Combobox<GBufferViewType> &gViewTypeCombobox;
+    ui::ig::StretchLayout &gbufferImageLayout;
+      ui::ig::Image &gbufferImage;
 
   // clang-format on
 
@@ -263,4 +222,4 @@ class SimpleSVORenderer_UI {
 };
 
 }// namespace pf
-#endif//REALISTIC_VOXEL_RENDERING_SRC_UI_SIMPLESVORENDERER_UI_H
+#endif//REALISTIC_VOXEL_RENDERING_SRC_UI_MAINUI_H

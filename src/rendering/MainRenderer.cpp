@@ -2,7 +2,7 @@
 // Created by petr on 1/5/21.
 //
 
-#include "SVORenderer.h"
+#include "MainRenderer.h"
 #include "light_field_probes/GridProbeGenerator.h"
 #include "logging/loggers.h"
 #include <experimental/array>
@@ -44,13 +44,13 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  */
 
 // TODO: teardown map file loading
-SVORenderer::SVORenderer(toml::table &tomlConfig)
+MainRenderer::MainRenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}, {0, 0, -1}, {0, -1, 0}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
                                config.get()["rendering"]["compute"]["local_size_y"].value_or<std::size_t>(8)};
 }
 
-SVORenderer::~SVORenderer() {
+MainRenderer::~MainRenderer() {
   if (vkLogicalDevice == nullptr) { return; }
   stop();
   window->setExceptionHandler([](auto) { return false; });
@@ -60,7 +60,7 @@ SVORenderer::~SVORenderer() {
   ui->imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
 }
-void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
+void MainRenderer::init(const std::shared_ptr<ui::Window> &win) {
   window = win;
   closeWindow = [this] { window->close(); };
   camera.setSwapLeftRight(false);
@@ -120,29 +120,21 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
   window->setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
   camera.registerControls(*window);
 
-  ui = std::make_unique<SVOUI>(
-      std::move(imgui), window, camera, TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler},
-      TextureData{*probeRenderer->getProbesDebugImage(), *probeRenderer->getProbesDebugImageView(),
-                  *probeRenderer->getProbesDebugSampler()});
+  ui = std::make_unique<MainUI>(std::move(imgui), window, camera,
+                                TextureData{*gbufferRenderer->getDebugImage(), *gbufferRenderer->getDebugImageView(),
+                                            *gbufferRenderer->getDebugImageSampler()});
 
   modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, materialMemoryPool, 5);
-
-  auto probeMapping = probePosBuffer->mapping();
-  const auto totalProbeCount = probeRenderer->probeManager->getTotalProbeCount();
-  auto probePositions = probeRenderer->probeManager->getProbePositions();
-  for (const auto &[idx, position] : probePositions | ranges::views::enumerate) {
-    probeMapping.set(glm::vec4{position, totalProbeCount}, idx);
-  }
 
   initUI();
   window->setMainLoopCallback([&] { render(); });
 }
 
-std::unordered_set<std::string> SVORenderer::getValidationLayers() {
+std::unordered_set<std::string> MainRenderer::getValidationLayers() {
   return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
 }
 
-void SVORenderer::buildVulkanObjects() {
+void MainRenderer::buildVulkanObjects() {
   createBuffers();
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
@@ -152,12 +144,19 @@ void SVORenderer::buildVulkanObjects() {
 
   createSwapchain();
   createTextures();
-  createDescriptorPool();
-  createPipeline();
 
   createCommands();
   createFences();
   createSemaphores();
+
+  gbufferRenderer = std::make_unique<GBufferRenderer>(
+      *config.get()["resources"]["path_shaders"].value<std::string>(),
+      vk::Extent2D{static_cast<uint32_t>(window->getResolution().width),
+                   static_cast<uint32_t>(window->getResolution().height)},
+      vkLogicalDevice, vkCommandPool, svoBuffer, modelInfoBuffer, bvhBuffer, lightUniformBuffer, cameraUniformBuffer,
+      materialBuffer, vkSwapChain->getFormat());
+  createDescriptorPools();
+  createPipeline();
 
   // clang-format off
   vkRenderPass = vulkan::RenderPassBuilder(vkLogicalDevice)
@@ -186,7 +185,7 @@ void SVORenderer::buildVulkanObjects() {
   // clang-format on
 }
 
-void SVORenderer::createInstance() {
+void MainRenderer::createInstance() {
   using namespace vulkan;
   using namespace vulkan::literals;
   const auto windowExtensions = window->requiredVulkanExtensions();
@@ -204,9 +203,9 @@ void SVORenderer::createInstance() {
                      }});
 }
 
-void SVORenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
+void MainRenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
 
-void SVORenderer::render() {
+void MainRenderer::render() {
   auto sampler = FlameGraphSampler{};
   auto mainSample = sampler.blockSampler("render loop");
 
@@ -244,14 +243,19 @@ void SVORenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   auto probeSample = mainSample.blockSampler("probes");
-  auto probeSemaphore = probeRenderer->render();
+  //auto probeSemaphore = probeRenderer->render();
   probeSample.end();
+
+  auto gbufferSample = mainSample.blockSampler("gbuffer create");
+  auto gbufferSemaphore = gbufferRenderer->render();
+  gbufferSample.end();
 
   auto computeSample = mainSample.blockSampler("compute");
   vkCommandBuffers[commandBufferIndex]->submit(
-      {.waitSemaphores = {semaphore, *probeSemaphore},
+      {.waitSemaphores = {semaphore, *gbufferSemaphore /*, *probeSemaphore*/},
        .signalSemaphores = {*computeSemaphore},
-       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eComputeShader},
+       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                 vk::PipelineStageFlagBits::eComputeShader /*, vk::PipelineStageFlagBits::eComputeShader*/},
        .fence = fence,
        .wait = true});
 
@@ -274,7 +278,7 @@ void SVORenderer::render() {
   ui->flameGraph.setSamples(sampler.getSamples());
 }
 
-void SVORenderer::createDevices() {
+void MainRenderer::createDevices() {
   vkDevice = vkInstance->selectDevice(DefaultDeviceSuitabilityScorer(
       {}, {}, [](const vk::PhysicalDeviceFeatures &, const vk::PhysicalDeviceProperties &deviceProperties) {
         return deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu ? 1000 : 0;
@@ -291,7 +295,7 @@ void SVORenderer::createDevices() {
                                      .surface = *vkSurface});
 }
 
-void SVORenderer::createSwapchain() {
+void MainRenderer::createSwapchain() {
   using namespace ranges;
   auto queuesView = vkLogicalDevice->getQueueIndices() | views::values;
   auto sharingQueues = std::unordered_set(queuesView.begin(), queuesView.end());
@@ -313,7 +317,7 @@ void SVORenderer::createSwapchain() {
        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
 }
 
-void SVORenderer::createTextures() {
+void MainRenderer::createTextures() {
   vkRenderImage = vkLogicalDevice->createImage(
       {.imageType = vk::ImageType::e2D,
        .format = vkSwapChain->getFormat(),
@@ -330,99 +334,34 @@ void SVORenderer::createTextures() {
   vkRenderImageView =
       vkRenderImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
                                      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-  vkIterImage = vkLogicalDevice->createImage(
-      {.imageType = vk::ImageType::e2D,
-       .format = vkSwapChain->getFormat(),
-       .extent =
-           vk::Extent3D{.width = vkSwapChain->getExtent().width, .height = vkSwapChain->getExtent().height, .depth = 1},
-       .mipLevels = 1,
-       .arrayLayers = 1,
-       .sampleCount = vk::SampleCountFlagBits::e1,
-       .tiling = vk::ImageTiling::eOptimal,
-       .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
-           | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-       .sharingQueues = {},
-       .layout = vk::ImageLayout::eUndefined});
-  vkIterImageView =
-      vkIterImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
-                                   vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-
-  vkIterImageSampler = TextureSampler::CreateShared(
-      vkLogicalDevice,
-      TextureSamplerConfig{.magFilter = vk::Filter::eLinear,
-                           .minFilter = vk::Filter::eLinear,
-                           .addressMode = {.u = vk::SamplerAddressMode::eClampToBorder,
-                                           .v = vk::SamplerAddressMode::eClampToBorder,
-                                           .w = vk::SamplerAddressMode::eClampToBorder},
-                           .maxAnisotropy = std::nullopt,
-                           .borderColor = vk::BorderColor::eFloatOpaqueBlack,
-                           .unnormalizedCoordinates = false,
-                           .compareOp = std::nullopt,
-                           .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
 }
 
-void SVORenderer::createDescriptorPool() {
+void MainRenderer::createDescriptorPools() {
   vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                                       .maxSets = 1,
                                                       .poolSizes = {
-                                                          {vk::DescriptorType::eStorageImage, 1}, // color
-                                                          {vk::DescriptorType::eUniformBuffer, 1},// camera
-                                                          {vk::DescriptorType::eUniformBuffer, 1},// light pos
-                                                          {vk::DescriptorType::eStorageBuffer, 1},// svo
-                                                          {vk::DescriptorType::eUniformBuffer, 1},// view type
-                                                          {vk::DescriptorType::eStorageImage, 1}, // iterations
-                                                          {vk::DescriptorType::eStorageBuffer, 1},// model infos
-                                                          {vk::DescriptorType::eStorageBuffer, 1},// bvh
-                                                          {vk::DescriptorType::eStorageBuffer, 1},// probes
-                                                          {vk::DescriptorType::eStorageBuffer, 1},// materials
+                                                          {vk::DescriptorType::eStorageImage, 1},// pos and material
+                                                          {vk::DescriptorType::eStorageImage, 1},// normals
+                                                          {vk::DescriptorType::eStorageImage, 1},// output
                                                       }});
 }
 
-void SVORenderer::createPipeline() {
-  // TODO: compute pipeline builder
-  // TODO: descriptor sets
+void MainRenderer::createPipeline() {
+  using namespace vulkan;
   vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
       {.bindings = {
            {.binding = 0,
             .type = vk::DescriptorType::eStorageImage,
             .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// color
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// pos and material
            {.binding = 1,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},//camera
-           {.binding = 2,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// light pos
-           {.binding = 3,
-            .type = vk::DescriptorType::eStorageBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// svo
-           {.binding = 4,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug
-           {.binding = 5,
             .type = vk::DescriptorType::eStorageImage,
             .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// iter
-           {.binding = 6,
-            .type = vk::DescriptorType::eStorageBuffer,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// normals
+           {.binding = 2,
+            .type = vk::DescriptorType::eStorageImage,
             .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// model infos
-           {.binding = 7,
-            .type = vk::DescriptorType::eStorageBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// bvh
-           {.binding = 8,
-            .type = vk::DescriptorType::eStorageBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe positions
-           {.binding = 9,
-            .type = vk::DescriptorType::eStorageBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// materials
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// output
        }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -433,112 +372,49 @@ void SVORenderer::createPipeline() {
   auto allocInfo = vk::DescriptorSetAllocateInfo{};
   allocInfo.setSetLayouts(setLayouts);
   allocInfo.descriptorPool = **vkDescPool;
-  computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
+  vkDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
 
-  const auto computeColorInfo = vk::DescriptorImageInfo{.sampler = {},
-                                                        .imageView = **vkRenderImageView,
-                                                        .imageLayout = vk::ImageLayout::eGeneral};
+  const auto posAndMaterialInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                          .imageView = **gbufferRenderer->getPosAndMaterialImageView(),
+                                                          .imageLayout = vk::ImageLayout::eGeneral};
+  const auto posAndMaterialWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                          .dstBinding = 0,
+                                                          .dstArrayElement = {},
+                                                          .descriptorCount = 1,
+                                                          .descriptorType = vk::DescriptorType::eStorageImage,
+                                                          .pImageInfo = &posAndMaterialInfo};
 
-  const auto computeColorWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                        .dstBinding = 0,
-                                                        .dstArrayElement = {},
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = vk::DescriptorType::eStorageImage,
-                                                        .pImageInfo = &computeColorInfo};
+  const auto normalInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                  .imageView = **gbufferRenderer->getNormalImageView(),
+                                                  .imageLayout = vk::ImageLayout::eGeneral};
+  const auto normalWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                  .dstBinding = 1,
+                                                  .dstArrayElement = {},
+                                                  .descriptorCount = 1,
+                                                  .descriptorType = vk::DescriptorType::eStorageImage,
+                                                  .pImageInfo = &normalInfo};
 
-  const auto uniformCameraInfo =
-      vk::DescriptorBufferInfo{.buffer = **cameraUniformBuffer, .offset = 0, .range = cameraUniformBuffer->getSize()};
-  const auto uniformCameraWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                         .dstBinding = 1,
-                                                         .dstArrayElement = {},
-                                                         .descriptorCount = 1,
-                                                         .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                         .pBufferInfo = &uniformCameraInfo};
+  const auto outputInfo = vk::DescriptorImageInfo{.sampler = {},
+                                                  .imageView = **vkRenderImageView,
+                                                  .imageLayout = vk::ImageLayout::eGeneral};
+  const auto outputWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                  .dstBinding = 2,
+                                                  .dstArrayElement = {},
+                                                  .descriptorCount = 1,
+                                                  .descriptorType = vk::DescriptorType::eStorageImage,
+                                                  .pImageInfo = &outputInfo};
 
-  const auto lightPosInfo =
-      vk::DescriptorBufferInfo{.buffer = **lightUniformBuffer, .offset = 0, .range = lightUniformBuffer->getSize()};
-  const auto lightPosWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                    .dstBinding = 2,
-                                                    .dstArrayElement = {},
-                                                    .descriptorCount = 1,
-                                                    .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                    .pBufferInfo = &lightPosInfo};
-
-  const auto svoInfo = vk::DescriptorBufferInfo{.buffer = **svoBuffer, .offset = 0, .range = svoBuffer->getSize()};
-  const auto svoWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                               .dstBinding = 3,
-                                               .dstArrayElement = {},
-                                               .descriptorCount = 1,
-                                               .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                               .pBufferInfo = &svoInfo};
-
-  const auto uniformDebugInfo =
-      vk::DescriptorBufferInfo{.buffer = **debugUniformBuffer, .offset = 0, .range = debugUniformBuffer->getSize()};
-  const auto uniformDebugWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                        .dstBinding = 4,
-                                                        .dstArrayElement = {},
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                        .pBufferInfo = &uniformDebugInfo};
-
-  const auto computeIterInfo =
-      vk::DescriptorImageInfo{.sampler = {}, .imageView = **vkIterImageView, .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeIterWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                       .dstBinding = 5,
-                                                       .dstArrayElement = {},
-                                                       .descriptorCount = 1,
-                                                       .descriptorType = vk::DescriptorType::eStorageImage,
-                                                       .pImageInfo = &computeIterInfo};
-
-  const auto modelInfoInfo =
-      vk::DescriptorBufferInfo{.buffer = **modelInfoBuffer, .offset = 0, .range = modelInfoBuffer->getSize()};
-  const auto modelInfoWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                     .dstBinding = 6,
-                                                     .dstArrayElement = {},
-                                                     .descriptorCount = 1,
-                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                                     .pBufferInfo = &modelInfoInfo};
-
-  const auto bvhInfo = vk::DescriptorBufferInfo{.buffer = **bvhBuffer, .offset = 0, .range = bvhBuffer->getSize()};
-  const auto bvhWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                               .dstBinding = 7,
-                                               .dstArrayElement = {},
-                                               .descriptorCount = 1,
-                                               .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                               .pBufferInfo = &bvhInfo};
-
-  const auto probePosInfo =
-      vk::DescriptorBufferInfo{.buffer = **probePosBuffer, .offset = 0, .range = probePosBuffer->getSize()};
-  const auto probePosWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                    .dstBinding = 8,
-                                                    .dstArrayElement = {},
-                                                    .descriptorCount = 1,
-                                                    .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                                    .pBufferInfo = &probePosInfo};
-
-  const auto materialsInfo =
-      vk::DescriptorBufferInfo{.buffer = **materialBuffer, .offset = 0, .range = materialBuffer->getSize()};
-  const auto materialsWrite = vk::WriteDescriptorSet{.dstSet = *computeDescriptorSets[0],
-                                                     .dstBinding = 9,
-                                                     .dstArrayElement = {},
-                                                     .descriptorCount = 1,
-                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                                     .pBufferInfo = &materialsInfo};
-
-  const auto writeSets =
-      std::vector{computeColorWrite, uniformCameraWrite, lightPosWrite, svoWrite,      uniformDebugWrite,
-                  computeIterWrite,  modelInfoWrite,     bvhWrite,      probePosWrite, materialsWrite};
+  const auto writeSets = std::vector{posAndMaterialWrite, normalWrite, outputWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
-      .name = "SVO",
+      .name = "render_from_gbuffer",
       .type = ShaderType::Compute,
-      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>()) /= "svo_bvh.comp")
+      .path = (std::filesystem::path(*config.get()["resources"]["path_shaders"].value<std::string>())
+               / "debug_from_gbuffer_render.comp")
                   .string(),
       .macros = {},
-      .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(computeLocalSize.first)},
-                        {"LOCAL_SIZE_Y", std::to_string(computeLocalSize.second)}}});
+      .replaceMacros = {}});
 
   const auto computeStageInfo = vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
                                                                   .module = **computeShader,
@@ -547,14 +423,13 @@ void SVORenderer::createPipeline() {
   vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
-void SVORenderer::createCommands() {
+
+void MainRenderer::createCommands() {
   vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
   vkRenderImage->transitionLayout(*vkCommandPool, vk::ImageLayout::eGeneral,
                                   vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-  vkIterImage->transitionLayout(*vkCommandPool, vk::ImageLayout::eGeneral,
-                                vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 
   vkCommandBuffers = vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 3});
 
@@ -565,7 +440,7 @@ void SVORenderer::createCommands() {
       {.level = vk::CommandBufferLevel::ePrimary,
        .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
 }
-void SVORenderer::recordCommands() {
+void MainRenderer::recordCommands() {
   // TODO: add these calls to recording
   static bool isComputeRecorded = false;
 
@@ -576,8 +451,8 @@ void SVORenderer::recordCommands() {
       auto recording = buffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
       recording.bindPipeline(vk::PipelineBindPoint::eCompute, *vkComputePipeline);
 
-      const auto vkDescSets = computeDescriptorSets
-          | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
+      const auto vkDescSets =
+          vkDescriptorSets | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
       recording.getCommandBuffer()->bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                                        vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
       recording.dispatch(vkSwapChain->getExtent().width / computeLocalSize.first,
@@ -642,17 +517,17 @@ void SVORenderer::recordCommands() {
   ui->imgui->addToCommandBuffer(*graphRecording.getCommandBuffer());
   graphRecording.endRenderPass();
 }
-void SVORenderer::createFences() {
+void MainRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled}); });
 }
-void SVORenderer::createSemaphores() {
+void MainRenderer::createSemaphores() {
   computeSemaphore = vkLogicalDevice->createSemaphore();
   std::ranges::generate_n(std::back_inserter(renderSemaphores), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createSemaphore(); });
 }
-void SVORenderer::initUI() {
+void MainRenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
   using namespace pf::enum_operators;
@@ -705,25 +580,12 @@ void SVORenderer::initUI() {
 
   ui->closeMenuItem.addClickListener(closeWindow);
 
-  ui->viewTypeComboBox.addValueListener(
-      [this](const auto &viewType) {
-        const auto viewTypeIdx = static_cast<int>(viewType);
-        debugUniformBuffer->mapping().set(viewTypeIdx);
-      },
-      true);
-
   ui->lightPosSlider.addValueListener(
       [&](auto pos) {
         pos.y *= -1;
         lightUniformBuffer->mapping().set(pos);
       },
       true);
-
-  ui->shadowsCheckbox.addValueListener([this](auto enabled) { debugUniformBuffer->mapping().set(enabled ? 1 : 0, 2); },
-                                       true);
-
-  ui->shaderDebugFloatValueSlider.addValueListener([this](auto value) { debugUniformBuffer->mapping().set(value, 3); },
-                                                   true);
 
   ui->modelDetailTranslateDrag.addValueListener([this](const auto &val) {
     if (auto selectedItem = ui->activeModelList.getSelectedItem(); selectedItem.has_value()) {
@@ -747,9 +609,6 @@ void SVORenderer::initUI() {
     }
   });
 
-  ui->shaderDebugIterDivideDrag.addValueListener(
-      [this](auto value) { debugUniformBuffer->mapping().setRawOffset(value, sizeof(int) * 3 + sizeof(float)); }, true);
-
   ui->ambientColPicker.addValueListener(
       [&](const auto &ambientColor) {
         lightUniformBuffer->mapping().set(glm::vec4{ambientColor, 1}, 1);
@@ -772,12 +631,8 @@ void SVORenderer::initUI() {
   const auto modelFileNames = loadModelFileNames(modelsPath);
   ui->modelList.setItems(modelFileNames | std::views::transform([](const auto &path) { return ModelFileInfo{path}; }));
 
-  ui->activeModelList.addValueListener([this](const auto &modelInfo) {
-    const uint32_t index = modelInfo.modelData->getModelIndex().value();
-    debugUniformBuffer->mapping().template set(index, 1);
-  });
+  ui->gViewTypeCombobox.addValueListener([this](auto value) { gbufferRenderer->setViewType(value); });
 
-  debugUniformBuffer->mapping().template set(-1, 1);
   ui->activeModelList.addDropListener([this](const auto &modelInfo) {
     const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
     threadpool->template enqueue([this, modelInfo, &loadingProgress, &loadingDialog, &loadingText] {
@@ -855,9 +710,6 @@ void SVORenderer::initUI() {
                            | std::views::transform([](const auto &path) { return ModelFileInfo{path}; }));
   });
 
-  ui->shaderDebugValueInput.addValueListener([this](const auto &val) { debugUniformBuffer->mapping().set(val, 1); },
-                                             true);
-
   // FIXME
   //subscriptions.emplace_back(addLogListener([this](auto record) { ui->logMemo.addRecord(record); }));
   //subscriptions.emplace_back(addLogListener([this](auto record) { ui->logErrMemo.addRecord(record); }, true));
@@ -918,14 +770,6 @@ void SVORenderer::initUI() {
                               return true;
                             });
   });
-
-  ui->debugPrintEnableCheckbox.addValueListener(
-      [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 5).set(enabled ? 1 : 0); }, true);
-
-  ui->bvhVisualizeCheckbox.addValueListener(
-      [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 6).set(enabled ? 1 : 0); }, true);
-  ui->visualizeProbesCheckbox.addValueListener(
-      [this](auto enabled) { debugUniformBuffer->mapping(sizeof(std::uint32_t) * 7).set(enabled ? 1 : 0); }, true);
 
   // FIXME
   ui->loadSceneMenuItem.addClickListener([this] {
@@ -1041,9 +885,6 @@ void SVORenderer::initUI() {
                             [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
   });
 
-  ui->probeTextureCombobox.addValueListener([this](const auto type) { probeRenderer->setProbeDebugRenderType(type); },
-                                            true);
-
   ui->teardownMapMenuItem.addClickListener([this] {
     ui->imgui->openDirDialog(
         "Select file to load scene info",
@@ -1098,19 +939,9 @@ void SVORenderer::initUI() {
         [] {}, Size{500, 400}, *config.get()["resources"]["path_models"].value<std::string>());
   });
 
-  ui->renderProbesButton.addClickListener([this] { probeRenderer->renderProbesInNextPass(); });
-  ui->selectedProbeSpinner.addValueListener([this](auto val) {
-    probeRenderer->setProbeToRender(val);
-    debugUniformBuffer->mapping().set(val, 8);
-  });
-
-  ui->probesDebugIntSpinner.addValueListener([this](auto val) { probeRenderer->setShaderDebugInt(val); });
-
-  ui->fillProbeHolesButton.addValueListener([this](auto checked) { probeRenderer->setFillHoles(checked); });
-
   ui->imgui->setStateFromConfig();
 }
-std::vector<std::filesystem::path> SVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
+std::vector<std::filesystem::path> MainRenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
   return potentialModelFiles | ranges::views::filter([](const auto &path) {
            return isIn(path.extension(), std::vector{".vox", ".pf_vox"});
@@ -1118,12 +949,12 @@ std::vector<std::filesystem::path> SVORenderer::loadModelFileNames(const std::fi
       | ranges::to_vector | ranges::actions::sort;
 }
 
-void SVORenderer::stop() {
+void MainRenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
   subscriptions.clear();
 }
 
-void SVORenderer::rebuildAndUploadBVH() {
+void MainRenderer::rebuildAndUploadBVH() {
   auto totalModels = std::size_t{};
   auto totalVoxels = std::size_t{};
   std::ranges::for_each(modelManager->getModels(), [&totalModels, &totalVoxels](const auto &model) {
@@ -1135,16 +966,16 @@ void SVORenderer::rebuildAndUploadBVH() {
 
   const auto nodeCount = bvhTree.nodeCount;
   const auto depth = bvhTree.depth;
-  ui->sceneVoxelCountText.setText(SVOUI::SCENE_VOXEL_COUNT_INFO, totalVoxels);
-  ui->sceneModelCountText.setText(SVOUI::SCENE_MODEL_COUNT_INFO, totalModels);
-  ui->sceneBVHNodeCountText.setText(SVOUI::SCENE_BVH_NODE_COUNT_INFO, nodeCount);
-  ui->sceneBVHDepthText.setText(SVOUI::SCENE_BVH_DEPTH_INFO, depth);
+  ui->sceneVoxelCountText.setText(MainUI::SCENE_VOXEL_COUNT_INFO, totalVoxels);
+  ui->sceneModelCountText.setText(MainUI::SCENE_MODEL_COUNT_INFO, totalModels);
+  ui->sceneBVHNodeCountText.setText(MainUI::SCENE_BVH_NODE_COUNT_INFO, nodeCount);
+  ui->sceneBVHDepthText.setText(MainUI::SCENE_BVH_DEPTH_INFO, depth);
 
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree.data, mapping);
 }
 
-std::function<void()> SVORenderer::popupClickActiveModel(std::size_t itemId, vox::GPUModelManager::ModelPtr modelPtr) {
+std::function<void()> MainRenderer::popupClickActiveModel(std::size_t itemId, vox::GPUModelManager::ModelPtr modelPtr) {
   return [=, this] {
     window->enqueue([this, itemId, modelPtr] {
       const auto idToRemove = itemId;
@@ -1155,8 +986,8 @@ std::function<void()> SVORenderer::popupClickActiveModel(std::size_t itemId, vox
     });
   };
 }
-void SVORenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
-                                          vox::GPUModelManager::ModelPtr modelPtr) {
+void MainRenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
+                                           vox::GPUModelManager::ModelPtr modelPtr) {
   auto &itemPopupMenu = element.createPopupMenu();
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Remove").addClickListener(popupClickActiveModel(itemId, modelPtr));
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Duplicate").addClickListener([modelPtr, this] {
@@ -1167,7 +998,7 @@ void SVORenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size
   });
 }
 
-void SVORenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
+void MainRenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
   threadpool->enqueue([this, original] {
     auto newInstancePtr = modelManager->duplicateModel(original);
     if (!newInstancePtr.has_value()) {
@@ -1187,7 +1018,7 @@ void SVORenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
     }
   });
 }
-void SVORenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
+void MainRenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
   threadpool->enqueue([this, original] {
     auto newInstancePtr = modelManager->createModelInstance(original);
     if (!newInstancePtr.has_value()) {
@@ -1209,7 +1040,7 @@ void SVORenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
 }
 
 #include <fstream>
-void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std::filesystem::path &dir) {
+void MainRenderer::convertAndSaveSVO(const std::filesystem::path &src, const std::filesystem::path &dir) {
   const auto dst = (dir / src.filename()).replace_extension(".pf_vox");
   logd("CONVERT", "Converting: {} to: {}", src.string(), dst.string());
   const auto svoCreate = vox::loadFileAsSVO(src, true);
@@ -1230,7 +1061,7 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   ostream.write(reinterpret_cast<const char *>(centerData.data()), centerData.size());
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
 }
-void SVORenderer::createBuffers() {
+void MainRenderer::createBuffers() {
   cameraUniformBuffer =
       vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + 2 * sizeof(float),
                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
@@ -1242,18 +1073,6 @@ void SVORenderer::createBuffers() {
                                                       .sharingMode = vk::SharingMode::eExclusive,
                                                       .queueFamilyIndices = {}});
 
-  debugUniformBuffer = vkLogicalDevice->createBuffer({.size = sizeof(uint32_t) * 3 + sizeof(float) + sizeof(float)
-                                                          + sizeof(std::uint32_t) + sizeof(std::uint32_t)
-                                                          + sizeof(uint32_t) + sizeof(uint32_t),
-                                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                                      .sharingMode = vk::SharingMode::eExclusive,
-                                                      .queueFamilyIndices = {}});
-
-  probePosBuffer = vkLogicalDevice->createBuffer({.size = 10_MB,
-                                                  .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,
-                                                  .sharingMode = vk::SharingMode::eExclusive,
-                                                  .queueFamilyIndices = {}});
-  probePosBuffer->mapping().set(glm::vec4{0, 0, 0, 0});
   // TODO: size
   svoBuffer = vkLogicalDevice->createBuffer({.size = 500_MB,
                                              .usageFlags = vk::BufferUsageFlagBits::eStorageBuffer,

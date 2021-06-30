@@ -2,7 +2,7 @@
 // Created by petr on 5/21/21.
 //
 
-#include "SimpleSVORenderer_UI.h"
+#include "SVOUI.h"
 #include <logging/loggers.h>
 #include <pf_imgui/backends/impl/imgui_impl_vulkan.h>
 #include <pf_imgui/elements/Bullet.h>
@@ -14,17 +14,9 @@
 
 namespace pf {
 using namespace ui::ig;
-ModelFileInfo::ModelFileInfo(std::filesystem::path path) : path(std::move(path)) {}
-bool ModelFileInfo::operator==(const ModelFileInfo &rhs) const { return id == rhs.id; }
-bool ModelFileInfo::operator!=(const ModelFileInfo &rhs) const { return !(rhs == *this); }
 
-std::ostream &operator<<(std::ostream &os, const ModelFileInfo &info) {
-  os << info.path.filename().string();
-  if (info.modelData != nullptr) { os << std::to_string(info.id); }
-  return os;
-}
 
-SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
+SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
                                            std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
                                            TextureData iterTextureData, TextureData probesColorTextureData)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
@@ -48,8 +40,8 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
       svoConverterMenuItem(toolsSubMenu.addButtonItem("svo_converter_menu", "SVO converter")),
       teardownMapMenuItem(toolsSubMenu.addButtonItem("teardown_converter_menu", "Teardown map loading")),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
-      viewTypeComboBox(renderSettingsWindow.createChild<Combobox<ViewType>>(
-          "view_choice", "View type", "Select view type", magic_enum::enum_values<ViewType>(), ComboBoxCount::Items8,
+      viewTypeComboBox(renderSettingsWindow.createChild<Combobox<SVOViewType>>(
+          "view_choice", "View type", "Select view type", magic_enum::enum_values<SVOViewType>(), ComboBoxCount::Items8,
           Persistent::Yes)),
       lightingText(renderSettingsWindow.createChild<Text>("lighting_header", "Lighting:")),
       lightingLayout(renderSettingsWindow.createChild<BoxLayout>("lighting", LayoutDirection::TopToBottom,
@@ -329,7 +321,7 @@ SimpleSVORenderer_UI::SimpleSVORenderer_UI(std::unique_ptr<ui::ig::ImGuiGlfwVulk
   activeModelList.setDropAllowed(true);
   modelListsLayout.setDrawBorder(true);
 }
-void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
+void SVOUI::setWindowsVisible(bool visible) {
   infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   renderSettingsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   debugWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
@@ -344,8 +336,7 @@ void SimpleSVORenderer_UI::setWindowsVisible(bool visible) {
   modelsMenuItem.setValue(visible);
 }
 
-std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &>
-SimpleSVORenderer_UI::createLoadingDialog() {
+std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> SVOUI::createLoadingDialog() {
   auto &loadingDialog = imgui->createDialog(uniqueId(), "Loading model...");
   loadingDialog.setSize(Size{200, 100});
   auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);

@@ -166,26 +166,32 @@ if (ENABLE_STACKTRACE)
     CPMAddPackage(
             NAME pf_imgui
             GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
-            GIT_TAG master
+            GIT_TAG v0.6.0
             OPTIONS "ENABLE_STACKTRACE ON"
     )
 else ()
     CPMAddPackage(
             NAME pf_imgui
             GITHUB_REPOSITORY PetrFlajsingr/pf_imgui
-            GIT_TAG master
+            GIT_TAG v0.6.0
     )
 endif ()
 
-
-CPMAddPackage(
-        NAME pf_glfw_vulkan
-        GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
-        GIT_TAG master
-        OPTIONS "PF_GLFW_EXCEPTIONS ON"
-)
-add_compile_definitions(PF_GLFW_WINDOW_EXCEPTIONS_ENABLED)
-
+if (ENABLE_STACKTRACE)
+    CPMAddPackage(
+            NAME pf_glfw_vulkan
+            GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
+            GIT_TAG v0.1.2
+            OPTIONS "PF_GLFW_EXCEPTIONS ON"
+    )
+    add_compile_definitions(PF_GLFW_WINDOW_EXCEPTIONS_ENABLED)
+else ()
+    CPMAddPackage(
+            NAME pf_glfw_vulkan
+            GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
+            GIT_TAG v0.1.2
+    )
+endif ()
 
 if (chaiscript_ADDED)
     add_library(chaiscript INTERFACE IMPORTED)
@@ -200,9 +206,12 @@ set(SOURCES
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
         src/rendering/SVORenderer.cpp
+        src/rendering/MainRenderer.cpp
+        src/rendering/GBufferRenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/logging/CallbackSink.cpp
-        src/ui/SimpleSVORenderer_UI.cpp
+        src/ui/SVOUI.cpp
+        src/ui/MainUI.cpp
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
         src/utils/FlameGraphSampler.cpp
@@ -234,7 +243,7 @@ set(INCLUDES
         src/ui/GlfwWindow.h
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
-        src/ui/SimpleSVORenderer_UI.h
+        src/ui/SVOUI.h
         src/rendering/VulkanDebugCallbackImpl.h
         src/rendering/SVORenderer.h
         src/concepts/Renderer.h
@@ -295,19 +304,6 @@ endif ()
 
 target_compile_options(realistic_voxel_rendering PRIVATE ${flags})
 
-add_executable(svo ${SVO_SOURCES})
-target_link_libraries(svo
-        ${LASAN}
-        -lbfd -ldl
-        magic_enum nanobench
-        pf_common::pf_common
-        ${GLM_LIBRARIES})
-if (ENABLE_STACKTRACE)
-    add_backward(svo)
-endif ()
-
-
-target_compile_options(svo PRIVATE ${flags})
 
 if (MEASURE_BUILD_TIME)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")

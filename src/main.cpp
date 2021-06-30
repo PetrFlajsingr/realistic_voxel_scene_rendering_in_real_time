@@ -2,6 +2,7 @@
 #include "argparse.hpp"
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
+#include "rendering/MainRenderer.h"
 #include "rendering/SVORenderer.h"
 #include <filesystem>
 #include <pf_common/RAII.h>
@@ -12,6 +13,7 @@
 
 argparse::ArgumentParser createArgumentParser() {
   auto argumentParser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
+  argumentParser.add_argument("--old").help("Run testing renderer").default_value(false).implicit_value(true);
   argumentParser.add_argument("-v", "--verbose").help("Verbose logging").default_value(false).implicit_value(true);
   argumentParser.add_argument("-l", "--log").help("Enable console logging.").default_value(false).implicit_value(true);
   argumentParser.add_argument("-d", "--debug").help("Enable debug logging.").default_value(false).implicit_value(true);
@@ -64,10 +66,14 @@ int main(int argc, char *argv[]) {
                                         static_cast<size_t>(resolutionConfig["height"].value_or(600))},
                          .title = "test",
                          .mode = ui::Mode::Windowed};
-
-  {
+  if (argumentParser.get<bool>("--old")) {
     auto app = Application<ui::GlfwWindow, SVORenderer>(
         SVORenderer(*config.as_table()),
+        ApplicationSettings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
+    app.run();
+  } else {
+    auto app = Application<ui::GlfwWindow, MainRenderer>(
+        MainRenderer(*config.as_table()),
         ApplicationSettings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
     app.run();
   }
