@@ -2,8 +2,8 @@
 // Created by petr on 6/19/21.
 //
 
-#ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
-#define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
+#ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROMATBERENDERER_H
+#define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROMATBERENDERER_H
 
 #include "ProbeManager.h"
 #include "enums.h"
@@ -27,9 +27,9 @@
 #include <toml++/toml.h>
 namespace pf::lfp {
 
-class ProbeRenderer {
+class ProbeMatRenderer {
  public:
-  ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
+  ProbeMatRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
                 std::shared_ptr<vulkan::PhysicalDevice> vkDevice, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
                 std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
                 std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
@@ -46,20 +46,8 @@ class ProbeRenderer {
 
   const std::shared_ptr<vulkan::Semaphore> &renderProbeTextures();
 
-  const std::shared_ptr<vulkan::Semaphore> &render();
-
   [[nodiscard]] ProbeManager &getProbeManager();
 
-  void setProbeToRender(std::uint32_t index);
-  void setProbeToRender(glm::ivec3 position);
-
-  void setProbeDebugRenderType(ProbeVisualisation type);
-
-  void setShaderDebugInt(std::int32_t value);
-
-  void renderProbesInNextPass();
-
-  void setFillHoles(bool fillHoles);
 
  private:
   bool renderingProbesInNextPass = false;
@@ -107,18 +95,6 @@ class ProbeRenderer {
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
   std::shared_ptr<vulkan::Buffer> gridInfoBuffer;
 
-  struct {
-    std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
-    std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
-    std::vector<vk::UniqueDescriptorSet> computeDescriptorSets;
-
-    std::shared_ptr<vulkan::CommandPool> vkCommandPool;
-    std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
-    std::shared_ptr<vulkan::Semaphore> vkComputeSemaphore;
-    std::shared_ptr<vulkan::CommandBuffer> vkCommandBuffer;
-    std::shared_ptr<vulkan::Buffer> debugUniformBuffer;
-  } renderData;
-
   std::shared_ptr<vulkan::Buffer> cameraBuffer;
   std::shared_ptr<vulkan::Buffer> materialsBuffer;
 
@@ -141,20 +117,9 @@ class ProbeRenderer {
   void createProximityCommands();
   void recordProximityCommands();
 
-  void createRenderDescriptorPool();
-  void createRenderPipeline();
-  void createRenderCommands();
-  void recordRenderCommands();
-
   void createFences();
-  void createTextures();
 
   std::shared_ptr<vulkan::Fence> vkComputeFence;
-  std::shared_ptr<vulkan::Image> vkProbesDebugImage;
-
-  std::shared_ptr<vulkan::ImageView> vkProbesDebugImageView;
-
-  std::shared_ptr<vulkan::TextureSampler> vkProbesDebugImageSampler;
 };
 }// namespace pf::lfp
-#endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
+#endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROMATBERENDERER_H

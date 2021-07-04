@@ -12,11 +12,162 @@
 
 layout(local_size_x = LOCAL_SIZE_X, local_size_y = LOCAL_SIZE_Y) in;
 
+/********************************************* CONSTANTS *******************************************/
+#define PI 3.141592
+#define INF 10000000000000.0
+#define EPSILON 0.001
+
+const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
+                            vec3(1, 0, 0),// 1
+                            vec3(0, 1, 0),// 2
+                            vec3(1, 1, 0),// 3
+                            vec3(0, 0, 1),// 4
+                            vec3(1, 0, 1),// 5
+                            vec3(0, 1, 1),// 6
+                            vec3(1, 1, 1) // 7
+);
+
+const float minThickness = 0.03;
+const float maxThickness = 0.50;
+
+// Points exactly on the boundary in octahedral space (x = 0 and y = 0 planes) map to two different
+// locations in octahedral space. We shorten the segments slightly to give unambigous locations that lead
+// to intervals that lie within an octant.
+const float rayBumpEpsilon = 0.001;
+
+// If we go all the way around a cell and don't move farther than this (in m)
+// then we quit the trace
+const float minProgressDistance = 0.01;
+
+const vec2 TEX_SIZE = vec2(1024.0);
+const vec2 TEX_SIZE_SMALL = vec2(64.0);
+
+const vec2 INV_TEX_SIZE = vec2(1.0) / TEX_SIZE;
+const vec2 INV_TEX_SIZE_SMALL = vec2(1.0) / TEX_SIZE_SMALL;
+
+const uint MASK11 = 0x7FF;
+const uint MASK10 = 0x3FF;
+const uint R_MAX = 2047;
+const uint G_MAX = 2047;
+const uint G_SHIFT = 11;
+const uint B_MAX = 1023;
+const uint B_SHIFT = 22;
+
+const uint DEPTH_MASK = 0xFFFF;
+const uint DEPTH_MAX = 65535;
+
+const uint NORMAL_ELEMENT_MAX = 255;
+const uint NORMAL_ELEMENT_MASK = 0xFF;
+const uint NORMALS_SHIFT = 16;
+const uint NORMAL1_SHIFT = 0;
+const uint NORMAL2_SHIFT = 8;
+
+#define TMP_FAR 100.0
+/********************************************* ENUMS *******************************************/
+#define MATERIAL_TYPE uint
+#define MATERIAL_TYPE_DIFFUSE 0
+#define MATERIAL_TYPE_METAL 1
+#define MATERIAL_TYPE_GLASS 2
+#define MATERIAL_TYPE_EMIT 3
+#define MATERIAL_TYPE_BLEND 4
+#define MATERIAL_TYPE_MEDIA 5
+#define MATERIAL_TYPE_CLOUD 6
+
+#define TRACE_RESULT int
+#define TRACE_RESULT_MISS 0
+#define TRACE_RESULT_HIT 1
+#define TRACE_RESULT_UNKNOWN 2
+
+/********************************************* STRUCTS *******************************************/
+
+//  zyx bit pattern indicating which probe we're currently using within the cell on [0, 7]
+#define INDEX_IN_PROBE_CUBE int
+
+// On [0, grid.gridSize.x * grid.gridSize.y * grid.gridSize.z - 1]
+#define PROBE_INDEX int
+
+// probe xyz indices
+#define GRID_COORD ivec3
+
+struct PosAndMatInfo {
+  vec3 hitPos;
+  bool isHit;
+  bool isInShadow;
+  uint materialId;
+};
+
+struct Material {
+  MATERIAL_TYPE type;
+  float metalness;
+  float rougness;
+  float specular;
+  float indexOfRefraction;
+  float flux;
+  float emission;
+  float lowDynamicRange;
+  float transparency;
+  float alpha;
+  float density;
+  float red;
+  float green;
+  float blue;
+  float colorAlpha;
+};
+struct Ray {
+  vec3 origin;
+  vec3 direction;
+};
+
+/********************************************* BINDINGS *******************************************/
 layout(binding = 0, rgba32f) uniform image2D posAndMaterialImage;
 layout(binding = 1, rg32f) uniform image2D normalImage;
 
 layout(binding = 2, rgba8) uniform image2D outputImage;
+layout(std430, binding = 3) buffer Materials { Material data[]; }
+materials;
 
+layout(binding = 4) uniform UniformLigtValues {
+  vec4 pos;
+  vec4 ambientColor;
+  vec4 diffuseColor;
+  vec4 specularColor;
+}
+light;
+
+layout(binding = 5) uniform UniformCamera {
+  vec4 pos;
+  vec4 dir;
+  vec4 up;
+  mat4 view;
+  mat4 projection;
+  mat4 invProjView;
+  float near;
+  float far;
+  int screenWidth;
+  int screenHeight;
+}
+camera;
+
+layout(binding = 6, rg32f) uniform image2DArray probeImages;
+layout(binding = 7, r16) uniform image2DArray probeImagesSmall;
+
+layout(std430, binding = 8) buffer ProxGridData { uint[] data; }
+proxGrid;
+
+layout(binding = 9) uniform ProxGridInfo {
+  ivec4 gridSize;
+  vec4 gridStep;
+}
+proxGridInfo;
+
+layout(binding = 10, std140) uniform ProbeGrid {
+  ivec4 gridSize;
+  vec4 gridPos;
+  float gridStep;
+}
+grid;
+
+/********************************************* UTIL FUNCTIONS *******************************************/
 vec3 decodeNormal(vec2 f) {
   f = f * 2.0f - 1.0f;
   vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
@@ -25,13 +176,6 @@ vec3 decodeNormal(vec2 f) {
   n.y += n.y >= 0.0 ? -t : t;
   return normalize(n);
 }
-
-struct PosAndMatInfo {
-  vec3 hitPos;
-  bool isHit;
-  bool isInShadow;
-  uint materialId;
-};
 
 #define HIT_BIT_OFFSET 31u
 #define HIT_BIT_MASK 0x80000000u
@@ -54,6 +198,727 @@ vec3 readNormal(ivec2 textureCoords) {
   return decodeNormal(data.xy);
 }
 
+float maxComponent(vec2 a) { return max(a.x, a.y); }
+
+float signNotZero(float f) { return (f >= 0.0) ? 1.0 : -1.0; }
+vec2 signNotZero(vec2 v) { return vec2(signNotZero(v.x), signNotZero(v.y)); }
+
+/** Assumes that v is a unit vector. The result is an octahedral vector on the [-1, +1] square. */
+vec2 octEncode(in vec3 v) {
+  float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
+  vec2 result = v.xy * (1.0 / l1norm);
+  if (v.z < 0.0) { result = (1.0 - abs(result.yx)) * signNotZero(result.xy); }
+  return result;
+}
+
+/** Returns a unit vector. Argument o is an octahedral vector packed via octEncode,
+    on the [-1, +1] square*/
+vec3 octDecode(vec2 o) {
+  vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+  if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+  return normalize(v);
+}
+
+float lengthSquared(in vec2 v) { return dot(v, v); }
+
+float lengthSquared(in vec3 v) { return dot(v, v); }
+
+float distanceSquared(vec2 v0, vec2 v1) {
+  vec2 d = v1 - v0;
+  return dot(d, d);
+}
+
+int idot(ivec3 a, ivec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+
+float squaredLength(vec3 v) { return dot(v, v); }
+
+/** Two-element sort: maybe swaps a and b so that a' = min(a, b), b' = max(a, b). */
+void minSwap(inout float a, inout float b) {
+  float temp = min(a, b);
+  b = max(a, b);
+  a = temp;
+}
+
+/** Sort the three values in v from least to 
+    greatest using an exchange network (i.e., no branches) */
+void sort(inout vec3 v) {
+  minSwap(v[0], v[1]);
+  minSwap(v[1], v[2]);
+  minSwap(v[0], v[1]);
+}
+#define LOG_DEPTH_C 1
+float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
+float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
+/********************************************* PROBE  FUNCTIONS *******************************************/
+/** 
+ \param probeCoords Integer (stored in float) coordinates of the probe on the probe grid 
+ */
+PROBE_INDEX gridCoordToProbeIndex(vec3 probeCoords) {
+  return int(probeCoords.x + probeCoords.y * grid.gridSize.x + probeCoords.z * grid.gridSize.x * grid.gridSize.y);
+}
+
+GRID_COORD baseGridCoord(vec3 X) {
+  return clamp(GRID_COORD((X - grid.gridPos.xyz) / grid.gridStep), GRID_COORD(0, 0, 0),
+               GRID_COORD(grid.gridSize.xyz) - GRID_COORD(1, 1, 1));
+}
+
+/** Returns the index of the probe at the floor along each dimension. */
+PROBE_INDEX baseProbeIndex(vec3 X) { return gridCoordToProbeIndex(baseGridCoord(X)); }
+
+GRID_COORD probeIndexToGridCoord(PROBE_INDEX index) {
+  // Assumes probeCounts are powers of two.
+  // Precomputing the MSB actually slows this code down substantially
+  ivec3 iPos;
+  iPos.x = index & (grid.gridSize.x - 1);
+  iPos.y = (index & ((grid.gridSize.x * grid.gridSize.y) - 1)) >> findMSB(grid.gridSize.x);
+  iPos.z = index >> findMSB(grid.gridSize.x * grid.gridSize.y);
+
+  return iPos;
+}
+
+/** probeCoords Coordinates of the probe, computed as part of the process. */
+PROBE_INDEX nearestProbeIndex(vec3 X, out vec3 probeCoords) {
+  probeCoords =
+      clamp(round((X - grid.gridPos.xyz) / grid.gridStep), vec3(0, 0, 0), vec3(grid.gridSize.xyz) - vec3(1, 1, 1));
+
+  return gridCoordToProbeIndex(probeCoords);
+}
+
+/** 
+    \param neighbors The 8 probes surrounding X
+    \return Index into the neighbors array of the index of the nearest probe to X 
+*/
+INDEX_IN_PROBE_CUBE nearestProbeIndices(vec3 X) {
+  vec3 maxProbeCoords = vec3(grid.gridSize.xyz) - vec3(1, 1, 1);
+  vec3 floatProbeCoords = (X - grid.gridPos.xyz) / grid.gridStep;
+  vec3 baseProbeCoords = clamp(floor(floatProbeCoords), vec3(0, 0, 0), maxProbeCoords);
+
+  float minDist = TMP_FAR;
+  int nearestIndex = -1;
+
+  for (int i = 0; i < 8; ++i) {
+    vec3 newProbeCoords = min(baseProbeCoords + vec3(i & 1, (i >> 1) & 1, (i >> 2) & 1), maxProbeCoords);
+    float d = length(newProbeCoords - floatProbeCoords);
+    if (d < minDist) {
+      minDist = d;
+      nearestIndex = i;
+    }
+  }
+
+  return nearestIndex;
+}
+
+vec3 gridCoordToPosition(GRID_COORD c) { return grid.gridStep * vec3(c) + grid.gridPos.xyz; }
+
+vec3 probeLocation(PROBE_INDEX index) { return gridCoordToPosition(probeIndexToGridCoord(index)); }
+
+/**
+   \param baseProbeIndex Index into L.radianceProbeGrid's TEXTURE_2D_ARRAY. This is the probe
+   at the floor of the current ray sampling position.
+
+   \param relativeIndex on [0, 7]. This is used as a set of three 1-bit offsets
+
+   Returns a probe index into L.radianceProbeGrid. It may be the *same* index as 
+   baseProbeIndex.
+
+   This will wrap when the camera is outside of the probe field probes...but that's OK. 
+   If that case arises, then the trace is likely to 
+   be poor quality anyway. Regardless, this function will still return the index 
+   of some valid probe, and that probe can either be used or fail because it does not 
+   have visibility to the location desired.
+
+   \see nextCycleIndex, baseProbeIndex
+ */
+PROBE_INDEX relativeProbeIndex(PROBE_INDEX baseProbeIndex, INDEX_IN_PROBE_CUBE relativeIndex) {
+  // Guaranteed to be a power of 2
+  PROBE_INDEX numProbes = grid.gridSize.x * grid.gridSize.y * grid.gridSize.z;
+
+  ivec3 offset = ivec3(relativeIndex & 1, (relativeIndex >> 1) & 1, (relativeIndex >> 2) & 1);
+  ivec3 stride = ivec3(1, grid.gridSize.x, grid.gridSize.x * grid.gridSize.y);
+
+  return (baseProbeIndex + idot(offset, stride)) & (numProbes - 1);
+}
+
+/** Given a CycleIndex [0, 7] on a cube of probes, returns the next CycleIndex to use. 
+    \see relativeProbeIndex
+*/
+INDEX_IN_PROBE_CUBE nextCycleIndex(INDEX_IN_PROBE_CUBE cycleIndex) { return (cycleIndex + 3) & 7; }
+/********************************************* VOXEL FIELD FUNCTIONS *******************************************/
+#define INVALID_PROX_IDX 0xFFFFu
+#define PROX_MASK 0xFFFFu
+
+uint gridCoordToProxGridIndex(ivec3 voxelCoord) {
+  return uint(voxelCoord.x + voxelCoord.y * proxGridInfo.gridSize.x
+              + voxelCoord.z * proxGridInfo.gridSize.x * proxGridInfo.gridSize.y);
+}
+
+vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
+  vec3 tMin = (boxMin - rayOrigin) / rayDir;
+  vec3 tMax = (boxMax - rayOrigin) / rayDir;
+  vec3 t1 = min(tMin, tMax);
+  vec3 t2 = max(tMin, tMax);
+  float tNear = max(max(t1.x, t1.y), t1.z);
+  float tFar = min(min(t2.x, t2.y), t2.z);
+  return vec2(tNear, tFar);
+}
+
+bool isInAABB(vec3 pos, vec3 boxMin, vec3 boxMax) {
+  return boxMin.x <= pos.x && boxMin.y <= pos.y && boxMin.z <= pos.z && pos.x <= boxMax.x && pos.y <= boxMax.y
+      && pos.z <= boxMax.z;
+}
+
+ivec3 nearestVoxelGridCoord(vec3 pos) {
+  return clamp(ivec3((pos - grid.gridPos.xyz) / proxGridInfo.gridStep.xyz), ivec3(0, 0, 0),
+               ivec3(proxGridInfo.gridSize.xyz) - ivec3(1, 1, 1));
+}
+
+ivec3 nearestVoxelGridCoordFirst(Ray ray) {
+  const vec3 gridStart = grid.gridPos.xyz;
+  const vec3 gridEnd = grid.gridPos.xyz + grid.gridSize.xyz * grid.gridStep;
+  if (!isInAABB(ray.origin, gridStart, gridEnd)) {
+    vec2 voxFieldIntersection = intersectAABB(ray.origin, ray.direction, gridStart, gridEnd);
+    if (voxFieldIntersection.x <= voxFieldIntersection.y) {
+      return nearestVoxelGridCoord(ray.origin + voxFieldIntersection.x * ray.direction);
+    }
+  }
+
+  return nearestVoxelGridCoord(ray.origin);
+}
+
+uint nearestProxVoxelIndex(vec3 pos) { return gridCoordToProxGridIndex(nearestVoxelGridCoord(pos)); }
+uint nearestProxVoxelIndexFirst(Ray ray) { return gridCoordToProxGridIndex(nearestVoxelGridCoordFirst(ray)); }
+
+int getProxProbeIdx(uint proxIdx, uint idx) {
+  uint val = (proxGrid.data[proxIdx * 2 + idx / 2] >> (16 * (idx % 2)) & PROX_MASK);
+  if ((val & PROX_MASK) == INVALID_PROX_IDX) { return -1; }
+  return int(val);
+}
+
+/********************************************* ATLAS READING FUNCTIONS *******************************************/
+float depthFromProbe(uint data) { return linearizeLogDepth(float(data & DEPTH_MASK) / DEPTH_MAX); }
+float depthFromSmallProbe(uint data) { return linearizeLogDepth(float(data) / DEPTH_MAX); }
+
+vec3 normalFromProbe(uint data) {
+  const float probeNormalEncoded1 =
+      float((data >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  const float probeNormalEncoded2 =
+      float((data >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+  return decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+}
+
+/********************************************* TRACING FUNCTIONS *******************************************/
+
+vec2 normalizeScreenCoords(vec2 screenCoord, vec2 resolution) {
+  vec2 result = 2.0 * (screenCoord / resolution.xy - 0.5);
+  result.x *= resolution.x / float(resolution.y);
+  return result;
+}
+
+/** Segments a ray into the piecewise-continuous rays or line segments that each lie within
+    one Euclidean octant, which correspond to piecewise-linear projections in octahedral space.
+        
+    \param boundaryT  all boundary distance ("time") values in units of world-space distance 
+      along the ray. In the (common) case where not all five elements are needed, the unused 
+      values are all equal to tMax, creating degenerate ray segments.
+
+    \param origin Ray origin in the Euclidean object space of the probe
+
+    \param directionFrac 1 / ray.direction
+ */
+void computeRaySegments(in vec3 origin, in vec3 directionFrac, in float tMin, in float tMax, out float boundaryTs[5]) {
+
+  boundaryTs[0] = tMin;
+
+  // Time values for intersection with x = 0, y = 0, and z = 0 planes, sorted
+  // in increasing order
+  vec3 t = origin * -directionFrac;
+  sort(t);
+
+  // Copy the values into the interval boundaries.
+  // This loop expands at compile time and eliminates the
+  // relative indexing, so it is just three conditional move operations
+  for (int i = 0; i < 3; ++i) { boundaryTs[i + 1] = clamp(t[i], tMin, tMax); }
+
+  boundaryTs[4] = tMax;
+}
+
+/** Returns the distance along v from the origin to the intersection 
+    with ray R (which it is assumed to intersect) */
+float distanceToIntersection(in Ray R, in vec3 v) {
+  float numer;
+  float denom = v.y * R.direction.z - v.z * R.direction.y;
+
+  if (abs(denom) > 0.1) {
+    numer = R.origin.y * R.direction.z - R.origin.z * R.direction.y;
+  } else {
+    // We're in the yz plane; use another one
+    numer = R.origin.x * R.direction.y - R.origin.y * R.direction.x;
+    denom = v.x * R.direction.y - v.y * R.direction.x;
+  }
+
+  return numer / denom;
+}
+
+TRACE_RESULT traceSegmentHighRes(in Ray probeSpaceRay, in vec2 startTexCoord, in vec2 endTexCoord,
+                                 in PROBE_INDEX probeIndex, inout float tMin, inout float tMax,
+                                 inout vec2 hitProbeTexCoord) {
+
+  vec2 texCoordDelta = endTexCoord - startTexCoord;
+  float texCoordDistance = length(texCoordDelta);
+  vec2 texCoordDirection = texCoordDelta * (1.0 / texCoordDistance);
+
+  float texCoordStep = INV_TEX_SIZE.x * (texCoordDistance / maxComponent(abs(texCoordDelta)));
+
+  vec3 directionFromProbeBefore = octDecode(startTexCoord * 2.0 - 1.0);
+  float distanceFromProbeToRayBefore = max(0.0, distanceToIntersection(probeSpaceRay, directionFromProbeBefore));
+
+  for (float d = 0.0f; d <= texCoordDistance; d += texCoordStep) {
+    vec2 texCoord = (texCoordDirection * min(d + texCoordStep * 0.5, texCoordDistance)) + startTexCoord;
+
+    uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
+    float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
+
+    float probeNormalEncoded1 =
+        float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    float probeNormalEncoded2 =
+        float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    vec3 normal = decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+
+    // Find the corresponding point in probe space. This defines a line through the
+    // probe origin
+    vec3 directionFromProbe = octDecode(texCoord * 2.0 - 1.0);
+
+    vec2 texCoordAfter = (texCoordDirection * min(d + texCoordStep, texCoordDistance)) + startTexCoord;
+    vec3 directionFromProbeAfter = octDecode(texCoordAfter * 2.0 - 1.0);
+    float distanceFromProbeToRayAfter = max(0.0, distanceToIntersection(probeSpaceRay, directionFromProbeAfter));
+    float maxDistFromProbeToRay = max(distanceFromProbeToRayBefore, distanceFromProbeToRayAfter);
+
+    if (maxDistFromProbeToRay >= distanceFromProbeToSurface) {
+      // At least a one-sided hit; see if the ray actually passed through the surface, or was behind it
+
+      float minDistFromProbeToRay = min(distanceFromProbeToRayBefore, distanceFromProbeToRayAfter);
+
+      // Find the 3D point *on the trace ray* that corresponds to the tex coord.
+      // This is the intersection of the ray out of the probe origin with the trace ray.
+      float distanceFromProbeToRay = (minDistFromProbeToRay + maxDistFromProbeToRay) * 0.5;
+
+      // Use probe information
+      vec3 probeSpaceHitPoint = distanceFromProbeToSurface * directionFromProbe;
+      float distAlongRay = dot(probeSpaceHitPoint - probeSpaceRay.origin, probeSpaceRay.direction);
+
+      // Only extrude towards and away from the view ray, not perpendicular to it
+      // Don't allow extrusion TOWARDS the viewer, only away
+      float surfaceThickness = minThickness
+          + (maxThickness - minThickness) *
+
+              // Alignment of probe and view ray
+              max(dot(probeSpaceRay.direction, directionFromProbe), 0.0) *
+
+              // Alignment of probe and normal (glancing surfaces are assumed to be thicker because they extend into the pixel)
+              (2 - abs(dot(probeSpaceRay.direction, normal))) *
+
+              // Scale with distance along the ray
+              clamp(distAlongRay * 0.1, 0.05, 1.0);
+
+      if ((minDistFromProbeToRay < distanceFromProbeToSurface + surfaceThickness)
+          /*&& (dot(normal, probeSpaceRay.direction) < 0)*/) {
+        // Two-sided hit
+        // Use the probe's measure of the point instead of the ray distance, since
+        // the probe is more accurate (floating point precision vs. ray march iteration/oct resolution)
+        tMax = distAlongRay;
+        hitProbeTexCoord = texCoord;
+
+        return TRACE_RESULT_HIT;
+      } else {
+        // "Unknown" case. The ray passed completely behind a surface. This should trigger moving to another
+        // probe and is distinguished from "I successfully traced to infinity"
+
+        // Back up conservatively so that we don't set tMin too large
+        vec3 probeSpaceHitPointBefore = distanceFromProbeToRayBefore * directionFromProbeBefore;
+        float distAlongRayBefore = dot(probeSpaceHitPointBefore - probeSpaceRay.origin, probeSpaceRay.direction);
+
+        // Max in order to disallow backing up along the ray (say if beginning of this texel is before tMin from probe switch)
+        // distAlongRayBefore in order to prevent overstepping
+        // min because sometimes distAlongRayBefore > distAlongRay
+        tMin = max(tMin, min(distAlongRay, distAlongRayBefore));
+
+        return TRACE_RESULT_UNKNOWN;
+      }
+    }
+    distanceFromProbeToRayBefore = distanceFromProbeToRayAfter;
+  }// ray march
+
+  return TRACE_RESULT_MISS;
+}
+
+bool traceSegmentLowRes(in Ray probeSpaceRay, in PROBE_INDEX probeIndex, inout vec2 texCoord,
+                        in vec2 segmentEndTexCoord, inout vec2 endHighResTexCoord) {
+
+  vec2 lowResSize = vec2(TEX_SIZE_SMALL);
+  vec2 lowResInvSize = vec2(INV_TEX_SIZE_SMALL);
+
+  // Convert the texels to pixel coordinates:
+  vec2 P0 = texCoord * lowResSize;
+  vec2 P1 = segmentEndTexCoord * lowResSize;
+
+  // If the line is degenerate, make it cover at least one pixel
+  // to avoid handling zero-pixel extent as a special case later
+  P1 += vec2((distanceSquared(P0, P1) < 0.0001) ? 0.01 : 0.0);
+  // In pixel coordinates
+  vec2 delta = P1 - P0;
+
+  // Permute so that the primary iteration is in x to reduce
+  // large branches later
+  bool permute = false;
+  if (abs(delta.x) < abs(delta.y)) {
+    // This is a more-vertical line
+    permute = true;
+    delta = delta.yx;
+    P0 = P0.yx;
+    P1 = P1.yx;
+  }
+
+  float stepDir = sign(delta.x);
+  float invdx = stepDir / delta.x;
+  vec2 dP = vec2(stepDir, delta.y * invdx);
+
+  vec3 initialDirectionFromProbe = octDecode(texCoord * 2.0 - 1.0);
+  float prevRadialDistMaxEstimate = max(0.0, distanceToIntersection(probeSpaceRay, initialDirectionFromProbe));
+  // Slide P from P0 to P1
+  float end = P1.x * stepDir;
+
+  float absInvdPY = 1.0 / abs(dP.y);
+
+  // Don't ever move farther from texCoord than this distance, in texture space,
+  // because you'll move past the end of the segment and into a different projection
+  float maxTexCoordDistance = lengthSquared(segmentEndTexCoord - texCoord);
+
+  for (vec2 P = P0; ((P.x * sign(delta.x)) <= end);) {
+
+    vec2 hitPixel = permute ? P.yx : P;
+
+    float sceneRadialDistMin =
+        depthFromSmallProbe(floatBitsToUint(imageLoad(probeImagesSmall, ivec3(hitPixel, probeIndex)).x));
+
+    // Distance along each axis to the edge of the low-res texel
+    vec2 intersectionPixelDistance = (sign(delta) * 0.5 + 0.5) - sign(delta) * fract(P);
+
+    // abs(dP.x) is 1.0, so we skip that division
+    // If we are parallel to the minor axis, the second parameter will be inf, which is fine
+    float rayDistanceToNextPixelEdge = min(intersectionPixelDistance.x, intersectionPixelDistance.y * absInvdPY);
+
+    // The exit coordinate for the ray (this may be *past* the end of the segment, but the
+    // callr will handle that)
+    endHighResTexCoord = (P + dP * rayDistanceToNextPixelEdge) * lowResInvSize;
+    endHighResTexCoord = permute ? endHighResTexCoord.yx : endHighResTexCoord;
+
+    if (lengthSquared(endHighResTexCoord - texCoord) > maxTexCoordDistance) {
+      // Clamp the ray to the segment, because if we cross a segment boundary in oct space
+      // then we bend the ray in probe and world space.
+      endHighResTexCoord = segmentEndTexCoord;
+    }
+
+    // Find the 3D point *on the trace ray* that corresponds to the tex coord.
+    // This is the intersection of the ray out of the probe origin with the trace ray.
+    vec3 directionFromProbe = octDecode(endHighResTexCoord * 2.0 - 1.0);
+    float distanceFromProbeToRay = max(0.0, distanceToIntersection(probeSpaceRay, directionFromProbe));
+
+    float maxRadialRayDistance = max(distanceFromProbeToRay, prevRadialDistMaxEstimate);
+    prevRadialDistMaxEstimate = distanceFromProbeToRay;
+
+    if (sceneRadialDistMin <= maxRadialRayDistance) {
+      // A conservative hit.
+      //
+      //  -  endHighResTexCoord is already where the ray would have LEFT the texel
+      //     that created the hit.
+      //
+      //  -  texCoord should be where the ray entered the texel
+      texCoord = (permute ? P.yx : P) * lowResInvSize;
+      return true;
+    }
+
+    // Ensure that we step just past the boundary, so that we're slightly inside the next
+    // texel, rather than at the boundary and randomly rounding one way or the other.
+    const float epsilon = 0.001;// pixels
+    P += dP * (rayDistanceToNextPixelEdge + epsilon);
+  }// for each pixel on ray
+
+  // If exited the loop, then we went *past* the end of the segment, so back up to it (in practice, this is ignored
+  // by the caller because it indicates a miss for the whole segment)
+  texCoord = segmentEndTexCoord;
+
+  return false;
+}
+
+TRACE_RESULT traceRaySegment(Ray probeSpaceRay, float t0, float t1, PROBE_INDEX probeIndex, inout float tMin,
+                             inout float tMax, inout vec2 hitCoord) {
+  vec3 probeSpaceStartPoint = probeSpaceRay.origin + probeSpaceRay.direction * (t0 + rayBumpEpsilon);
+  vec3 probeSpaceEndPoint = probeSpaceRay.origin + probeSpaceRay.direction * (t1 - rayBumpEpsilon);
+
+  // If the original ray origin is really close to the probe origin, then probeSpaceStartPoint will be close to zero
+  // and we get NaN when we normalize it. One common case where this can happen is when the camera is at the probe
+  // center. (The end point is also potentially problematic, but the chances of the end landing exactly on a probe
+  // are relatively low.) We only need the *direction* to the start point, and using probeSpaceRay.direction
+  // is safe in that case.
+  if (squaredLength(probeSpaceStartPoint) < 0.001) { probeSpaceStartPoint = probeSpaceRay.direction; }
+
+  vec2 startOctCoord = octEncode(normalize(probeSpaceStartPoint));
+  vec2 endOctCoord = octEncode(normalize(probeSpaceEndPoint));
+
+  vec2 texCoord = startOctCoord * 0.5 + 0.5;
+  vec2 segmentEndTexCoord = endOctCoord * 0.5 + 0.5;
+  while (true) {
+    vec2 endTexCoord;
+    vec2 originalStartCoord = texCoord;
+
+    if (!traceSegmentLowRes(probeSpaceRay, probeIndex, texCoord, segmentEndTexCoord, endTexCoord)) {
+      return TRACE_RESULT_MISS;
+    } else {
+      TRACE_RESULT traceResult =
+          traceSegmentHighRes(probeSpaceRay, texCoord, endTexCoord, probeIndex, tMin, tMax, hitCoord);
+      if (traceResult != TRACE_RESULT_MISS) { return traceResult; }
+      vec2 texCoordRayDirection = normalize(segmentEndTexCoord - texCoord);
+      if (dot(texCoordRayDirection, segmentEndTexCoord - endTexCoord) <= INV_TEX_SIZE.x) {
+        return TRACE_RESULT_MISS;
+      } else {
+        texCoord = endTexCoord + texCoordRayDirection * INV_TEX_SIZE.x * 0.1;
+      }
+    }
+    // }
+  }
+  return TRACE_RESULT_MISS;
+}
+
+TRACE_RESULT traceProbe(PROBE_INDEX probeIndex, Ray ray, inout float tMin, inout float tMax, inout vec2 hitCoord) {
+  vec3 probeOrigin = probeLocation(probeIndex);
+
+  Ray probeSpaceRay;
+  probeSpaceRay.origin = ray.origin - probeOrigin;
+  probeSpaceRay.direction = ray.direction;
+
+  float boundaryTs[5];
+  computeRaySegments(probeSpaceRay.origin, vec3(1.0) / probeSpaceRay.direction, tMin, tMax, boundaryTs);
+
+  for (int i = 0; i < 4; ++i) {
+    float t0 = boundaryTs[i];
+    float t1 = boundaryTs[i + 1];
+
+    TRACE_RESULT traceResult = traceRaySegment(probeSpaceRay, t0, t1, probeIndex, tMin, tMax, hitCoord);
+    if (traceResult == TRACE_RESULT_HIT) { return TRACE_RESULT_HIT; }
+    if (traceResult == TRACE_RESULT_UNKNOWN) { return TRACE_RESULT_UNKNOWN; }
+  }
+  return TRACE_RESULT_MISS;
+}
+
+bool isRayInsideCube(PROBE_INDEX index, vec3 origin) {
+  const vec3 bMin = probeLocation(index);
+  const vec3 bMax = bMin + grid.gridStep;
+  const vec3 p = origin;
+
+  return bMin.x <= p.x && bMin.y <= p.y && bMin.z <= p.z && bMax.x >= p.x && bMax.y >= p.y && bMax.z >= p.z;
+}
+
+bool traceProbeRay(Ray ray, out uint materialId, out vec3 normal, out float dist, bool fillHoles) {
+  vec3 probeCoords;
+  float tMin = 0;
+  float tMax = TMP_FAR;
+  vec2 hitCoord;
+  bool isUnknown = true;
+  PROBE_INDEX hitProbeIndex = -1;
+  bool isMiss = false;
+
+  uint currentProxIdx = nearestProxVoxelIndexFirst(ray);
+
+  PROBE_INDEX baseProbeIndex = 0;
+  PROBE_INDEX probeFromProx = getProxProbeIdx(currentProxIdx, 0);
+  INDEX_IN_PROBE_CUBE probeIndexInCube = 0;
+  if (probeFromProx != -1) {
+    baseProbeIndex = probeFromProx;
+  } else {
+    probeIndexInCube = nearestProbeIndices(ray.origin);
+  }
+
+  uint cubeCnt = 0;
+  uint proxCnt = 0;
+  while (true) {
+    PROBE_INDEX probeIndex = relativeProbeIndex(baseProbeIndex, probeIndexInCube);
+    TRACE_RESULT traceResult = traceProbe(probeIndex, ray, tMin, tMax, hitCoord);
+    if (traceResult != TRACE_RESULT_UNKNOWN) {
+      isMiss = traceResult == TRACE_RESULT_MISS;
+      if (traceResult == TRACE_RESULT_HIT) { hitProbeIndex = probeIndex; }
+      isUnknown = false;
+      break;
+    }
+    const vec3 tmpOrigin = ray.origin + ray.direction * tMin;
+
+    const uint currentlyNearestProxIdx = nearestProxVoxelIndex(tmpOrigin);
+
+    if (currentlyNearestProxIdx == currentProxIdx) {
+      if (++cubeCnt == 8) {
+        if (++proxCnt < 4) {
+          cubeCnt = 0;
+          probeFromProx = getProxProbeIdx(currentProxIdx, proxCnt);
+          if (probeFromProx != -1) {
+            baseProbeIndex = probeFromProx;
+            probeIndexInCube = 0;
+            continue;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+      probeIndexInCube = nextCycleIndex(probeIndexInCube);
+    } else {
+      cubeCnt = 0;
+      proxCnt = 0;
+      currentProxIdx = currentlyNearestProxIdx;
+      probeFromProx = getProxProbeIdx(currentProxIdx, proxCnt);
+      if (probeFromProx != -1) {
+        baseProbeIndex = probeFromProx;
+        probeIndexInCube = 0;
+      } else {
+        break;
+      }
+    }
+  }
+
+  if ((hitProbeIndex == -1) && !isMiss && fillHoles) {
+    vec3 ignore;
+
+    uint currentProxIdx = nearestProxVoxelIndex(ray.origin);
+    hitProbeIndex = getProxProbeIdx(currentProxIdx, 0);
+    if (hitProbeIndex == -1) { hitProbeIndex = nearestProbeIndex(ray.origin, ignore); }
+    hitCoord = octEncode(ray.direction) * 0.5 + 0.5;
+
+    float probeDistance =
+        depthFromProbe(floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, hitProbeIndex)).y));
+
+    if (probeDistance < 10000.0) {
+      vec3 hitLocation = probeLocation(hitProbeIndex) + ray.direction * probeDistance;
+      tMax = length(ray.origin - hitLocation);
+    }
+    dist = tMin;
+  }
+
+  if (hitProbeIndex != -1) {
+    //uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, hitProbeIndex)).x);
+    //color = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+    //             float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+    float savedMatBytes = imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, hitProbeIndex)).x;
+    materialId = floatBitsToUint(savedMatBytes);
+    uint savedDepthAndNormalBytes =
+        floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * hitCoord, hitProbeIndex)).y);
+
+    float probeNormalEncoded1 =
+        float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    float probeNormalEncoded2 =
+        float((savedDepthAndNormalBytes >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    normal = decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+  }
+  return hitProbeIndex != -1;
+}
+
+vec3 calcLight(vec3 color, vec3 pos, vec3 normal, vec3 lightDir, bool isInShadow) {
+  const vec3 LAmbient = light.ambientColor.xyz;
+  if (isInShadow) { return color * LAmbient; }
+
+  const float NoL = max(dot(normal, -lightDir), 0.0);
+  const vec3 LDirectional = light.diffuseColor.xyz * NoL;
+  const vec3 diffuse = (LDirectional + LAmbient);
+  const float specular = dot(normalize(light.pos.xyz - pos), reflect(normalize(pos - camera.pos.xyz), normal));
+  vec3 intensity = diffuse + light.specularColor.xyz * (0.25 * pow(clamp(specular, 0.0, 1.0), 200.0));
+  return color * intensity;
+}
+
+float rand(vec2 co) { return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453); }
+
+vec3 randOffset(vec2 co) {
+  return vec3(clamp(rand(co) / 1000, 0.0, 1.0), clamp(rand(co + 1) / 1000, 0.0, 1.0),
+              clamp(rand(co + 2) / 1000, 0.0, 1.0));
+}
+
+/**
+ * Generate a uniformly distributed random point on the unit-sphere.
+ * 
+ * After:
+ * http://mathworld.wolfram.com/SpherePointPicking.html
+ */
+vec3 randomSpherePoint(vec3 rand) {
+  float ang1 = (rand.x + 1.0) * PI;// [-1..1) -> [0..2*PI)
+  float u = rand.y;                // [-1..1), cos and acos(2v-1) cancel each other out, so we arrive at [-1..1)
+  float u2 = u * u;
+  float sqrt1MinusU2 = sqrt(1.0 - u2);
+  float x = sqrt1MinusU2 * cos(ang1);
+  float y = sqrt1MinusU2 * sin(ang1);
+  float z = u;
+  return vec3(x, y, z);
+}
+
+/**
+ * Generate a uniformly distributed random point on the unit-hemisphere
+ * around the given normal vector.
+ * 
+ * This function can be used to generate reflected rays for diffuse surfaces.
+ * Actually, this function can be used to sample reflected rays for ANY surface
+ * with an arbitrary BRDF correctly.
+ * This is because we always need to solve the integral over the hemisphere of
+ * a surface point by using numerical approximation using a sum of many
+ * sample directions.
+ * It is only with non-lambertian BRDF's that, in theory, we could sample them more
+ * efficiently, if we knew in which direction the BRDF reflects the most energy.
+ * This would be importance sampling, but care must be taken as to not over-estimate
+ * those surfaces, because then our sum for the integral would be greater than the
+ * integral itself. This is the inherent problem with importance sampling.
+ * 
+ * The points are uniform over the sphere and NOT over the projected disk
+ * of the sphere, so this function cannot be used when sampling a spherical
+ * light, where we need to sample the projected surface of the light (i.e. disk)!
+ */
+vec3 randomHemispherePoint(vec3 rand, vec3 n) {
+  /**
+   * Generate random sphere point and swap vector along the normal, if it
+   * points to the wrong of the two hemispheres.
+   * This method provides a uniform distribution over the hemisphere, 
+   * provided that the sphere distribution is also uniform.
+   */
+  vec3 v = randomSpherePoint(rand);
+  return v * sign(dot(v, n));
+}
+
+float drand48(vec2 co) { return 2 * fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453) - 1; }
+
+vec3 calcDiffuseIndirect(vec3 hitPoint, vec3 normal, float bounceLightAdd, vec3 seed) {
+  vec3 result = vec3(1, 1, 1);
+  uint cnt = 0;
+  const uint bounceLimit = 3;
+  float att = bounceLightAdd;
+  while (cnt++ < bounceLimit) {
+    const vec3 random = vec3(drand48(hitPoint.xy + seed.xy + cnt), drand48(hitPoint.yz + seed.yz + cnt),
+                             drand48(hitPoint.xz + seed.xz + cnt));
+    vec3 rayDir = randomHemispherePoint(random, normal);
+    float hitDist;
+    hitPoint = hitPoint + rayDir * 0.01;
+    uint hitMaterial;
+    if (traceProbeRay(Ray(hitPoint, rayDir), hitMaterial, normal, hitDist, true)) {
+      Material mat = materials.data[hitMaterial];
+      if (mat.type == MATERIAL_TYPE_EMIT) { return vec3(1, 0, 0); }
+      hitPoint = hitPoint + hitDist * rayDir;
+      result *= att;
+    } else {
+      break;
+    }
+  }
+  return result;
+}
+
+vec3 calcDiffuseIndirectN(vec3 hitPoint, vec3 normal, float bounceLightAdd, uint rayCnt) {
+  vec3 result = vec3(0, 0, 0);
+  for (uint i = 0; i < rayCnt; ++i) { result += calcDiffuseIndirect(hitPoint, normal, bounceLightAdd, vec3(i, i, i)); }
+  return result / rayCnt;
+}
+
 void main() {
   const uint idx = gl_GlobalInvocationID.x;
   const uint idy = gl_GlobalInvocationID.y;
@@ -62,5 +927,66 @@ void main() {
   if (idx >= dimensions.x || idy >= dimensions.y) { return; }
   const ivec2 threadTexCoords = ivec2(idx, idy);
 
-  imageStore(outputImage, threadTexCoords, vec4(readNormal(threadTexCoords) + 0.5f * 0.5f, 1));
+  const PosAndMatInfo posAndMatInfo = readPosAndMatInfo(threadTexCoords);
+
+  vec3 color = vec3(1, 1, 1);
+  if (posAndMatInfo.isHit) {
+    const vec3 normal = readNormal(threadTexCoords);
+    const Material material = materials.data[posAndMatInfo.materialId];
+
+    const vec3 lightDir = normalize(light.pos.xyz - posAndMatInfo.hitPos);
+    switch (material.type) {
+      case MATERIAL_TYPE_DIFFUSE: {
+        color = vec3(material.red, material.green, material.blue);
+        color *= calcDiffuseIndirectN(posAndMatInfo.hitPos, normal, 0.7, 8);
+        //color *= calcDiffuseIndirect(posAndMatInfo.hitPos, normal, 0.5, vec3(0));
+        //color = calcDiffuseSecondary(posAndMatInfo.hitPos, vec3(material.red, material.green, material.blue), normal);
+        //color = calcLight(vec3(material.red, material.green, material.blue), posAndMatInfo.hitPos, normal, lightDir,
+        //                  posAndMatInfo.isInShadow);
+        //const vec3 indirect = calculateIndirectLighting(posAndMatInfo.hitPos, normal, 128);
+        //color = (color + indirect) / PI;
+        break;
+      }
+      case MATERIAL_TYPE_GLASS: {
+        const float rougness = material.rougness;
+        const float indexOfRefraction = material.indexOfRefraction;
+        const float transparency = material.transparency;
+        color = calcLight(vec3(material.red, material.green, material.blue), posAndMatInfo.hitPos, normal, lightDir,
+                          posAndMatInfo.isInShadow);
+        break;
+      }
+      case MATERIAL_TYPE_METAL: {
+        const float rougness = material.rougness;
+        const float indexOfRefraction = material.indexOfRefraction;
+        const float metalness = material.metalness;
+
+        const vec3 hitRayDir = normalize(posAndMatInfo.hitPos - camera.pos.xyz);
+        const vec3 rayDir = reflect(hitRayDir, normal);
+        const vec3 rayStartPos = posAndMatInfo.hitPos + 0.01 * rayDir;
+        uint hitMaterial;
+        vec3 normal;
+        float hitDist;
+        const vec3 materialColor = vec3(material.red, material.green, material.blue);
+        if (!traceProbeRay(Ray(rayStartPos, rayDir), hitMaterial, normal, hitDist, true)) {
+          color = mix(materialColor, vec3(1, 1, 1), metalness);
+        } else {
+          Material reflMat = materials.data[hitMaterial];
+          vec3 reflColor = vec3(reflMat.red, reflMat.green, reflMat.blue);
+          color = mix(materialColor, reflColor, metalness);
+        }
+        //color = calcLight(vec3(material.red, material.green, material.blue), posAndMatInfo.hitPos, normal, lightDir,
+        //                  posAndMatInfo.isInShadow);
+        break;
+      }
+      case MATERIAL_TYPE_EMIT: {
+        const float ldr = material.lowDynamicRange;
+        const float emission = material.emission;
+        const float flux = material.flux;
+        color = calcLight(vec3(material.red, material.green, material.blue), posAndMatInfo.hitPos, normal, lightDir,
+                          posAndMatInfo.isInShadow);
+        break;
+      }
+    }
+  }
+  imageStore(outputImage, threadTexCoords, vec4(color, 1));
 }

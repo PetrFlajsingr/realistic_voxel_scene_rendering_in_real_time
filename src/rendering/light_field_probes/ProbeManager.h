@@ -28,6 +28,7 @@ class ProbeManager {
  public:
   constexpr static glm::ivec2 TEXTURE_SIZE{1024, 1024};
   constexpr static glm::ivec2 TEXTURE_SIZE_SMALL = TEXTURE_SIZE / 16;
+  constexpr static glm::ivec2 TEXTURE_SIZE_SMALLEST = TEXTURE_SIZE_SMALL / 4;
 
   ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, float gridStep, glm::ivec3 proxGridSize,
                const std::shared_ptr<vulkan::LogicalDevice> &logicalDevice);
@@ -42,6 +43,8 @@ class ProbeManager {
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageView() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImageSmall() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageViewSmall() const;
+  [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImageSmallest() const;
+  [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageViewSmallest() const;
 
   [[nodiscard]] cppcoro::generator<glm::vec3> getProbePositions() const;
 
@@ -54,8 +57,10 @@ class ProbeManager {
 
   std::shared_ptr<vulkan::Image> probesImage;
   std::shared_ptr<vulkan::Image> probesImageSmall;
+  std::shared_ptr<vulkan::Image> probesImageSmallest;
   std::shared_ptr<vulkan::ImageView> probesImageView;
   std::shared_ptr<vulkan::ImageView> probesImageViewSmall;
+  std::shared_ptr<vulkan::ImageView> probesImageViewSmallest;
 };
 }// namespace pf::lfp
 #endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEMANAGER_H

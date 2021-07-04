@@ -136,7 +136,7 @@ std::unordered_set<std::string> MainRenderer::getValidationLayers() {
 
 void MainRenderer::buildVulkanObjects() {
   createBuffers();
-  probeRenderer = std::make_unique<lfp::ProbeRenderer>(
+  probeRenderer = std::make_unique<lfp::ProbeMatRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
       materialBuffer,
       std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{64, 64, 64},
@@ -243,6 +243,11 @@ void MainRenderer::render() {
   const auto frameIndex = vkSwapChain->getCurrentFrameIndex();
 
   auto probeSample = mainSample.blockSampler("probes");
+  auto probeSemaphore = std::optional<std::shared_ptr<Semaphore>>{};
+  if (renderProbes) {
+    renderProbes = false;
+    probeSemaphore = probeRenderer->renderProbeTextures();
+  }
   //auto probeSemaphore = probeRenderer->render();
   probeSample.end();
 
@@ -251,14 +256,23 @@ void MainRenderer::render() {
   gbufferSample.end();
 
   auto computeSample = mainSample.blockSampler("compute");
-  vkCommandBuffers[commandBufferIndex]->submit(
-      {.waitSemaphores = {semaphore, *gbufferSemaphore /*, *probeSemaphore*/},
-       .signalSemaphores = {*computeSemaphore},
-       .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput,
-                 vk::PipelineStageFlagBits::eComputeShader /*, vk::PipelineStageFlagBits::eComputeShader*/},
-       .fence = fence,
-       .wait = true});
-
+  if (probeSemaphore.has_value()) {
+    vkCommandBuffers[commandBufferIndex]->submit(
+        {.waitSemaphores = {semaphore, *gbufferSemaphore, **probeSemaphore},
+         .signalSemaphores = {*computeSemaphore},
+         .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput, vk::PipelineStageFlagBits::eComputeShader,
+                   vk::PipelineStageFlagBits::eComputeShader},
+         .fence = fence,
+         .wait = true});
+  } else {
+    vkCommandBuffers[commandBufferIndex]->submit(
+        {.waitSemaphores = {semaphore, *gbufferSemaphore /*, *probeSemaphore*/},
+         .signalSemaphores = {*computeSemaphore},
+         .flags = {vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                   vk::PipelineStageFlagBits::eComputeShader /*, vk::PipelineStageFlagBits::eComputeShader*/},
+         .fence = fence,
+         .wait = true});
+  }
   fence.reset();
   computeSample.end();
 
@@ -340,9 +354,17 @@ void MainRenderer::createDescriptorPools() {
   vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                                       .maxSets = 1,
                                                       .poolSizes = {
-                                                          {vk::DescriptorType::eStorageImage, 1},// pos and material
-                                                          {vk::DescriptorType::eStorageImage, 1},// normals
-                                                          {vk::DescriptorType::eStorageImage, 1},// output
+                                                          {vk::DescriptorType::eStorageImage, 1}, // pos and material
+                                                          {vk::DescriptorType::eStorageImage, 1}, // normals
+                                                          {vk::DescriptorType::eStorageImage, 1}, // output
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// materials
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// light
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// camera
+                                                          {vk::DescriptorType::eStorageImage, 1}, // probe images
+                                                          {vk::DescriptorType::eStorageImage, 1}, // probe images small
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// prox grid data
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// prox grid info
+                                                          {vk::DescriptorType::eUniformBuffer, 1},// probe grid info
                                                       }});
 }
 
@@ -362,6 +384,38 @@ void MainRenderer::createPipeline() {
             .type = vk::DescriptorType::eStorageImage,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// output
+           {.binding = 3,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// materials
+           {.binding = 4,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// light
+           {.binding = 5,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// camera
+           {.binding = 6,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe images
+           {.binding = 7,
+            .type = vk::DescriptorType::eStorageImage,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe images small
+           {.binding = 8,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// prox grid
+           {.binding = 9,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// prox grid info
+           {.binding = 10,
+            .type = vk::DescriptorType::eUniformBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe grid info
        }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -404,7 +458,89 @@ void MainRenderer::createPipeline() {
                                                   .descriptorType = vk::DescriptorType::eStorageImage,
                                                   .pImageInfo = &outputInfo};
 
-  const auto writeSets = std::vector{posAndMaterialWrite, normalWrite, outputWrite};
+  const auto materialsInfo =
+      vk::DescriptorBufferInfo{.buffer = **materialBuffer, .offset = 0, .range = materialBuffer->getSize()};
+  const auto materialsWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                     .dstBinding = 3,
+                                                     .dstArrayElement = {},
+                                                     .descriptorCount = 1,
+                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                     .pBufferInfo = &materialsInfo};
+
+  const auto lightPosInfo =
+      vk::DescriptorBufferInfo{.buffer = **lightUniformBuffer, .offset = 0, .range = lightUniformBuffer->getSize()};
+  const auto lightPosWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                    .dstBinding = 4,
+                                                    .dstArrayElement = {},
+                                                    .descriptorCount = 1,
+                                                    .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                    .pBufferInfo = &lightPosInfo};
+
+  const auto uniformCameraInfo =
+      vk::DescriptorBufferInfo{.buffer = **cameraUniformBuffer, .offset = 0, .range = cameraUniformBuffer->getSize()};
+  const auto uniformCameraWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                         .dstBinding = 5,
+                                                         .dstArrayElement = {},
+                                                         .descriptorCount = 1,
+                                                         .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                         .pBufferInfo = &uniformCameraInfo};
+
+  const auto computeProbesInfo =
+      vk::DescriptorImageInfo{.sampler = {},
+                              .imageView = **probeRenderer->getProbeManager().getProbesImageView(),
+                              .imageLayout = vk::ImageLayout::eGeneral};
+  const auto computeProbesWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                         .dstBinding = 6,
+                                                         .dstArrayElement = {},
+                                                         .descriptorCount = 1,
+                                                         .descriptorType = vk::DescriptorType::eStorageImage,
+                                                         .pImageInfo = &computeProbesInfo};
+
+  const auto computeSmallProbesInfo =
+      vk::DescriptorImageInfo{.sampler = {},
+                              .imageView = **probeRenderer->getProbeManager().getProbesImageViewSmall(),
+                              .imageLayout = vk::ImageLayout::eGeneral};
+  const auto computeSmallProbesWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                              .dstBinding = 7,
+                                                              .dstArrayElement = {},
+                                                              .descriptorCount = 1,
+                                                              .descriptorType = vk::DescriptorType::eStorageImage,
+                                                              .pImageInfo = &computeSmallProbesInfo};
+
+  const auto proxGridInfo = vk::DescriptorBufferInfo{.buffer = **probeRenderer->getProximityBuffer(),
+                                                     .offset = 0,
+                                                     .range = probeRenderer->getProximityBuffer()->getSize()};
+  const auto proxGridWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                    .dstBinding = 8,
+                                                    .dstArrayElement = {},
+                                                    .descriptorCount = 1,
+                                                    .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                    .pBufferInfo = &proxGridInfo};
+
+  const auto proxGridInfoInfo = vk::DescriptorBufferInfo{.buffer = **probeRenderer->getProximityInfoBuffer(),
+                                                         .offset = 0,
+                                                         .range = probeRenderer->getProximityInfoBuffer()->getSize()};
+  const auto proxGridInfoWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                        .dstBinding = 9,
+                                                        .dstArrayElement = {},
+                                                        .descriptorCount = 1,
+                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                        .pBufferInfo = &proxGridInfoInfo};
+
+  const auto gridInfoInfo = vk::DescriptorBufferInfo{.buffer = **probeRenderer->getGridInfoBuffer(),
+                                                     .offset = 0,
+                                                     .range = probeRenderer->getGridInfoBuffer()->getSize()};
+  const auto gridInfoWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                    .dstBinding = 10,
+                                                    .dstArrayElement = {},
+                                                    .descriptorCount = 1,
+                                                    .descriptorType = vk::DescriptorType::eUniformBuffer,
+                                                    .pBufferInfo = &gridInfoInfo};
+
+  const auto writeSets =
+      std::vector{posAndMaterialWrite, normalWrite,        outputWrite,        materialsWrite,
+                  lightPosWrite,       uniformCameraWrite, computeProbesWrite, computeSmallProbesWrite,
+                  proxGridWrite,       proxGridInfoWrite,  gridInfoWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -938,6 +1074,8 @@ void MainRenderer::initUI() {
         },
         [] {}, Size{500, 400}, *config.get()["resources"]["path_models"].value<std::string>());
   });
+
+  ui->renderProbesButton.addClickListener([this] { renderProbes = true; });
 
   ui->imgui->setStateFromConfig();
 }

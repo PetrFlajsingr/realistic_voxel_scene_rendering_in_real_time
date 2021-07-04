@@ -86,6 +86,7 @@ class MainUI {
         ui::ig::ColorEdit<glm::vec3> &diffuseColPicker;
         ui::ig::ColorEdit<glm::vec3> &specularColPicker;
   ui::ig::Window &debugWindow;
+    ui::ig::Button &renderProbesButton;
     ui::ig::TabBar &debugTabBar;
       ui::ig::Tab &logTab;
         ui::ig::Memo &logMemo;

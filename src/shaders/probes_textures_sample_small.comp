@@ -26,18 +26,15 @@ const uint DEPTH_MASK = 0xFFFF;
 
 layout(binding = 0, rg32f) uniform image2DArray probeImages;
 layout(binding = 1, r32f) uniform image2DArray probeImagesSmall;
+//layout(binding = 2, r32f) uniform image2DArray probeImagesSmallest;
 
 /********************************************* UTIL FUNCTIONS *******************************************/
 
 uint depthFromProbe(uint data) { return data & DEPTH_MASK; }
 
-void main() {
+void writeToSmall() {
   const ivec3 probeTextureSize = imageSize(probeImages);
   const ivec3 probeTextureSmallSize = imageSize(probeImagesSmall);
-  if (gl_GlobalInvocationID.x > probeTextureSmallSize.x || gl_GlobalInvocationID.y > probeTextureSmallSize.y
-      || gl_GlobalInvocationID.z > probeTextureSmallSize.z) {
-    return;
-  }
   const ivec2 factor = probeTextureSize.xy / probeTextureSmallSize.xy;
   const uint probeIndex = gl_GlobalInvocationID.z;
   const ivec2 startCoord = ivec2(gl_GlobalInvocationID.xy) * factor;
@@ -52,4 +49,39 @@ void main() {
   }
   imageStore(probeImagesSmall, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeIndex),
              vec4(uintBitsToFloat(minDepth), 0, 0, 1));
+}
+
+/*void writeToSmallest() {
+  const ivec3 probeTextureSmallSize = imageSize(probeImagesSmall);
+  const ivec3 probeTextureSmallestSize = imageSize(probeImagesSmallest);
+  const ivec2 factor = probeTextureSmallSize.xy / probeTextureSmallestSize.xy;
+  const uint probeIndex = gl_GlobalInvocationID.z;
+  const ivec2 startCoord = ivec2(gl_GlobalInvocationID.xy) * factor;
+  uint minDepth = INF;
+  for (int y = 0; y < factor.y; ++y) {
+    for (int x = 0; x < factor.x; ++x) {
+      const ivec2 coord = startCoord + ivec2(x, y);
+      const uint probeDataDepthNormal = floatBitsToUint(imageLoad(probeImagesSmall, ivec3(coord, probeIndex)).x);
+      const uint probeDepth = depthFromProbe(probeDataDepthNormal);
+      minDepth = min(probeDepth, minDepth);
+    }
+  }
+  imageStore(probeImagesSmallest, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeIndex),
+             vec4(uintBitsToFloat(minDepth), 0, 0, 1));
+}*/
+
+void main() {
+  const ivec3 probeTextureSize = imageSize(probeImages);
+  const ivec3 probeTextureSmallSize = imageSize(probeImagesSmall);
+  const ivec3 probeTextureSmallestSize = imageSize(probeImagesSmall);
+  if (gl_GlobalInvocationID.x > probeTextureSmallSize.x || gl_GlobalInvocationID.y > probeTextureSmallSize.y
+      || gl_GlobalInvocationID.z > probeTextureSmallSize.z) {
+    return;
+  }
+  writeToSmall();
+  /*if (gl_GlobalInvocationID.x > probeTextureSmallestSize.x || gl_GlobalInvocationID.y > probeTextureSmallestSize.y
+      || gl_GlobalInvocationID.z > probeTextureSmallestSize.z) {
+    return;
+  }
+  writeToSmallest();*/
 }

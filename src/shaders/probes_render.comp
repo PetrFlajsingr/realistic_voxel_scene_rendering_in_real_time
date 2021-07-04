@@ -45,9 +45,11 @@ const float minProgressDistance = 0.01;
 
 const vec2 TEX_SIZE = vec2(1024.0);
 const vec2 TEX_SIZE_SMALL = vec2(64.0);
+const vec2 TEX_SIZE_SMALLEST = vec2(16.0);
 
 const vec2 INV_TEX_SIZE = vec2(1.0) / TEX_SIZE;
 const vec2 INV_TEX_SIZE_SMALL = vec2(1.0) / TEX_SIZE_SMALL;
+const vec2 INV_TEX_SIZE_SMALLEST = vec2(1.0) / TEX_SIZE_SMALLEST;
 
 const uint MASK11 = 0x7FF;
 const uint MASK10 = 0x3FF;
@@ -114,7 +116,7 @@ layout(binding = 1, std140) uniform Grid {
 grid;
 
 layout(binding = 2, rg32f) uniform image2DArray probeImages;
-layout(binding = 3, r16) uniform image2DArray probeImagesSmall;
+layout(binding = 3, r32f) uniform image2DArray probeImagesSmall;
 layout(binding = 4, rgba8) uniform image2D debugProbeImage;
 
 layout(binding = 5) uniform UniformCamera {
@@ -139,6 +141,7 @@ layout(binding = 7) uniform ProxGridInfo {
   vec4 gridStep;
 }
 proxGridInfo;
+//layout(binding = 8, r32f) uniform image2DArray probeImagesSmallest;
 
 /********************************************* UTIL FUNCTIONS *******************************************/
 
@@ -350,9 +353,6 @@ vec3 decodeNormal(vec2 f) {
   return normalize(n);
 }
 
-//float depthFromProbe(uint data) { return (float(data & DEPTH_MASK) / DEPTH_MAX) * TMP_FAR; }
-//float depthFromSmallProbe(uint data) { return float(data) / DEPTH_MAX * TMP_FAR; }
-
 float depthFromProbe(uint data) { return linearizeLogDepth(float(data & DEPTH_MASK) / DEPTH_MAX); }
 float depthFromSmallProbe(uint data) { return linearizeLogDepth(float(data) / DEPTH_MAX); }
 
@@ -508,9 +508,112 @@ TRACE_RESULT traceSegmentHighRes(in Ray probeSpaceRay, in vec2 startTexCoord, in
 
   return TRACE_RESULT_MISS;
 }
+/*
+bool traceSegmentExtraLowRes(in Ray probeSpaceRay, in PROBE_INDEX probeIndex, inout vec2 texCoord,
+                             in vec2 segmentEndTexCoord, inout vec2 endHighResTexCoord) {
 
+  vec2 lowResSize = vec2(TEX_SIZE_SMALLEST);
+  vec2 lowResInvSize = vec2(INV_TEX_SIZE_SMALLEST);
+
+  // Convert the texels to pixel coordinates:
+  vec2 P0 = texCoord * lowResSize;
+  vec2 P1 = segmentEndTexCoord * lowResSize;
+
+  // If the line is degenerate, make it cover at least one pixel
+  // to avoid handling zero-pixel extent as a special case later
+  P1 += vec2((distanceSquared(P0, P1) < 0.0001) ? 0.01 : 0.0);
+  // In pixel coordinates
+  vec2 delta = P1 - P0;
+
+  // Permute so that the primary iteration is in x to reduce
+  // large branches later
+  bool permute = false;
+  if (abs(delta.x) < abs(delta.y)) {
+    // This is a more-vertical line
+    permute = true;
+    delta = delta.yx;
+    P0 = P0.yx;
+    P1 = P1.yx;
+  }
+
+  float stepDir = sign(delta.x);
+  float invdx = stepDir / delta.x;
+  vec2 dP = vec2(stepDir, delta.y * invdx);
+
+  vec3 initialDirectionFromProbe = octDecode(texCoord * 2.0 - 1.0);
+  float prevRadialDistMaxEstimate = max(0.0, distanceToIntersection(probeSpaceRay, initialDirectionFromProbe));
+  // Slide P from P0 to P1
+  float end = P1.x * stepDir;
+
+  float absInvdPY = 1.0 / abs(dP.y);
+
+  // Don't ever move farther from texCoord than this distance, in texture space,
+  // because you'll move past the end of the segment and into a different projection
+  float maxTexCoordDistance = lengthSquared(segmentEndTexCoord - texCoord);
+
+  for (vec2 P = P0; ((P.x * sign(delta.x)) <= end);) {
+
+    vec2 hitPixel = permute ? P.yx : P;
+
+    float sceneRadialDistMin =
+        depthFromSmallProbe(floatBitsToUint(imageLoad(probeImagesSmallest, ivec3(hitPixel, probeIndex)).x));
+
+    // Distance along each axis to the edge of the low-res texel
+    vec2 intersectionPixelDistance = (sign(delta) * 0.5 + 0.5) - sign(delta) * fract(P);
+
+    // abs(dP.x) is 1.0, so we skip that division
+    // If we are parallel to the minor axis, the second parameter will be inf, which is fine
+    float rayDistanceToNextPixelEdge = min(intersectionPixelDistance.x, intersectionPixelDistance.y * absInvdPY);
+
+    // The exit coordinate for the ray (this may be *past* the end of the segment, but the
+    // callr will handle that)
+    endHighResTexCoord = (P + dP * rayDistanceToNextPixelEdge) * lowResInvSize;
+    endHighResTexCoord = permute ? endHighResTexCoord.yx : endHighResTexCoord;
+
+    if (lengthSquared(endHighResTexCoord - texCoord) > maxTexCoordDistance) {
+      // Clamp the ray to the segment, because if we cross a segment boundary in oct space
+      // then we bend the ray in probe and world space.
+      endHighResTexCoord = segmentEndTexCoord;
+    }
+
+    // Find the 3D point *on the trace ray* that corresponds to the tex coord.
+    // This is the intersection of the ray out of the probe origin with the trace ray.
+    vec3 directionFromProbe = octDecode(endHighResTexCoord * 2.0 - 1.0);
+    float distanceFromProbeToRay = max(0.0, distanceToIntersection(probeSpaceRay, directionFromProbe));
+
+    float maxRadialRayDistance = max(distanceFromProbeToRay, prevRadialDistMaxEstimate);
+    prevRadialDistMaxEstimate = distanceFromProbeToRay;
+
+    if (sceneRadialDistMin <= maxRadialRayDistance) {
+      // A conservative hit.
+      //
+      //  -  endHighResTexCoord is already where the ray would have LEFT the texel
+      //     that created the hit.
+      //
+      //  -  texCoord should be where the ray entered the texel
+      texCoord = (permute ? P.yx : P) * lowResInvSize;
+      return true;
+    }
+
+    // Ensure that we step just past the boundary, so that we're slightly inside the next
+    // texel, rather than at the boundary and randomly rounding one way or the other.
+    const float epsilon = 0.001;// pixels
+    P += dP * (rayDistanceToNextPixelEdge + epsilon);
+  }// for each pixel on ray
+
+  // If exited the loop, then we went *past* the end of the segment, so back up to it (in practice, this is ignored
+  // by the caller because it indicates a miss for the whole segment)
+  texCoord = segmentEndTexCoord;
+
+  return false;
+}
+*/
 bool traceSegmentLowRes(in Ray probeSpaceRay, in PROBE_INDEX probeIndex, inout vec2 texCoord,
                         in vec2 segmentEndTexCoord, inout vec2 endHighResTexCoord) {
+
+  /* if (!traceSegmentExtraLowRes(probeSpaceRay, probeIndex, texCoord, segmentEndTexCoord, endHighResTexCoord)) {
+    return false;
+  }*/
 
   vec2 lowResSize = vec2(TEX_SIZE_SMALL);
   vec2 lowResInvSize = vec2(INV_TEX_SIZE_SMALL);
@@ -676,7 +779,7 @@ bool isRayInsideCube(PROBE_INDEX index, vec3 origin) {
   return bMin.x <= p.x && bMin.y <= p.y && bMin.z <= p.z && bMax.x >= p.x && bMax.y >= p.y && bMax.z >= p.z;
 }
 
-void test() {
+void render() {
 
   ivec2 dimensions = imageSize(debugProbeImage);
   Ray worldSpaceRay;
@@ -732,6 +835,8 @@ void test() {
             probeFromProx = getProxProbeIdx(currentProxIdx, proxCnt);
             if (probeFromProx != -1) {
               baseProbeIndex = probeFromProx;
+              probeIndexInCube = 0;
+              continue;
             } else {
               break;
             }
@@ -810,7 +915,7 @@ void main() {
   if (debug.probeVisualType == PROBE_VISUAL_TYPE_DISABLED) { return; }
 
   if (debug.probeVisualType == PROBE_VISUAL_TYPE_CAMERA_VIEW) {
-    test();
+    render();
     return;
   }
 

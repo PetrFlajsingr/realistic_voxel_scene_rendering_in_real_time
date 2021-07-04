@@ -7,9 +7,8 @@
 
 #include "VulkanDebugCallbackImpl.h"
 #include "enums.h"
-#include "light_field_probes/ProbeRenderer.h"
+#include "light_field_probes/ProbeMatRenderer.h"
 #include "logging/loggers.h"
-//#include "ui/ImGuiGlfwVulkan.h"
 #include "utils/common_enums.h"
 #include <RunInfo.h>
 #include <chaiscript/chaiscript.hpp>
@@ -143,7 +142,9 @@ class MainRenderer : public VulkanDebugCallbackImpl {
   std::unique_ptr<vox::GPUModelManager> modelManager;
 
   std::unique_ptr<GBufferRenderer> gbufferRenderer;
-  std::unique_ptr<lfp::ProbeRenderer> probeRenderer;
+  std::unique_ptr<lfp::ProbeMatRenderer> probeRenderer;
+
+  bool renderProbes = false;
 };
 
 }// namespace pf

@@ -229,6 +229,7 @@ set(SOURCES
         src/voxel/TeardownMaps.cpp
         src/rendering/light_field_probes/ProbeRenderer.cpp
         src/rendering/light_field_probes/ProbeManager.cpp
+        src/rendering/light_field_probes/ProbeMatRenderer.cpp
         ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/ImGuiGlfwVulkanInterface.cpp
         ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/impl/imgui_impl_glfw.cpp
         ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/impl/imgui_impl_vulkan.cpp
@@ -268,6 +269,7 @@ set(INCLUDES
         src/rendering/light_field_probes/ProbeGenerator.h
         src/rendering/light_field_probes/GridProbeGenerator.h
         src/rendering/light_field_probes/ProbeRenderer.h
+        src/rendering/light_field_probes/ProbeMatRenderer.h
         src/rendering/light_field_probes/ProbeManager.h
         )
 
@@ -309,3 +311,8 @@ if (MEASURE_BUILD_TIME)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
 endif ()
 
+
+
+file(GLOB SPECIAL_SRC_FILES
+        "${spirvtools_SOURCE_DIR}/source/.*")
+set_property(SOURCE ${SPECIAL_SRC_FILES} PROPERTY COMPILE_FLAGS -Wno-error=switch)

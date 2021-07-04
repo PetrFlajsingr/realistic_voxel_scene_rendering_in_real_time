@@ -391,8 +391,6 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) 
     if (iter > MAX_RAYCAST_ITERATIONS) break;
 
     // Fetch child descriptor unless it is already valid.
-
-    //if (child_descriptor.childData == 0)
     if (fetch) {
       child_descriptor.data1 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
       child_descriptor.data2 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + 1];

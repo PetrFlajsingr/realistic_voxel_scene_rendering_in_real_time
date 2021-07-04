@@ -52,6 +52,7 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
       specularColPicker(phongParamLayout.createChild<ColorEdit<glm::vec3>>("picker_light_specular", "Specular",
                                                                            glm::vec3{0.9f}, Persistent::Yes)),
       debugWindow(imgui->createWindow("debug_window", "Debug")),
+      renderProbesButton(debugWindow.createChild<Button>("render_probes_button", "Render probes")),
       debugTabBar(debugWindow.createChild<TabBar>("debug_tabbar")), logTab(debugTabBar.addTab("log_tab", "Log")),
       logMemo(logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100)),
       logErrMemo(logTab.createChild<Memo>("log_err_output", "Log: err", 100, true, true, 100)),

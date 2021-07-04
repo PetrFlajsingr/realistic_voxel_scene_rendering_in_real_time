@@ -45,6 +45,21 @@ ProbeManager::ProbeManager(ProbeCount probeCount, const glm::vec3 &gridStart, fl
   probesImageViewSmall = probesImageSmall->createImageView(
       vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2DArray,
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, getTotalProbeCount()});
+  probesImageSmallest = logicalDevice->createImage(
+      {.imageType = vk::ImageType::e2D,
+       .format = vk::Format::eR32Sfloat,
+       .extent = vk::Extent3D{.width = TEXTURE_SIZE_SMALL.x, .height = TEXTURE_SIZE_SMALLEST.y, .depth = 1},
+       .mipLevels = 1,
+       .arrayLayers = getTotalProbeCount(),
+       .sampleCount = vk::SampleCountFlagBits::e1,
+       .tiling = vk::ImageTiling::eOptimal,
+       .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
+           | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+       .sharingQueues = {},
+       .layout = vk::ImageLayout::eUndefined});
+  probesImageViewSmallest = probesImageSmallest->createImageView(
+      vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2DArray,
+      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, getTotalProbeCount()});
 }
 
 uint32_t ProbeManager::getTotalProbeCount() const { return probeCount.x * probeCount.y * probeCount.z; }
@@ -71,6 +86,10 @@ cppcoro::generator<glm::vec3> ProbeManager::getProbePositions() const {
 }
 const glm::ivec3 &ProbeManager::getProximityGridSize() const { return proximityGridSize; }
 const glm::vec3 &ProbeManager::getProximityGridStep() const { return proximityGridStep; }
+const std::shared_ptr<vulkan::Image> &ProbeManager::getProbesImageSmallest() const { return probesImageSmallest; }
+const std::shared_ptr<vulkan::ImageView> &ProbeManager::getProbesImageViewSmallest() const {
+  return probesImageViewSmallest;
+}
 
 ProbeCount::operator glm::ivec3() const { return value; }
 }// namespace pf::lfp

@@ -2,13 +2,13 @@
 // Created by petr on 6/19/21.
 //
 
-#include "ProbeRenderer.h"
+#include "ProbeMatRenderer.h"
 
 #include <utility>
 
 namespace pf::lfp {
 
-ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
+ProbeMatRenderer::ProbeMatRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
                              std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
                              std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
                              std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
@@ -31,7 +31,6 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
                                      .queueFamilyIndices = {}});
 
   createProbeGenDescriptorPool();
-  createTextures();
   createProbeGenPipeline();
   createProbeGenCommands();
   createFences();
@@ -47,11 +46,7 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
   createProximityCommands();
   recordProximityCommands();
 
-  createRenderDescriptorPool();
-  createRenderPipeline();
-  createRenderCommands();
   createFences();
-  recordRenderCommands();
 
   auto gridInfoMapping = gridInfoBuffer->mapping();
   gridInfoMapping.set(glm::ivec4{probeManager->getProbeCount(), 0});
@@ -62,42 +57,9 @@ ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instanc
   proxGridInfoMapping.set(glm::ivec4{probeManager->getProximityGridSize(), 0});
   proxGridInfoMapping.set(glm::vec4{probeManager->getProximityGridStep(), 0}, 1);
 
-  setProbeToRender(0);
-  setFillHoles(false);
 }
 
-void ProbeRenderer::createTextures() {
-  using namespace vulkan;
-  vkProbesDebugImage =
-      vkLogicalDevice->createImage({.imageType = vk::ImageType::e2D,
-                                    .format = vk::Format::eB8G8R8A8Unorm,
-                                    .extent = vk::Extent3D{.width = 1024, .height = 1024, .depth = 1},
-                                    .mipLevels = 1,
-                                    .arrayLayers = 1,
-                                    .sampleCount = vk::SampleCountFlagBits::e1,
-                                    .tiling = vk::ImageTiling::eOptimal,
-                                    .usage = vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc
-                                        | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-                                    .sharingQueues = {},
-                                    .layout = vk::ImageLayout::eUndefined});
-  vkProbesDebugImageView =
-      vkProbesDebugImage->createImageView(vk::ColorSpaceKHR::eSrgbNonlinear, vk::ImageViewType::e2D,
-                                          vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-  vkProbesDebugImageSampler = TextureSampler::CreateShared(
-      vkLogicalDevice,
-      TextureSamplerConfig{.magFilter = vk::Filter::eLinear,
-                           .minFilter = vk::Filter::eLinear,
-                           .addressMode = {.u = vk::SamplerAddressMode::eClampToBorder,
-                                           .v = vk::SamplerAddressMode::eClampToBorder,
-                                           .w = vk::SamplerAddressMode::eClampToBorder},
-                           .maxAnisotropy = std::nullopt,
-                           .borderColor = vk::BorderColor::eFloatOpaqueBlack,
-                           .unnormalizedCoordinates = false,
-                           .compareOp = std::nullopt,
-                           .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
-}
-
-void ProbeRenderer::createProbeGenDescriptorPool() {
+void ProbeMatRenderer::createProbeGenDescriptorPool() {
   probeGenData.vkDescPool =
       vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                              .maxSets = 1,
@@ -111,7 +73,7 @@ void ProbeRenderer::createProbeGenDescriptorPool() {
                                                  {vk::DescriptorType::eStorageBuffer, 1},// materials
                                              }});
 }
-void ProbeRenderer::createProbeGenPipeline() {
+void ProbeMatRenderer::createProbeGenPipeline() {
   using namespace vulkan;
   using namespace byte_literals;
   probeGenData.vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
@@ -241,7 +203,7 @@ void ProbeRenderer::createProbeGenPipeline() {
       .name = "light_field_probes",
       .type = ShaderType::Compute,
       .path =
-      (std::filesystem::path(*config["resources"]["path_shaders"].value<std::string>()) /= "probes_textures.comp")
+      (std::filesystem::path(*config["resources"]["path_shaders"].value<std::string>()) /= "probes_textures_mat.comp")
           .string(),
       .macros = {}/*,
         .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(computeLocalSize.first)},
@@ -254,7 +216,7 @@ void ProbeRenderer::createProbeGenPipeline() {
   probeGenData.vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
-void ProbeRenderer::createProbeGenCommands() {
+void ProbeMatRenderer::createProbeGenCommands() {
   probeGenData.vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
@@ -265,25 +227,18 @@ void ProbeRenderer::createProbeGenCommands() {
   probeGenData.vkCommandBuffer =
       probeGenData.vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1})[0];
 }
-void ProbeRenderer::createFences() {
+void ProbeMatRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   probeGenData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
   smallProbeGenData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
   proximityGridData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
-  renderData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
-}
-const std::shared_ptr<vulkan::Image> &ProbeRenderer::getProbesDebugImage() const { return vkProbesDebugImage; }
-const std::shared_ptr<vulkan::ImageView> &ProbeRenderer::getProbesDebugImageView() const {
-  return vkProbesDebugImageView;
-}
-const std::shared_ptr<vulkan::TextureSampler> &ProbeRenderer::getProbesDebugSampler() const {
-  return vkProbesDebugImageSampler;
 }
 
-const std::shared_ptr<vulkan::Buffer> &ProbeRenderer::getProbeGenDebugUniformBuffer() const {
+const std::shared_ptr<vulkan::Buffer> &ProbeMatRenderer::getProbeGenDebugUniformBuffer() const {
   return probeGenData.debugUniformBuffer;
 }
-void ProbeRenderer::recordProbeGenCommands() {
+
+void ProbeMatRenderer::recordProbeGenCommands() {
   auto recording = probeGenData.vkCommandBuffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
   recording.bindPipeline(vk::PipelineBindPoint::eCompute, *probeGenData.vkComputePipeline);
   const auto vkDescSets = probeGenData.computeDescriptorSets
@@ -295,7 +250,7 @@ void ProbeRenderer::recordProbeGenCommands() {
                      probeManager->getTotalProbeCount());
   recording.end();
 }
-const std::shared_ptr<vulkan::Semaphore> &ProbeRenderer::renderProbeTextures() {
+const std::shared_ptr<vulkan::Semaphore> &ProbeMatRenderer::renderProbeTextures() {
   vkComputeFence->reset();
   probeGenData.vkCommandBuffer->submit({.waitSemaphores = {},
                                         .signalSemaphores = {*probeGenData.vkComputeSemaphore},
@@ -317,263 +272,18 @@ const std::shared_ptr<vulkan::Semaphore> &ProbeRenderer::renderProbeTextures() {
 
   return proximityGridData.vkComputeSemaphore;
 }
-ProbeManager &ProbeRenderer::getProbeManager() { return *probeManager; }
-void ProbeRenderer::setProbeToRender(std::uint32_t index) { renderData.debugUniformBuffer->mapping().set(index, 1); }
-void ProbeRenderer::setProbeToRender(glm::ivec3 position) {
-  const auto probeCount = probeManager->getProbeCount();
-  const auto index = (position.x + position.y * probeCount.x + position.z * probeCount.x * probeCount.y);
-  setProbeToRender(index);
-}
-void ProbeRenderer::renderProbesInNextPass() { renderingProbesInNextPass = true; }
+ProbeManager &ProbeMatRenderer::getProbeManager() { return *probeManager; }
 
-void ProbeRenderer::createRenderDescriptorPool() {
-  renderData.vkDescPool =
-      vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-                                             .maxSets = 1,
-                                             .poolSizes = {
-                                                 {vk::DescriptorType::eUniformBuffer, 1},// debug
-                                                 {vk::DescriptorType::eUniformBuffer, 1},// grid info
-                                                 {vk::DescriptorType::eStorageImage, 1}, // probe images
-                                                 {vk::DescriptorType::eStorageImage, 1}, // probe images small
-                                                 {vk::DescriptorType::eStorageImage, 1}, // probe debug image
-                                                 {vk::DescriptorType::eUniformBuffer, 1},// camera info
-                                                 {vk::DescriptorType::eStorageBuffer, 1},// prox grid data
-                                                 {vk::DescriptorType::eUniformBuffer, 1},// prox grid info
-                                                 //{vk::DescriptorType::eStorageImage, 1}, // probe images smallest
-                                             }});
-}
-void ProbeRenderer::createRenderPipeline() {
-  using namespace vulkan;
-  using namespace byte_literals;
-  renderData.vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
-      {.bindings = {
-           {.binding = 0,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// debug
-           {.binding = 1,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// grid info
-           {.binding = 2,
-            .type = vk::DescriptorType::eStorageImage,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe images
-           {.binding = 3,
-            .type = vk::DescriptorType::eStorageImage,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe images small
-           {.binding = 4,
-            .type = vk::DescriptorType::eStorageImage,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe debug image
-           {.binding = 5,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// camera info
-           {.binding = 6,
-            .type = vk::DescriptorType::eStorageBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// prox grid data
-           {.binding = 7,
-            .type = vk::DescriptorType::eUniformBuffer,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// prox grid info
-                                                             /*{.binding = 8,
-            .type = vk::DescriptorType::eStorageImage,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe images smallest*/
-       }});
-
-  const auto setLayouts = std::vector{**renderData.vkComputeDescSetLayout};
-  const auto pipelineLayoutInfo =
-      vk::PipelineLayoutCreateInfo{.setLayoutCount = static_cast<uint32_t>(setLayouts.size()),
-                                   .pSetLayouts = setLayouts.data()};
-  auto computePipelineLayout = (*vkLogicalDevice)->createPipelineLayoutUnique(pipelineLayoutInfo);
-  auto allocInfo = vk::DescriptorSetAllocateInfo{};
-  allocInfo.setSetLayouts(setLayouts);
-  allocInfo.descriptorPool = **renderData.vkDescPool;
-  renderData.computeDescriptorSets = (*vkLogicalDevice)->allocateDescriptorSetsUnique(allocInfo);
-
-  renderData.debugUniformBuffer =
-      vkLogicalDevice->createBuffer({.size = sizeof(std::uint32_t) + sizeof(std::uint32_t) + sizeof(int) * 2,
-                                     .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
-                                     .sharingMode = vk::SharingMode::eExclusive,
-                                     .queueFamilyIndices = {}});
-
-  const auto uniformDebugInfo = vk::DescriptorBufferInfo{.buffer = **renderData.debugUniformBuffer,
-                                                         .offset = 0,
-                                                         .range = renderData.debugUniformBuffer->getSize()};
-  const auto uniformDebugWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                        .dstBinding = 0,
-                                                        .dstArrayElement = {},
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                        .pBufferInfo = &uniformDebugInfo};
-
-  const auto gridInfoInfo =
-      vk::DescriptorBufferInfo{.buffer = **gridInfoBuffer, .offset = 0, .range = gridInfoBuffer->getSize()};
-  const auto gridInfoWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                    .dstBinding = 1,
-                                                    .dstArrayElement = {},
-                                                    .descriptorCount = 1,
-                                                    .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                    .pBufferInfo = &gridInfoInfo};
-
-  const auto computeProbesInfo = vk::DescriptorImageInfo{.sampler = {},
-                                                         .imageView = **probeManager->getProbesImageView(),
-                                                         .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeProbesWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                         .dstBinding = 2,
-                                                         .dstArrayElement = {},
-                                                         .descriptorCount = 1,
-                                                         .descriptorType = vk::DescriptorType::eStorageImage,
-                                                         .pImageInfo = &computeProbesInfo};
-
-  const auto computeSmallProbesInfo = vk::DescriptorImageInfo{.sampler = {},
-                                                              .imageView = **probeManager->getProbesImageViewSmall(),
-                                                              .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeSmallProbesWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                              .dstBinding = 3,
-                                                              .dstArrayElement = {},
-                                                              .descriptorCount = 1,
-                                                              .descriptorType = vk::DescriptorType::eStorageImage,
-                                                              .pImageInfo = &computeSmallProbesInfo};
-
-  const auto computeDebugProbesInfo = vk::DescriptorImageInfo{.sampler = {},
-                                                              .imageView = **vkProbesDebugImageView,
-                                                              .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeDebugProbesWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                              .dstBinding = 4,
-                                                              .dstArrayElement = {},
-                                                              .descriptorCount = 1,
-                                                              .descriptorType = vk::DescriptorType::eStorageImage,
-                                                              .pImageInfo = &computeDebugProbesInfo};
-
-  const auto cameraDebugInfo =
-      vk::DescriptorBufferInfo{.buffer = **cameraBuffer, .offset = 0, .range = cameraBuffer->getSize()};
-  const auto cameraDebugWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                       .dstBinding = 5,
-                                                       .dstArrayElement = {},
-                                                       .descriptorCount = 1,
-                                                       .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                       .pBufferInfo = &cameraDebugInfo};
-
-  const auto proxGridInfo = vk::DescriptorBufferInfo{.buffer = **proximityGridData.proximityBuffer,
-                                                     .offset = 0,
-                                                     .range = proximityGridData.proximityBuffer->getSize()};
-  const auto proxGridWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                    .dstBinding = 6,
-                                                    .dstArrayElement = {},
-                                                    .descriptorCount = 1,
-                                                    .descriptorType = vk::DescriptorType::eStorageBuffer,
-                                                    .pBufferInfo = &proxGridInfo};
-
-  const auto proxGridInfoInfo = vk::DescriptorBufferInfo{.buffer = **proximityGridData.gridInfoBuffer,
-                                                         .offset = 0,
-                                                         .range = proximityGridData.gridInfoBuffer->getSize()};
-  const auto proxGridInfoWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                        .dstBinding = 7,
-                                                        .dstArrayElement = {},
-                                                        .descriptorCount = 1,
-                                                        .descriptorType = vk::DescriptorType::eUniformBuffer,
-                                                        .pBufferInfo = &proxGridInfoInfo};
-
-  /* const auto computeSmallestProbesInfo =
-      vk::DescriptorImageInfo{.sampler = {},
-                              .imageView = **probeManager->getProbesImageViewSmallest(),
-                              .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeSmallestProbesWrite = vk::WriteDescriptorSet{.dstSet = *renderData.computeDescriptorSets[0],
-                                                                 .dstBinding = 8,
-                                                                 .dstArrayElement = {},
-                                                                 .descriptorCount = 1,
-                                                                 .descriptorType = vk::DescriptorType::eStorageImage,
-                                                                 .pImageInfo = &computeSmallestProbesInfo};*/
-
-  const auto writeSets = std::vector{uniformDebugWrite,       computeDebugProbesWrite, computeProbesWrite,
-                                     computeSmallProbesWrite, gridInfoWrite,           cameraDebugWrite,
-                                     proxGridWrite,           proxGridInfoWrite /*,       computeSmallestProbesWrite*/};
-  (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
-
-  auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
-      .name = "light_field_probes_render",
-      .type = ShaderType::Compute,
-      .path =
-      (std::filesystem::path(*config["resources"]["path_shaders"].value<std::string>()) /= "probes_render.comp")
-          .string(),
-      .macros = {}/*,
-        .replaceMacros = {{"LOCAL_SIZE_X", std::to_string(computeLocalSize.first)},
-                          {"LOCAL_SIZE_Y", std::to_string(computeLocalSize.second)}}*/});
-
-  const auto computeStageInfo = vk::PipelineShaderStageCreateInfo{.stage = computeShader->getVkType(),
-                                                                  .module = **computeShader,
-                                                                  .pName = "main"};
-  const auto pipelineInfo = vk::ComputePipelineCreateInfo{.stage = computeStageInfo, .layout = *computePipelineLayout};
-  renderData.vkComputePipeline = ComputePipeline::CreateShared(
-      (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
-}
-
-void ProbeRenderer::createRenderCommands() {
-  renderData.vkCommandPool = vkLogicalDevice->createCommandPool(
-      {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
-
-  vkProbesDebugImage->transitionLayout(*renderData.vkCommandPool, vk::ImageLayout::eGeneral,
-                                       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-
-  renderData.vkCommandBuffer =
-      renderData.vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1})[0];
-}
-void ProbeRenderer::recordRenderCommands() {
-  auto recording = renderData.vkCommandBuffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
-  recording.bindPipeline(vk::PipelineBindPoint::eCompute, *renderData.vkComputePipeline);
-  const auto vkDescSets = renderData.computeDescriptorSets
-      | ranges::views::transform([](const auto &descSet) { return *descSet; }) | ranges::to_vector;
-
-  recording.getCommandBuffer()->bindDescriptorSets(
-      vk::PipelineBindPoint::eCompute, renderData.vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
-  recording.dispatch(probeManager->TEXTURE_SIZE.x / 8, probeManager->TEXTURE_SIZE.y / 8, 1);
-  recording.end();
-}
-const std::shared_ptr<vulkan::Semaphore> &ProbeRenderer::render() {
-  std::vector<std::reference_wrapper<vulkan::Semaphore>> semaphores;
-  //renderingProbesInNextPass= true;
-  if (renderingProbesInNextPass) {
-    semaphores.emplace_back(*renderProbeTextures());
-    renderingProbesInNextPass = false;
-  }
-  std::vector<vk::PipelineStageFlags> semaphoreFlags{semaphores.size(), vk::PipelineStageFlagBits::eComputeShader};
-  vkComputeFence->reset();
-  renderData.vkCommandBuffer->submit({.waitSemaphores = semaphores,
-                                      .signalSemaphores = {*renderData.vkComputeSemaphore},
-                                      .flags = semaphoreFlags,
-                                      .fence = *vkComputeFence,
-                                      .wait = true});
-
-  return renderData.vkComputeSemaphore;
-}
-const std::shared_ptr<vulkan::Buffer> &ProbeRenderer::getRenderDebugUniformBuffer() const {
-  return renderData.debugUniformBuffer;
-}
-void ProbeRenderer::setProbeDebugRenderType(ProbeVisualisation type) {
-  renderData.debugUniformBuffer->mapping().set(static_cast<uint32_t>(type));
-}
-void ProbeRenderer::setShaderDebugInt(std::int32_t value) { renderData.debugUniformBuffer->mapping().set(value, 2); }
-
-void ProbeRenderer::createSmallProbeGenDescriptorPool() {
+void ProbeMatRenderer::createSmallProbeGenDescriptorPool() {
   smallProbeGenData.vkDescPool =
       vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                              .maxSets = 1,
                                              .poolSizes = {
                                                  {vk::DescriptorType::eStorageImage, 1},// probe array
                                                  {vk::DescriptorType::eStorageImage, 1},// small probe depth array
-                                                 {vk::DescriptorType::eStorageImage, 1},// smallest probe depth array
                                              }});
 }
-void ProbeRenderer::createSmallProbeGenPipeline() {
+void ProbeMatRenderer::createSmallProbeGenPipeline() {
   using namespace vulkan;
   using namespace byte_literals;
   smallProbeGenData.vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
@@ -586,10 +296,6 @@ void ProbeRenderer::createSmallProbeGenPipeline() {
             .type = vk::DescriptorType::eStorageImage,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// small probe depth textures
-           {.binding = 2,
-            .type = vk::DescriptorType::eStorageImage,
-            .count = 1,
-            .stageFlags = vk::ShaderStageFlagBits::eCompute},// smallest probe depth textures
        }});
 
   const auto setLayouts = std::vector{**smallProbeGenData.vkComputeDescSetLayout};
@@ -624,19 +330,7 @@ void ProbeRenderer::createSmallProbeGenPipeline() {
                                                               .descriptorType = vk::DescriptorType::eStorageImage,
                                                               .pImageInfo = &computeSmallProbesInfo};
 
-  const auto computeSmallestProbesInfo =
-      vk::DescriptorImageInfo{.sampler = {},
-                              .imageView = **probeManager->getProbesImageViewSmallest(),
-                              .imageLayout = vk::ImageLayout::eGeneral};
-
-  const auto computeSmallestProbesWrite = vk::WriteDescriptorSet{.dstSet = *smallProbeGenData.computeDescriptorSets[0],
-                                                                 .dstBinding = 2,
-                                                                 .dstArrayElement = {},
-                                                                 .descriptorCount = 1,
-                                                                 .descriptorType = vk::DescriptorType::eStorageImage,
-                                                                 .pImageInfo = &computeSmallestProbesInfo};
-
-  const auto writeSets = std::vector{computeProbesWrite, computeSmallProbesWrite, computeSmallestProbesWrite};
+  const auto writeSets = std::vector{computeProbesWrite, computeSmallProbesWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
@@ -656,21 +350,18 @@ void ProbeRenderer::createSmallProbeGenPipeline() {
   smallProbeGenData.vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
-void ProbeRenderer::createSmallProbeGenCommands() {
+void ProbeMatRenderer::createSmallProbeGenCommands() {
   smallProbeGenData.vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
   probeManager->getProbesImageSmall()->transitionLayout(
       *smallProbeGenData.vkCommandPool, vk::ImageLayout::eGeneral,
       vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, probeManager->getTotalProbeCount()});
-  probeManager->getProbesImageSmallest()->transitionLayout(
-      *smallProbeGenData.vkCommandPool, vk::ImageLayout::eGeneral,
-      vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, probeManager->getTotalProbeCount()});
 
   smallProbeGenData.vkCommandBuffer =
       smallProbeGenData.vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1})[0];
 }
-void ProbeRenderer::recordSmallProbeGenCommands() {
+void ProbeMatRenderer::recordSmallProbeGenCommands() {
   auto recording = smallProbeGenData.vkCommandBuffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
   recording.bindPipeline(vk::PipelineBindPoint::eCompute, *smallProbeGenData.vkComputePipeline);
   const auto vkDescSets = smallProbeGenData.computeDescriptorSets
@@ -682,7 +373,7 @@ void ProbeRenderer::recordSmallProbeGenCommands() {
                      probeManager->getTotalProbeCount());
   recording.end();
 }
-void ProbeRenderer::createProximityDescriptorPool() {
+void ProbeMatRenderer::createProximityDescriptorPool() {
   proximityGridData.vkDescPool =
       vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                              .maxSets = 1,
@@ -694,7 +385,7 @@ void ProbeRenderer::createProximityDescriptorPool() {
                                                  {vk::DescriptorType::eStorageBuffer, 1},// output data
                                              }});
 }
-void ProbeRenderer::createProximityPipeline() {
+void ProbeMatRenderer::createProximityPipeline() {
   using namespace vulkan;
   using namespace byte_literals;
   proximityGridData.vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
@@ -803,14 +494,14 @@ void ProbeRenderer::createProximityPipeline() {
   proximityGridData.vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
-void ProbeRenderer::createProximityCommands() {
+void ProbeMatRenderer::createProximityCommands() {
   proximityGridData.vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
   proximityGridData.vkCommandBuffer =
       proximityGridData.vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1})[0];
 }
-void ProbeRenderer::recordProximityCommands() {
+void ProbeMatRenderer::recordProximityCommands() {
   auto recording = proximityGridData.vkCommandBuffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
   recording.bindPipeline(vk::PipelineBindPoint::eCompute, *proximityGridData.vkComputePipeline);
   const auto vkDescSets = proximityGridData.computeDescriptorSets
@@ -822,12 +513,14 @@ void ProbeRenderer::recordProximityCommands() {
   recording.dispatch(proxGridSize.x / 8, proxGridSize.y / 8, proxGridSize.z / 8);
   recording.end();
 }
-void ProbeRenderer::setFillHoles(bool fillHoles) { renderData.debugUniformBuffer->mapping().set(fillHoles ? 1 : 0, 3); }
-const std::shared_ptr<vulkan::Buffer> &ProbeRenderer::getProximityBuffer() const {
+
+const std::shared_ptr<vulkan::Buffer> &ProbeMatRenderer::getProximityBuffer() const {
   return proximityGridData.proximityBuffer;
 }
-const std::shared_ptr<vulkan::Buffer> &ProbeRenderer::getProximityInfoBuffer() const {
+const std::shared_ptr<vulkan::Buffer> &ProbeMatRenderer::getProximityInfoBuffer() const {
   return proximityGridData.gridInfoBuffer;
 }
-const std::shared_ptr<vulkan::Buffer> &ProbeRenderer::getGridInfoBuffer() const { return gridInfoBuffer; }
+const std::shared_ptr<vulkan::Buffer> &ProbeMatRenderer::getGridInfoBuffer() const {
+  return gridInfoBuffer;
+}
 }// namespace pf::lfp
