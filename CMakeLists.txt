@@ -209,6 +209,7 @@ set(SOURCES
         src/rendering/MainRenderer.cpp
         src/rendering/GBufferRenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
+        src/rendering/BakedProbesRenderer.cpp
         src/logging/CallbackSink.cpp
         src/ui/SVOUI.cpp
         src/ui/MainUI.cpp
@@ -230,6 +231,7 @@ set(SOURCES
         src/rendering/light_field_probes/ProbeRenderer.cpp
         src/rendering/light_field_probes/ProbeManager.cpp
         src/rendering/light_field_probes/ProbeMatRenderer.cpp
+        src/rendering/light_field_probes/ProbeBakeRenderer.cpp
         ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/ImGuiGlfwVulkanInterface.cpp
         ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/impl/imgui_impl_glfw.cpp
         ${pf_imgui_SOURCE_DIR}/src/pf_imgui/backends/impl/imgui_impl_vulkan.cpp
