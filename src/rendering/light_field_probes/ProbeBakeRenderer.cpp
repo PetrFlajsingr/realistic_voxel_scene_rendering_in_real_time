@@ -53,14 +53,7 @@ ProbeBakeRenderer::ProbeBakeRenderer(
   createFences();
   recordRenderCommands();
 
-  auto gridInfoMapping = gridInfoBuffer->mapping();
-  gridInfoMapping.set(glm::ivec4{probeManager->getProbeCount(), 0});
-  gridInfoMapping.set(glm::vec4{probeManager->getGridStart(), 0}, 1);
-  gridInfoMapping.set(glm::vec4{probeManager->getGridStep(), 0, 0, 0}, 2);
-
-  auto proxGridInfoMapping = proximityGridData.gridInfoBuffer->mapping();
-  proxGridInfoMapping.set(glm::ivec4{probeManager->getProximityGridSize(), 0});
-  proxGridInfoMapping.set(glm::vec4{probeManager->getProximityGridStep(), 0}, 1);
+  updateGridBuffers();
 
   setProbeToRender(0);
   setFillHoles(false);
@@ -836,4 +829,27 @@ const std::shared_ptr<vulkan::Buffer> &ProbeBakeRenderer::getProximityInfoBuffer
   return proximityGridData.gridInfoBuffer;
 }
 const std::shared_ptr<vulkan::Buffer> &ProbeBakeRenderer::getGridInfoBuffer() const { return gridInfoBuffer; }
+
+void ProbeBakeRenderer::setGridStart(const glm::vec3 &gridStart) {
+  probeManager->setGridStart(gridStart);
+  updateGridBuffers();
+}
+void ProbeBakeRenderer::setGridStep(float gridStep) {
+  probeManager->setGridStep(gridStep);
+  updateGridBuffers();
+}
+void ProbeBakeRenderer::setProximityGridSize(const glm::ivec3 &proximityGridSize) {
+  probeManager->setProximityGridSize(proximityGridSize);
+  updateGridBuffers();
+}
+void ProbeBakeRenderer::updateGridBuffers() {
+  auto gridInfoMapping = gridInfoBuffer->mapping();
+  gridInfoMapping.set(glm::ivec4{probeManager->getProbeCount(), 0});
+  gridInfoMapping.set(glm::vec4{probeManager->getGridStart(), 0}, 1);
+  gridInfoMapping.set(glm::vec4{probeManager->getGridStep(), 0, 0, 0}, 2);
+
+  auto proxGridInfoMapping = proximityGridData.gridInfoBuffer->mapping();
+  proxGridInfoMapping.set(glm::ivec4{probeManager->getProximityGridSize(), 0});
+  proxGridInfoMapping.set(glm::vec4{probeManager->getProximityGridStep(), 0}, 1);
+}
 }// namespace pf::lfp

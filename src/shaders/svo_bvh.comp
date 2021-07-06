@@ -800,7 +800,8 @@ void main() {
   } else if (traceResult.hit) {
     if (debug.viewType == VIEW_TYPE_COLOR) {
       vec3 color = vec3(1);
-      Material material = materials.data[traceResult.materialId];
+      Material material =
+          materials.data[modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId];
       color = vec3(material.red, material.green, material.blue);
       finalColor += calcLight(color, traceResult.pos, traceResult.normal, lightDir, shadowTraceResult.hit);
       if (debug.debugVal == traceResult.objectId && !traceResult.isOnlyAABB) { finalColor += vec3(0.5, 0, 0); }

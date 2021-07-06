@@ -77,7 +77,6 @@ class SVOUI {
       ui::ig::MenuButtonItem &showAllMenuItem;
     ui::ig::SubMenu &toolsSubMenu;
       ui::ig::MenuButtonItem &svoConverterMenuItem;
-      ui::ig::MenuButtonItem &teardownMapMenuItem;
   ui::ig::Window &renderSettingsWindow;
     ui::ig::Combobox<SVOViewType> &viewTypeComboBox;
     ui::ig::Text &lightingText;
@@ -166,6 +165,10 @@ class SVOUI {
         ui::ig::Combobox<ProbeVisualisation> &probeTextureCombobox;
         ui::ig::StretchLayout &probeTextureLayout;
           ui::ig::Image &probesColorImage;
+  ui::ig::Window &probeGridWindow;
+    ui::ig::DragInput<glm::vec3> &gridPosition;
+    ui::ig::DragInput<float> &gridStep;
+    ui::ig::DragInput<glm::ivec3> &proxGridSize;
 
   // clang-format on
 

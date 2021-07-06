@@ -14,7 +14,7 @@
 
 argparse::ArgumentParser createArgumentParser() {
   auto argumentParser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
-  argumentParser.add_argument("--old").help("Run testing renderer").default_value(false).implicit_value(true);
+  argumentParser.add_argument("--scene_edit").help("Run scene editing renderer").default_value(false).implicit_value(true);
   argumentParser.add_argument("--bake").help("Run bake renderer").default_value(false).implicit_value(true);
   argumentParser.add_argument("-v", "--verbose").help("Verbose logging").default_value(false).implicit_value(true);
   argumentParser.add_argument("-l", "--log").help("Enable console logging.").default_value(false).implicit_value(true);
@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
                                         static_cast<size_t>(resolutionConfig["height"].value_or(600))},
                          .title = "test",
                          .mode = ui::Mode::Windowed};
-  if (argumentParser.get<bool>("--old")) {
+  if (argumentParser.get<bool>("--scene_edit")) {
     auto app = Application<ui::GlfwWindow, SVORenderer>(
         SVORenderer(*config.as_table()),
         ApplicationSettings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});

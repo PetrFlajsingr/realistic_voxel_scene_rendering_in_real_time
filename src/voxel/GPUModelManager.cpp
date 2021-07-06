@@ -6,6 +6,7 @@
 #include "SVO_utils.h"
 #include "SparseVoxelOctreeCreation.h"
 #include <algorithm>
+#include <logging/loggers.h>
 #include <mutex>
 #include <utility>
 
@@ -49,6 +50,7 @@ GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &c
       if (!modelInfoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!svoBlockResult.has_value()) { err += modelInfoBlockResult.error(); }
       if (!err.empty()) { return tl::make_unexpected(err); }
+
       callbacks.progress(80);
 
       newModelInfo->svoMemoryBlock = std::make_shared<vulkan::BufferMemoryPool::Block>(std::move(*svoBlockResult));

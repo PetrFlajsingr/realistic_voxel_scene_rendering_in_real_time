@@ -44,6 +44,11 @@ class ProbeBakeRenderer {
   [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getProximityInfoBuffer() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getGridInfoBuffer() const;
 
+
+  void setGridStart(const glm::vec3 &gridStart);
+  void setGridStep(float gridStep);
+  void setProximityGridSize(const glm::ivec3 &proximityGridSize);
+
   const std::shared_ptr<vulkan::Semaphore> &renderProbeTextures();
 
   const std::shared_ptr<vulkan::Semaphore> &render();
@@ -62,6 +67,7 @@ class ProbeBakeRenderer {
   void setFillHoles(bool fillHoles);
 
  private:
+  void updateGridBuffers();
   bool renderingProbesInNextPass = false;
   toml::table config;
   std::shared_ptr<vulkan::Instance> vkInstance;

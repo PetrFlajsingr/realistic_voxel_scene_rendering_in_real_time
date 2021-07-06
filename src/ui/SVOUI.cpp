@@ -15,10 +15,8 @@
 namespace pf {
 using namespace ui::ig;
 
-
-SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
-                                           std::shared_ptr<ui::Window> uiWindow, const Camera &camera,
-                                           TextureData iterTextureData, TextureData probesColorTextureData)
+SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface, std::shared_ptr<ui::Window> uiWindow,
+             const Camera &camera, TextureData iterTextureData, TextureData probesColorTextureData)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
       fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
       openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", ICON_FA_FILE_ALT "  Open model")),
@@ -38,7 +36,6 @@ SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
       toolsSubMenu(windowMenuBar.addSubmenu("tools_main_menu", "Tools")),
       svoConverterMenuItem(toolsSubMenu.addButtonItem("svo_converter_menu", "SVO converter")),
-      teardownMapMenuItem(toolsSubMenu.addButtonItem("teardown_converter_menu", "Teardown map loading")),
       renderSettingsWindow(imgui->createWindow("render_sett_window", "Render settings")),
       viewTypeComboBox(renderSettingsWindow.createChild<Combobox<SVOViewType>>(
           "view_choice", "View type", "Select view type", magic_enum::enum_values<SVOViewType>(), ComboBoxCount::Items8,
@@ -181,7 +178,14 @@ SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
           (ImTextureID) ImGui_ImplVulkan_AddTexture(
               *probesColorTextureData.vkImageSampler, *probesColorTextureData.vkImageView,
               static_cast<VkImageLayout>(probesColorTextureData.vkImage.getLayout())),
-          Size{400, 400}))
+          Size{400, 400})),
+      probeGridWindow(imgui->createWindow("probe_grid_window", "Probe grid controls")),
+      gridPosition(probeGridWindow.createChild<DragInput<glm::vec3>>("probe_grid_pos_drag", "Probe grid position", 0.01,
+                                                                     -100, 100, glm::vec3{0, 0, 0})),
+      gridStep(
+          probeGridWindow.createChild<DragInput<float>>("probe_grid_step_drag", "Probe grid step", 0.01, 0.1, 100, 1)),
+      proxGridSize(probeGridWindow.createChild<DragInput<glm::ivec3>>("prox_grid_step_drag", "Prox grid size", 1, 1,
+                                                                      256, glm::ivec3{1, 1, 1}))
 
 {
   renderSettingsWindow.setIsDockable(true);
@@ -201,6 +205,10 @@ SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
   modelDetailVoxelCountText.setReadOnly(true);
   modelDetailMinimisedVoxelCountText.setReadOnly(true);
   modelList.setDragTooltip("Model: {}");
+
+  gridPosition.setTooltip("Starting position of probe grid");
+  gridStep.setTooltip("Distance between probes");
+  proxGridSize.setTooltip("Count of voxels dividing probe space");
 
   probesDebugWindow.setCollapsible(true);
 

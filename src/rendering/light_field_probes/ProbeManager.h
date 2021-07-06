@@ -44,7 +44,13 @@ class ProbeManager {
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImageSmall() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageViewSmall() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesImageSmallest() const;
+
+  void setGridStart(const glm::vec3 &gridStart);
+  void setGridStep(float gridStep);
+  void setProximityGridSize(const glm::ivec3 &proximityGridSize);
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageViewSmallest() const;
+
+
 
   [[nodiscard]] cppcoro::generator<glm::vec3> getProbePositions() const;
 

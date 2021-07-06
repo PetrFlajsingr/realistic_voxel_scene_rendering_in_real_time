@@ -90,6 +90,11 @@ const std::shared_ptr<vulkan::Image> &ProbeManager::getProbesImageSmallest() con
 const std::shared_ptr<vulkan::ImageView> &ProbeManager::getProbesImageViewSmallest() const {
   return probesImageViewSmallest;
 }
+void ProbeManager::setGridStart(const glm::vec3 &gridStart) { ProbeManager::gridStart = gridStart; }
+void ProbeManager::setGridStep(float gridStep) { ProbeManager::gridStep = gridStep; }
+void ProbeManager::setProximityGridSize(const glm::ivec3 &proximityGridSize) {
+  ProbeManager::proximityGridSize = proximityGridSize;
+}
 
 ProbeCount::operator glm::ivec3() const { return value; }
 }// namespace pf::lfp

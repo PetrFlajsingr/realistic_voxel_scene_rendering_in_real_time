@@ -705,7 +705,8 @@ void main() {
 
   vec3 color = vec3(1);
   if (traceResult.hit) {
-    Material material = materials.data[traceResult.materialId];
+    Material material =
+        materials.data[modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId];
     color = vec3(material.red, material.green, material.blue);
   }
   const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);

@@ -62,7 +62,6 @@ class MainUI {
     ui::ig::SubMenu &fileSubMenu;
       ui::ig::MenuButtonItem &openModelMenuItem;
       ui::ig::MenuButtonItem &loadSceneMenuItem;
-      ui::ig::MenuButtonItem &saveSceneMenuItem;
       ui::ig::MenuSeparatorItem &fileMenuSeparator1;
       ui::ig::MenuButtonItem &closeMenuItem;
     ui::ig::SubMenu &viewSubMenu;
@@ -75,7 +74,6 @@ class MainUI {
       ui::ig::MenuButtonItem &showAllMenuItem;
     ui::ig::SubMenu &toolsSubMenu;
       ui::ig::MenuButtonItem &svoConverterMenuItem;
-      ui::ig::MenuButtonItem &teardownMapMenuItem;
   ui::ig::Window &renderSettingsWindow;
     ui::ig::Text &lightingText;
     ui::ig::BoxLayout &lightingLayout;

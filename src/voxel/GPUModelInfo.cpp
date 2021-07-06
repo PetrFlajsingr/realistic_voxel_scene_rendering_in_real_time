@@ -4,6 +4,7 @@
 
 #include "GPUModelInfo.h"
 #include <glm/gtx/quaternion.hpp>
+#include <logging/loggers.h>
 #include <pf_imgui/serialization.h>
 namespace pf::vox {
 

@@ -159,6 +159,8 @@ class SVORenderer : public VulkanDebugCallbackImpl {
   void createFences();
   void createSemaphores();
 
+  void updateProbePositions();
+
   void initUI();
 
   void rebuildAndUploadBVH();

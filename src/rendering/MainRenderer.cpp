@@ -956,7 +956,11 @@ void MainRenderer::initUI() {
         "Select file to load scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
           auto path = selected[0];
-          auto models = vox::loadSceneFromFile(path);
+          auto loadSceneInfo = vox::loadSceneFromFile(path);
+          probeRenderer->setGridStart(loadSceneInfo.probeGridPos);
+          probeRenderer->setGridStep(loadSceneInfo.probeGridStep);
+          probeRenderer->setProximityGridSize(loadSceneInfo.proximityGridSize);
+          auto models = std::move(loadSceneInfo.models);
           const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
           threadpool->enqueue([this, models, &loadingDialog, &loadingProgress, &loadingText] {
             auto failed = false;
@@ -1048,74 +1052,10 @@ void MainRenderer::initUI() {
 
   ui->cameraToOriginButton.addClickListener([this] { camera.setPosition({0, 0, 0}); });
 
-  ui->saveSceneMenuItem.addClickListener([this] {
-    ui->imgui->openFileDialog(
-        "Select file to save scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
-        [this](const auto &selected) {
-          auto path = selected[0];
-          vox::saveSceneToFile(modelManager->getModels(), path);
-        },
-        [] {});
-  });
-
   ui->svoConverterMenuItem.addClickListener([this] {
     ui->createConvertWindow(*threadpool,
                             std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>()),
                             [this](const auto &src, const auto &dir) { convertAndSaveSVO(src, dir); });
-  });
-
-  ui->teardownMapMenuItem.addClickListener([this] {
-    ui->imgui->openDirDialog(
-        "Select file to load scene info",
-        [this]([[maybe_unused]] const auto &selected) {
-          /*const auto sceneFolder = selected[0];
-          auto doc = tinyxml2::XMLDocument{};
-          doc.LoadFile((sceneFolder / "main.xml").string().c_str());
-          [[maybe_unused]] auto scene = TeardownMap::Scene::FromXml(doc.RootElement(), sceneFolder);
-          [[maybe_unused]] auto dataGroup = scene.toVoxDataGroup();
-          std::unordered_map<std::string, std::unique_ptr<pf::vox::RawVoxelScene>> fileCache{};
-          dataGroup.loadRawVoxelData(fileCache);
-
-          std::function<void(glm::vec3, glm::vec3, TeardownMap::VoxDataGroup &)> c;
-          c = [this, &c](glm::vec3 offset, glm::vec3 scale, TeardownMap::VoxDataGroup &group) {
-            for (auto &chGroup : group.groups) { c(offset + group.position, scale * chGroup.scale, chGroup); }
-            for (auto &data : group.voxData) {
-              std::visit(Visitor{[&, this](std::unique_ptr<vox::RawVoxelModel> &model) {
-                                   auto modelLoadResult = modelManager->loadModel(*model);
-                                   auto modelPtr = modelLoadResult.value();
-                                   auto newUIItem = ModelFileInfo{modelPtr->path};
-                                   newUIItem.modelData = modelPtr;
-                                   modelPtr->translateVec = (data.position + offset);
-                                   modelPtr->scaleVec = scale * data.scale;
-                                   modelPtr->rotateVec = glm::vec3{0};
-                                   modelPtr->updateInfoToGPU();
-                                   const auto fileName = newUIItem.path.filename().string();
-                                   auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-                                   addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
-                                 },
-                                 [&, this](std::unique_ptr<vox::RawVoxelScene> &scene) {
-                                   auto modelLoadResult = modelManager->loadModel(*scene);
-                                   auto modelPtrs = modelLoadResult.value();
-                                   for (auto modelPtr : modelPtrs) {
-                                     auto newUIItem = ModelFileInfo{modelPtr->path};
-                                     newUIItem.modelData = modelPtr;
-                                     modelPtr->translateVec = (data.position + offset);
-                                     modelPtr->scaleVec = scale * data.scale;
-                                     modelPtr->rotateVec = glm::vec3{0};
-                                     modelPtr->updateInfoToGPU();
-                                     const auto fileName = newUIItem.path.filename().string();
-                                     auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-                                     addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
-                                   }
-                                 }},
-                         data.rawVoxelData);
-            }
-          };
-          c(glm::vec3{0, 0, 0}, glm::vec3{1, 1, 1}, dataGroup);
-
-          rebuildAndUploadBVH();*/
-        },
-        [] {}, Size{500, 400}, *config.get()["resources"]["path_models"].value<std::string>());
   });
 
   ui->renderProbesButton.addClickListener([this] { renderProbes = true; });

@@ -998,7 +998,8 @@ vec3 traceReflection(vec3 hitPoint, vec3 normal, vec3 incomingDir) {
   for (i = 0; i < MAX_REFLECT_BOUNCES; ++i) {
     traceResult = traceBVHImproved(ray, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     if (!traceResult.hit) { break; }
-    const Material material = materials.data[traceResult.materialId];
+    const Material material =
+        materials.data[modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId];
     vec3 hitPoint = traceResult.posInWorldSpace;
     const vec3 normal = traceResult.normal;
     switch (material.type) {

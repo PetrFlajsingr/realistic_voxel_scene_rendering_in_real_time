@@ -127,13 +127,7 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
 
   modelManager = std::make_unique<vox::GPUModelManager>(svoMemoryPool, modelInfoMemoryPool, materialMemoryPool, 5);
 
-  auto probeMapping = probePosBuffer->mapping();
-  const auto totalProbeCount = probeRenderer->probeManager->getTotalProbeCount();
-  auto probePositions = probeRenderer->probeManager->getProbePositions();
-  for (const auto &[idx, position] : probePositions | ranges::views::enumerate) {
-    probeMapping.set(glm::vec4{position, totalProbeCount}, idx);
-  }
-
+  updateProbePositions();
   initUI();
   window->setMainLoopCallback([&] { render(); });
 }
@@ -933,7 +927,15 @@ void SVORenderer::initUI() {
         "Select file to load scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
           auto path = selected[0];
-          auto models = vox::loadSceneFromFile(path);
+          auto loadSceneInfo = vox::loadSceneFromFile(path);
+          probeRenderer->setGridStart(loadSceneInfo.probeGridPos);
+          ui->gridPosition.setValue(loadSceneInfo.probeGridPos);
+          probeRenderer->setGridStep(loadSceneInfo.probeGridStep);
+          ui->gridStep.setValue(loadSceneInfo.probeGridStep);
+          probeRenderer->setProximityGridSize(loadSceneInfo.proximityGridSize);
+          ui->proxGridSize.setValue(loadSceneInfo.proximityGridSize);
+          updateProbePositions();
+          auto models = std::move(loadSceneInfo.models);
           const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
           threadpool->enqueue([this, models, &loadingDialog, &loadingProgress, &loadingText] {
             auto failed = false;
@@ -1030,7 +1032,9 @@ void SVORenderer::initUI() {
         "Select file to save scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
           auto path = selected[0];
-          vox::saveSceneToFile(modelManager->getModels(), path);
+          vox::saveSceneToFile(modelManager->getModels(), path, probeRenderer->getProbeManager().getGridStart(),
+                               probeRenderer->getProbeManager().getGridStep(),
+                               probeRenderer->getProbeManager().getProximityGridSize());
         },
         [] {});
   });
@@ -1044,59 +1048,6 @@ void SVORenderer::initUI() {
   ui->probeTextureCombobox.addValueListener([this](const auto type) { probeRenderer->setProbeDebugRenderType(type); },
                                             true);
 
-  ui->teardownMapMenuItem.addClickListener([this] {
-    ui->imgui->openDirDialog(
-        "Select file to load scene info",
-        [this]([[maybe_unused]] const auto &selected) {
-          /*const auto sceneFolder = selected[0];
-          auto doc = tinyxml2::XMLDocument{};
-          doc.LoadFile((sceneFolder / "main.xml").string().c_str());
-          [[maybe_unused]] auto scene = TeardownMap::Scene::FromXml(doc.RootElement(), sceneFolder);
-          [[maybe_unused]] auto dataGroup = scene.toVoxDataGroup();
-          std::unordered_map<std::string, std::unique_ptr<pf::vox::RawVoxelScene>> fileCache{};
-          dataGroup.loadRawVoxelData(fileCache);
-
-          std::function<void(glm::vec3, glm::vec3, TeardownMap::VoxDataGroup &)> c;
-          c = [this, &c](glm::vec3 offset, glm::vec3 scale, TeardownMap::VoxDataGroup &group) {
-            for (auto &chGroup : group.groups) { c(offset + group.position, scale * chGroup.scale, chGroup); }
-            for (auto &data : group.voxData) {
-              std::visit(Visitor{[&, this](std::unique_ptr<vox::RawVoxelModel> &model) {
-                                   auto modelLoadResult = modelManager->loadModel(*model);
-                                   auto modelPtr = modelLoadResult.value();
-                                   auto newUIItem = ModelFileInfo{modelPtr->path};
-                                   newUIItem.modelData = modelPtr;
-                                   modelPtr->translateVec = (data.position + offset);
-                                   modelPtr->scaleVec = scale * data.scale;
-                                   modelPtr->rotateVec = glm::vec3{0};
-                                   modelPtr->updateInfoToGPU();
-                                   const auto fileName = newUIItem.path.filename().string();
-                                   auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-                                   addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
-                                 },
-                                 [&, this](std::unique_ptr<vox::RawVoxelScene> &scene) {
-                                   auto modelLoadResult = modelManager->loadModel(*scene);
-                                   auto modelPtrs = modelLoadResult.value();
-                                   for (auto modelPtr : modelPtrs) {
-                                     auto newUIItem = ModelFileInfo{modelPtr->path};
-                                     newUIItem.modelData = modelPtr;
-                                     modelPtr->translateVec = (data.position + offset);
-                                     modelPtr->scaleVec = scale * data.scale;
-                                     modelPtr->rotateVec = glm::vec3{0};
-                                     modelPtr->updateInfoToGPU();
-                                     const auto fileName = newUIItem.path.filename().string();
-                                     auto &itemSelectable = ui->activeModelList.addItem(newUIItem);
-                                     addActiveModelPopupMenu(itemSelectable, newUIItem.id, modelPtr);
-                                   }
-                                 }},
-                         data.rawVoxelData);
-            }
-          };
-          c(glm::vec3{0, 0, 0}, glm::vec3{1, 1, 1}, dataGroup);
-
-          rebuildAndUploadBVH();*/
-        },
-        [] {}, Size{500, 400}, *config.get()["resources"]["path_models"].value<std::string>());
-  });
 
   ui->renderProbesButton.addClickListener([this] { probeRenderer->renderProbesInNextPass(); });
   ui->selectedProbeSpinner.addValueListener([this](auto val) {
@@ -1107,6 +1058,19 @@ void SVORenderer::initUI() {
   ui->probesDebugIntSpinner.addValueListener([this](auto val) { probeRenderer->setShaderDebugInt(val); });
 
   ui->fillProbeHolesButton.addValueListener([this](auto checked) { probeRenderer->setFillHoles(checked); });
+
+  ui->gridPosition.addValueListener([this](const auto &value) {
+    probeRenderer->setGridStart(value);
+    updateProbePositions();
+  });
+  ui->gridStep.addValueListener([this](const auto &value) {
+    probeRenderer->setGridStep(value);
+    updateProbePositions();
+  });
+  ui->proxGridSize.addValueListener([this](const auto &value) {
+    probeRenderer->setProximityGridSize(value);
+    updateProbePositions();
+  });
 
   ui->imgui->setStateFromConfig();
 }
@@ -1279,6 +1243,14 @@ void SVORenderer::createBuffers() {
                                                   .sharingMode = vk::SharingMode::eExclusive,
                                                   .queueFamilyIndices = {}});
   materialMemoryPool = BufferMemoryPool::CreateShared(materialBuffer, 1);
+}
+void SVORenderer::updateProbePositions() {
+  auto probeMapping = probePosBuffer->mapping();
+  const auto totalProbeCount = probeRenderer->probeManager->getTotalProbeCount();
+  auto probePositions = probeRenderer->probeManager->getProbePositions();
+  for (const auto &[idx, position] : probePositions | ranges::views::enumerate) {
+    probeMapping.set(glm::vec4{position, totalProbeCount}, idx);
+  }
 }
 
 }// namespace pf
