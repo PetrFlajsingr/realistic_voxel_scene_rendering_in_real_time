@@ -736,7 +736,7 @@ vec3 gridCoordToProbeGoord(ivec3 gridCoord) { return grid.gridStep * gridCoord +
 
 vec3 probeIndexToProbeCoord(uint probeIndex) { return gridCoordToProbeGoord(probeIndexToGridCoord(probeIndex)); }
 
-#define MAX_BOUNCES2 5
+#define MAX_BOUNCES2 3
 #define HIHI 0.001
 vec3 calculateIndirectLighting(Ray ray, float diffuseBounceAtt, vec3 seed) {
   TraceResult traceResult;
@@ -841,7 +841,7 @@ void main() {
       case MATERIAL_TYPE_METAL:
       case MATERIAL_TYPE_GLASS:
       case MATERIAL_TYPE_DIFFUSE: {
-        col = calcDiffuseIndirectN(hitPoint, normal, 0.6, 64);
+        col = calcDiffuseIndirectN(hitPoint, normal, 0.6, 32);
         break;
       }
       case MATERIAL_TYPE_EMIT: {

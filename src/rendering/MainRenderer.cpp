@@ -136,10 +136,10 @@ std::unordered_set<std::string> MainRenderer::getValidationLayers() {
 
 void MainRenderer::buildVulkanObjects() {
   createBuffers();
-  probeRenderer = std::make_unique<lfp::ProbeMatRenderer>(
+  probeRenderer = std::make_unique<lfp::ProbeBakeRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
       materialBuffer,
-      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{64, 64, 64},
+      std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{128, 128, 128},
                                           vkLogicalDevice));
 
   createSwapchain();
@@ -365,6 +365,9 @@ void MainRenderer::createDescriptorPools() {
                                                           {vk::DescriptorType::eStorageBuffer, 1},// prox grid data
                                                           {vk::DescriptorType::eUniformBuffer, 1},// prox grid info
                                                           {vk::DescriptorType::eUniformBuffer, 1},// probe grid info
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// SVO
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// model infos
+                                                          {vk::DescriptorType::eStorageBuffer, 1},// BVH
                                                       }});
 }
 
@@ -416,6 +419,18 @@ void MainRenderer::createPipeline() {
             .type = vk::DescriptorType::eUniformBuffer,
             .count = 1,
             .stageFlags = vk::ShaderStageFlagBits::eCompute},// probe grid info
+           {.binding = 11,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// SVO
+           {.binding = 12,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// model infos
+           {.binding = 13,
+            .type = vk::DescriptorType::eStorageBuffer,
+            .count = 1,
+            .stageFlags = vk::ShaderStageFlagBits::eCompute},// BVH
        }});
 
   const auto setLayouts = std::vector{**vkComputeDescSetLayout};
@@ -537,10 +552,38 @@ void MainRenderer::createPipeline() {
                                                     .descriptorType = vk::DescriptorType::eUniformBuffer,
                                                     .pBufferInfo = &gridInfoInfo};
 
-  const auto writeSets =
-      std::vector{posAndMaterialWrite, normalWrite,        outputWrite,        materialsWrite,
-                  lightPosWrite,       uniformCameraWrite, computeProbesWrite, computeSmallProbesWrite,
-                  proxGridWrite,       proxGridInfoWrite,  gridInfoWrite};
+  const auto svoInfo = vk::DescriptorBufferInfo{.buffer = **svoBuffer, .offset = 0, .range = svoBuffer->getSize()};
+  const auto svoWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                               .dstBinding = 11,
+                                               .dstArrayElement = {},
+                                               .descriptorCount = 1,
+                                               .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                               .pBufferInfo = &svoInfo};
+
+  const auto modelInfoInfo =
+      vk::DescriptorBufferInfo{.buffer = **modelInfoBuffer, .offset = 0, .range = modelInfoBuffer->getSize()};
+  const auto modelInfoWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                                     .dstBinding = 12,
+                                                     .dstArrayElement = {},
+                                                     .descriptorCount = 1,
+                                                     .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                                     .pBufferInfo = &modelInfoInfo};
+
+  const auto bvhInfo = vk::DescriptorBufferInfo{.buffer = **bvhBuffer, .offset = 0, .range = bvhBuffer->getSize()};
+  const auto bvhWrite = vk::WriteDescriptorSet{.dstSet = *vkDescriptorSets[0],
+                                               .dstBinding = 13,
+                                               .dstArrayElement = {},
+                                               .descriptorCount = 1,
+                                               .descriptorType = vk::DescriptorType::eStorageBuffer,
+                                               .pBufferInfo = &bvhInfo};
+
+  const auto writeSets = std::vector{posAndMaterialWrite, normalWrite,
+                                     outputWrite,         materialsWrite,
+                                     lightPosWrite,       uniformCameraWrite,
+                                     computeProbesWrite,  computeSmallProbesWrite,
+                                     proxGridWrite,       proxGridInfoWrite,
+                                     gridInfoWrite,       svoWrite,
+                                     modelInfoWrite,      bvhWrite};
   (*vkLogicalDevice)->updateDescriptorSets(writeSets, nullptr);
 
   auto computeShader = vkLogicalDevice->createShader(ShaderConfigGlslFile{
