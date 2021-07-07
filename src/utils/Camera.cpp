@@ -179,7 +179,7 @@ float Camera::getFar() const { return farF; }
 Camera::~Camera() {
   std::ranges::for_each(subscriptions, [](auto &subscription) { subscription.unsubscribe(); });
 }
-Camera::Camera(Camera &&other) {
+Camera::Camera(Camera &&other) noexcept {
   screenWidth = other.screenWidth;
   screenHeight = other.screenHeight;
   nearF = other.nearF;
@@ -197,7 +197,7 @@ Camera::Camera(Camera &&other) {
   roll = other.roll;
   subscriptions = std::move(other.subscriptions);
 }
-Camera &Camera::operator=(Camera &&other)  {
+Camera &Camera::operator=(Camera &&other) noexcept {
   screenWidth = other.screenWidth;
   screenHeight = other.screenHeight;
   nearF = other.nearF;

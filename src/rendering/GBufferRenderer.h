@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/30/21.
-//
+/**
+ * @file GBufferRenderer.h
+ * @brief A renderer using ESVO to render gbuffer.
+ * @author Petr Flajšingr
+ * @date 30.6.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_GBUFFERRENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_GBUFFERRENDERER_H
@@ -14,6 +17,11 @@
 #include <vulkan/vulkan.hpp>
 
 namespace pf {
+/**
+ * @brief G-buffer renderer.
+ *
+ * Uses an ESVO ray tracing algorithm to save hit positions, normals and material info into a g buffer.
+ */
 class GBufferRenderer {
  public:
   GBufferRenderer(std::filesystem::path shaderDir, vk::Extent2D viewportSize,

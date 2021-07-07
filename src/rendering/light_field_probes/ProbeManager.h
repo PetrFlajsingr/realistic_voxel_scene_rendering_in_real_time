@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/19/21.
-//
+/**
+ * @file ProbeManager.h
+ * @brief Manager of probe grid.
+ * @author Petr Flajšingr
+ * @date 19.6.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEMANAGER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEMANAGER_H
@@ -13,8 +16,9 @@
 #include <ranges>
 
 namespace pf::lfp {
-// probe count should be power of two
-
+/**
+ * @brief Probe count with a precondition of the count being a power of 2.
+ */
 struct ProbeCount {
   explicit(false) ProbeCount(glm::ivec3 count);
   explicit(false) operator glm::ivec3() const;

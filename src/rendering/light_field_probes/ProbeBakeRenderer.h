@@ -1,6 +1,10 @@
-//
-// Created by petr on 6/19/21.
-//
+/**
+ * @file ProbeBakeRenderer.h
+ * @brief A probe texture atlas renderer with indirect illumination.
+ * @author Petr Flajšingr
+ * @date 19.6.21
+ */
+
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEBAKERENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEBAKERENDERER_H
@@ -26,7 +30,12 @@
 #include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
 #include <toml++/toml.h>
 namespace pf::lfp {
-
+/**
+ * @brief A probe texture atlas renderer.
+ *
+ * This is based on Real-Time Global Illumination using Precomputed Light Field Probes.
+ * Each probe has a indirect lighting, depth and normal texture.
+ */
 class ProbeBakeRenderer {
  public:
   ProbeBakeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,

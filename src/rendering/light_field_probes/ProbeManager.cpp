@@ -1,7 +1,9 @@
-//
-// Created by petr on 6/19/21.
-//
-
+/**
+ * @file ProbeManager.cpp
+ * @brief Manager of probe grid.
+ * @author Petr Flajšingr
+ * @date 19.6.21
+ */
 #include "ProbeManager.h"
 
 namespace pf::lfp {

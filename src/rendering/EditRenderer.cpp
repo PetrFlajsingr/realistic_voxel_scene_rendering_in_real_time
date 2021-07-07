@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file EditRenderer.cpp
+ * @brief A renderer using ESVO to show the scene.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #include "EditRenderer.h"
 #include "light_field_probes/GridProbeGenerator.h"
@@ -27,7 +30,6 @@ using namespace vulkan;
 using namespace pf::byte_literals;
 using namespace ui::ig;
 
-// TODO: fix memo race issues
 std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
   o << magic_enum::enum_name(e);
   return o;
@@ -43,7 +45,6 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  *      mat4 inverse object matrix
  */
 
-// TODO: teardown map file loading
 EditRenderer::EditRenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}, {0, 0, -1}, {0, -1, 0}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),

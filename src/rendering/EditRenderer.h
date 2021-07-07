@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file EditRenderer.h
+ * @brief A renderer using ESVO to show the scene.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_EDITRENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_EDITRENDERER_H
@@ -30,19 +33,33 @@
 #include <voxel/SparseVoxelOctree.h>
 
 namespace pf {
-
+/**
+ * @brief A renderer with the ability to save scene info.
+ *
+ * Main viewport is rendered using ESVO. It also shows probe texture atlas for debugging purposes.
+ */
 class EditRenderer : public VulkanDebugCallbackImpl {
  public:
+  /**
+   * Construct EditRenderer.
+   * @param tomlConfig renderer config
+   */
   explicit EditRenderer(toml::table &tomlConfig);
   EditRenderer(const EditRenderer &) = delete;
   EditRenderer &operator=(const EditRenderer &) = delete;
   EditRenderer(EditRenderer &&) = default;
   EditRenderer &operator=(EditRenderer &&) = default;
   virtual ~EditRenderer();
-
+  /**
+   * Initialize vulkan objects and window callbacks.
+   * @param win window to present on
+   */
   void init(const std::shared_ptr<ui::Window> &win);
 
   void render();
+  /**
+   * Stop the renderer after next render loop.
+   */
   void stop();
 
  private:

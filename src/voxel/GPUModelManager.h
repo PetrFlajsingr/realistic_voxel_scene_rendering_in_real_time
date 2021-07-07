@@ -37,7 +37,7 @@ class GPUModelManager {
   using ModelPtr = std::experimental::observer_ptr<GPUModelInfo>;
 
   struct Callbacks {
-    explicit Callbacks(std::invocable<float> auto &&onProgress) : progress(onProgress) {}
+    explicit(false) Callbacks(std::invocable<float> auto &&onProgress) : progress(onProgress) {}
     std::function<void(float)> progress;
   };
 

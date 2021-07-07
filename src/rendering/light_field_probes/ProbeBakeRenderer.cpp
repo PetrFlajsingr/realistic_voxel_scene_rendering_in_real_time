@@ -1,6 +1,10 @@
-//
-// Created by petr on 6/19/21.
-//
+/**
+ * @file ProbeBakeRenderer.cpp
+ * @brief A probe texture atlas renderer with indirect illumination.
+ * @author Petr Flajšingr
+ * @date 19.6.21
+ */
+
 
 #include "ProbeBakeRenderer.h"
 

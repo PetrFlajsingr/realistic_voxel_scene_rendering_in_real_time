@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/19/21.
-//
+/**
+ * @file ProbeRenderer.cpp
+ * @brief A probe texture atlas renderer.
+ * @author Petr Flajšingr
+ * @date 19.6.21
+ */
 
 #include "ProbeRenderer.h"
 

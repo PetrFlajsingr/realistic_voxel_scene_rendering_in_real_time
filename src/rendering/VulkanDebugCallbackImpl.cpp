@@ -1,6 +1,9 @@
-//
-// Created by petr on 12/5/20.
-//
+/**
+ * @file VulkanDebugCallbackImpl.cpp
+ * @brief Implementation for vulkan debug callback.
+ * @author Petr Flajšingr
+ * @date 5.12.20
+ */
 
 #include "VulkanDebugCallbackImpl.h"
 #include "logging/loggers.h"

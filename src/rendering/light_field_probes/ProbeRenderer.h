@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/19/21.
-//
+/**
+ * @file ProbeRenderer.h
+ * @brief A probe texture atlas renderer.
+ * @author Petr Flajšingr
+ * @date 19.6.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBERENDERER_H
@@ -27,6 +30,12 @@
 #include <toml++/toml.h>
 namespace pf::lfp {
 
+/**
+ * @brief A probe texture atlas renderer.
+ *
+ * This is based on Real-Time Global Illumination using Precomputed Light Field Probes.
+ * Each probe has a radiance, depth and normal texture.
+ */
 class ProbeRenderer {
  public:
   ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,

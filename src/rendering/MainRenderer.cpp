@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file MainRenderer.cpp
+ * @brief A main renderer for GBuffer->Probe indirect.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #include "MainRenderer.h"
 #include "light_field_probes/GridProbeGenerator.h"

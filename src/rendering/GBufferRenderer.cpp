@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/30/21.
-//
+/**
+ * @file GBufferRenderer.cpp
+ * @brief A renderer using ESVO to render gbuffer.
+ * @author Petr Flajšingr
+ * @date 30.6.21
+ */
 
 #include "GBufferRenderer.h"
 #include <pf_glfw_vulkan/vulkan/types/Buffer.h>

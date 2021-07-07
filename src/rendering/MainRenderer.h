@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file MainRenderer.h
+ * @brief A main renderer for GBuffer->Probe indirect.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #ifndef MAIN_RENDERER_H
 #define MAIN_RENDERER_H
@@ -31,19 +34,36 @@
 #include "GBufferRenderer.h"
 
 namespace pf {
-
+/**
+ * @brief The main renderer of this application.
+ *
+ * On request renders indirect illumination into probe texture atlas.
+ *
+ * In each frame a gbuffer with position, normals and material info is rendered.
+ * Next the indirect illumination info is rendered inside the gbuffer and presented to the user.
+ */
 class MainRenderer : public VulkanDebugCallbackImpl {
  public:
+  /**
+   * Construct MainRenderer.
+   * @param tomlConfig renderer config
+   */
   explicit MainRenderer(toml::table &tomlConfig);
   MainRenderer(const MainRenderer &) = delete;
   MainRenderer &operator=(const MainRenderer &) = delete;
   MainRenderer(MainRenderer &&) = default;
   MainRenderer &operator=(MainRenderer &&) = default;
   virtual ~MainRenderer();
-
+  /**
+   * Initialize vulkan objects and window callbacks.
+   * @param win window to present on
+   */
   void init(const std::shared_ptr<ui::Window> &win);
 
   void render();
+  /**
+   * Stop the renderer after next render loop.
+   */
   void stop();
 
  private:
