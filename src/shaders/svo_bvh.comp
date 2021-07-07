@@ -125,25 +125,11 @@ struct Material {
   float colorAlpha;
 };
 /**
- * Axis aligned bounding box delimited by min and max point.
- */
-struct BoundingBox {
-  vec3 p1;
-  vec3 p2;
-};
-/**
  * Coordinates of near and far points in view frustum for ray.
  */
 struct NearFarCoords {
   vec4 near;
   vec4 far;
-};
-/**
- * A box going in x+,y+,z+ direction from pos.
- */
-struct Box {
-  vec3 pos;
-  float sideLen;
 };
 /**
  * Sphere, used to visualize probes.

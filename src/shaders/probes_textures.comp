@@ -34,16 +34,6 @@ const uint BVH_LEAF_NODE_MASK = ~BVH_OFFSET_MASK;
 
 #define CHILD_PTR_MASK 0xFFFE0000u
 
-const vec3 lut[8] = vec3[8](vec3(0, 0, 0), // 0
-vec3(1, 0, 0), // 1
-vec3(0, 1, 0), // 2
-vec3(1, 1, 0), // 3
-vec3(0, 0, 1), // 4
-vec3(1, 0, 1), // 5
-vec3(0, 1, 1), // 6
-vec3(1, 1, 1)// 7
-);
-
 #define MAX_RAYCAST_ITERATIONS 10000
 
 const uint MASK11 = 0x7FF;
@@ -77,168 +67,212 @@ const uint NORMAL2_SHIFT = 8;
 #define MATERIAL_TYPE_CLOUD 6
 
 /********************************************* STRUCTS *******************************************/
-
+/**
+ * Model transform, AABB and material info.
+ */
 struct ModelInfo {
-    vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
-    mat4 objectMatrix;
-    mat4 inverseObjectMatrix;
-    vec4 AABB1;// xyz is p1.xyz, w is p2.x
-    vec4 AABB2;// xy is p2.yz
-    ivec4 materialsOffset;
+  vec4 scaleAndSvoBufferOffset; /**< .xyz is scale, floatBitsToInt(.w) is offset */
+  mat4 objectMatrix;            /**< Transformation matrix */
+  mat4 inverseObjectMatrix;     /**< Inverse transform matrix */
+  vec4 AABB1;                   /**< xyz is p1.xyz, w is p2.x */
+  vec4 AABB2;                   /**< xy is p2.yz */
+  ivec4 materialsOffset;        /**< Offset of material data in material buffer */
 };
-
+/**
+ * A node of BVH tree containing its AABB and children info.
+ */
 struct BVHNode {
-    vec4 AABB1;// p1.xyz, p2.x
-    vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
+  vec4 AABB1;         /**< p1.xyz, p2.x */
+  vec4 AABB2leafNext; /**< p2.yz, 1bit leaf/node, 31 bit child offset/model index */
 };
-
+/**
+ * Material parameters.
+ */
 struct Material {
-MATERIAL_TYPE type;
-    float metalness;
-    float rougness;
-    float specular;
-    float indexOfRefraction;
-    float flux;
-    float emission;
-    float lowDynamicRange;
-    float transparency;
-    float alpha;
-    float density;
-    float red;
-    float green;
-    float blue;
-    float colorAlpha;
+  MATERIAL_TYPE type;
+  float metalness;
+  float rougness;
+  float specular;
+  float indexOfRefraction;
+  float flux;
+  float emission;
+  float lowDynamicRange;
+  float transparency;
+  float alpha;
+  float density;
+  float red;
+  float green;
+  float blue;
+  float colorAlpha;
 };
-
 struct Ray {
-    vec3 origin;
-    float originSize;
-    vec3 direction;
-    float directionSize;
+  vec3 origin;
+  float originSize;
+  vec3 direction;
+  float directionSize;
 };
-
+/**
+ * ESVO child descriptor.
+ */
 struct ChildDescriptor {
-    uint data1;
-    uint data2;
+  uint data1; /**< Leaf mask 8b, valid mask 8b, unused 16b */
+  uint data2; /**< child pointer 32b */
 };
-
+/**
+ * AABB intersection used for BVH traversal.
+ */
 struct AABBIntersection_ALT {
-    bool hit;
-    float distance;
-    uint offset;
-    bool isLeaf;
+  bool hit;       /**< Hit or miss flag */
+  float distance; /**< Distance to intersection */
+  uint offset;    /**< Offset of child nodes */
+  bool isLeaf;    /**< True if the hit node is a leaf */
 };
-
-struct BoundingBox {
-    vec3 p1;
-    vec3 p2;
-};
-
-struct Box {
-    vec3 pos;
-    float sideLen;
-};
-
-struct Sphere {
-    vec3 position;
-    float radius;
-};
-
+/**
+ * ESVO tracing result.
+ */
 struct TraceResult {
-    float distance;
-    float distanceInWorldSpace;
-    vec3 pos;
-    vec3 posInWorldSpace;
-    uint node;
-    uint childIdx;
-    bool hit;
-    float t;
-    int iter;
-    int stackPtr;
-    uint materialId;
-    vec3 normal;
-    bool isOnlyAABB;
-    uint objectId;
+  float distance;             /**< Hit distance in model space */
+  float distanceInWorldSpace; /**< Hit distance in world space */
+  vec3 pos;                   /**< Hit point position in model space */
+  vec3 posInWorldSpace;       /**< Hit point position in world space */
+  uint childIdx;              /**< Index of hit node within the parent */
+  bool hit;                   /**< Hit or miss flag */
+  int iter;                   /**< Count of iterations done in while tracing the ray */
+  int stackPtr;               /**< Info about level of hit voxel within octree */
+  uint materialId;            /**< ID of hit material. This is an id within this model's material buffer, 
+      offset needs to be applied as well */
+  vec3 normal;                /**< Normal of hit point */
+  bool isOnlyAABB;            /**< True of only AABB has been hit but not a voxel */
+  bool aabbHit;               /**< True if aabb has been hit */
+  uint objectId;              /**< ID of the hit object */
 };
-
-Sphere LFP_SPHERE = Sphere(vec3(0, 0, 0), 0.01);
 
 /********************************************* BINDINGS *******************************************/
 
+/**
+ * Storage for model SVOs. Offsets for each SVO are saved in model info buffer.
+ * Each SVO has an info section, array of child descriptors, array of attachment pointers and an array of attachment descriptors
+ */
 layout(std430, binding = 0) buffer VoxelSVO_SSBO {
-//uint infoSectionPtr;
-//uint attachmentsPtr;
-//uint childDescriptors[];
-    uint data[];// uint infosectionPtr, uint attachmentsPtr, childDescriptors[]
+  //uint infoSectionPtr;
+  //uint attachmentsPtr;
+  //uint childDescriptors[];
+  uint data[];// uint infosectionPtr, uint attachmentsPtr, childDescriptors[]
 }
 svo;
+/**
+ * Various debug values.
+ */
 layout(binding = 1, std140) uniform Debug { uint foo; }
 debug;
-
+/**
+ * Information about models.
+ */
 layout(std430, binding = 2) buffer SVOModelInfos { ModelInfo infos[]; }
 modelInfos;
+/**
+ * Bounding volume hierarchy used to speed up scene traversal.
+ */
 layout(std430, binding = 3) buffer BVHModelAABBs { BVHNode nodes[]; }
 bvh;
-
+/**
+ * Probe image atlas output
+ */
 layout(binding = 4, rg32f) uniform image2DArray probeImages;
-
+/**
+ * Information about probe grid.
+ */
 layout(binding = 5, std140) uniform Grid {
-    ivec4 gridSize;
-    vec4 gridPos;
-    float gridStep;
+  ivec4 gridSize; /**< Size of the grid */
+  vec4 gridPos;   /**< Start position of the grid */
+  float gridStep; /**< Distance between probes */
 }
 grid;
-
+/**
+ * Buffer for all materials. Materials for a certain object can be accessed via materialID and model's offset within this buffer.
+ */
 layout(std430, binding = 6) buffer Materials { Material data[]; }
 materials;
 
 /********************************************* UTIL FUNCTIONS *******************************************/
-
+/**
+ * Find max component.
+ */
 float max(vec2 v) { return max(v.x, v.y); }
+/**
+ * Find max component.
+ */
 float max(vec3 v) { return max(max(v.x, v.y), v.z); }
+/**
+ * Find max component.
+ */
 float max(vec4 v) { return max(max(max(v.x, v.y), v.z), v.a); }
 
+/**
+ * Find min component.
+ */
 float min(vec2 v) { return min(v.x, v.y); }
+/**
+ * Find min component.
+ */
 float min(vec3 v) { return min(min(v.x, v.y), v.z); }
+/**
+ * Find min component.
+ */
 float min(vec4 v) { return min(min(min(v.x, v.y), v.z), v.a); }
-
+/**
+ * For each component return 1 if it's >= 0, -1 otherwise.
+ */
 vec2 signNotZero(vec2 v) { return vec2((v.x >= 0.0) ? +1.0 : -1.0, (v.y >= 0.0) ? +1.0 : -1.0); }
-
+/**
+ * Octahedron wrap used to encode a normal.
+ */
 vec2 octahedronWrap(vec2 v) { return (1.0f - abs(v.yx)) * (v.x >= 0.0f && v.y >= 0.f ? 1.0f : -1.0f); }
-
+/**
+ * Encode a normal using octahedral projection.
+ */
 vec2 encodeNormal(vec3 n) {
-    n /= (abs(n.x) + abs(n.y) + abs(n.z));
-    n.xy = n.z >= 0.0 ? n.xy : octahedronWrap(n.xy);
-    n.xy = n.xy * 0.5f + 0.5f;
-    return n.xy;
+  n /= (abs(n.x) + abs(n.y) + abs(n.z));
+  n.xy = n.z >= 0.0 ? n.xy : octahedronWrap(n.xy);
+  n.xy = n.xy * 0.5f + 0.5f;
+  return n.xy;
 }
-
+/**
+ * Decode normal from octahedral projection.
+ */
 vec3 decodeNormal(vec2 f) {
-    f = f * 2.0f - 1.0f;
-    vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
-    float t = clamp(-n.z, 0.f, 1.f);
-    n.x += n.x >= 0.0 ? -t : t;
-    n.y += n.y >= 0.0 ? -t : t;
-    return normalize(n);
+  f = f * 2.0f - 1.0f;
+  vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+  float t = clamp(-n.z, 0.f, 1.f);
+  n.x += n.x >= 0.0 ? -t : t;
+  n.y += n.y >= 0.0 ? -t : t;
+  return normalize(n);
 }
-
+/**
+ * Decode [-1, 1] coordinates into direction.
+ */
 vec3 octDecode(vec2 o) {
-    vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
-    if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
-    return normalize(v);
+  vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+  if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+  return normalize(v);
 }
-
-    #define LOG_DEPTH_C 1
+#define LOG_DEPTH_C 1
+/**
+ * Transform linear depth into logarithmic depth.
+ */
 float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
+/**
+ * Transform logarithmic depth into linear depth.
+ */
 float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 
-    /********************************************* STACK *******************************************/
-    #define SVO_STACK_SIZE 23
-    #define SVO_CAST_STACK_DEPTH SVO_STACK_SIZE
+/********************************************* STACK *******************************************/
+#define SVO_STACK_SIZE 23
+#define SVO_CAST_STACK_DEPTH SVO_STACK_SIZE
 struct SvoStackData {
-    int node;
-    float tMax;
-    uint offset;
+  int node;
+  float tMax;
+  uint offset;
 };
 
 SvoStackData svoStack[SVO_STACK_SIZE + 1];
@@ -251,7 +285,7 @@ SvoStackData svoStack[SVO_STACK_SIZE + 1];
 
 #define BVH_STACK_SIZE 23
 struct BvhStackData {
-    uint node;
+  uint node;
 };
 
 #define BVH_STACK_SIZE 23
@@ -261,471 +295,484 @@ BvhStackData bvhStack[BVH_STACK_SIZE];
 #define WRITE_BVH_STACK(stack, idx, n) stack[idx].node = n;
 
 /********************************************* INTERSECTION FUNCTIONS *******************************************/
-
+/**
+ * Calculate intersection to an AABB, which is a part of scene's BVH. Additional data are saved in the result for ease of use within a stack.
+ */
 AABBIntersection_ALT intersectAABBDistance_ALT(Ray ray, vec3 boxMin, vec3 boxMax, uint offset, bool isLeaf) {
-    const vec3 tMin = (boxMin - ray.origin) / ray.direction;
-    const vec3 tMax = (boxMax - ray.origin) / ray.direction;
-    const vec3 t1 = min(tMin, tMax);
-    const vec3 t2 = max(tMin, tMax);
-    const float tNear = max(max(t1.x, t1.y), t1.z);
-    const float tFar = min(min(t2.x, t2.y), t2.z);
-    AABBIntersection_ALT result;
-    result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
-    result.distance = tNear + float(!result.hit) * INF;
-    result.offset = offset;
-    result.isLeaf = isLeaf;
-    return result;
+  const vec3 tMin = (boxMin - ray.origin) / ray.direction;
+  const vec3 tMax = (boxMax - ray.origin) / ray.direction;
+  const vec3 t1 = min(tMin, tMax);
+  const vec3 t2 = max(tMin, tMax);
+  const float tNear = max(max(t1.x, t1.y), t1.z);
+  const float tFar = min(min(t2.x, t2.y), t2.z);
+  AABBIntersection_ALT result;
+  result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
+  result.distance = tNear + float(!result.hit) * INF;
+  result.offset = offset;
+  result.isLeaf = isLeaf;
+  return result;
 }
 
 /********************************************* TRACING FUNCTIONS *******************************************/
+/**
+ * Trace a ray through an SVO.
+ */
+TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
+  const float epsilon = exp2(-SVO_CAST_STACK_DEPTH);
+  float ray_orig_sz = ray.originSize;
+  int iter = 0;
 
-TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) {
-    const float epsilon = exp2(-SVO_CAST_STACK_DEPTH);
-    float ray_orig_sz = ray.originSize;
-    int iter = 0;
+  ray.direction.x = abs(ray.direction.x) > epsilon ? ray.direction.x : (ray.direction.x >= 0 ? epsilon : -epsilon);
+  ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
+  ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
 
-    ray.direction.x = abs(ray.direction.x) > epsilon ? ray.direction.x : (ray.direction.x >= 0 ? epsilon : -epsilon);
-    ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
-    ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
+  vec3 distanceCoef = 1.f / -abs(ray.direction);// / 10;
 
-    vec3 t_coef = 1.f / -abs(ray.direction);// / 10;
+  vec3 distanceBias = distanceCoef * ray.origin;
 
-    vec3 t_bias = t_coef * ray.origin;
+  int octantMask = 7;
+  const float biasCoef = 3.0f;
+  if (ray.direction.x > 0.0f) {
+    octantMask ^= 1;
+    distanceBias.x = biasCoef * distanceCoef.x - distanceBias.x;
+  }
+  if (ray.direction.y > 0.0f) {
+    octantMask ^= 2;
+    distanceBias.y = biasCoef * distanceCoef.y - distanceBias.y;
+  }
+  if (ray.direction.z > 0.0f) {
+    octantMask ^= 4;
+    distanceBias.z = biasCoef * distanceCoef.z - distanceBias.z;
+  }
 
-    int octant_mask = 7;
-    const float biasCoef = 3.0f;
-    if (ray.direction.x > 0.0f) {
-        octant_mask ^= 1;
-        t_bias.x = biasCoef * t_coef.x - t_bias.x;
+  float distanceMin = max(2.f * distanceCoef - distanceBias);
+  float distanceMax = min(distanceCoef - distanceBias);
+  float h = distanceMax;
+  distanceMin = max(distanceMin, 0.0f);
+  distanceMax = min(distanceMax, 1.0f);
+
+  int parent = 0;
+  uint nodeOffset = 0;
+  ChildDescriptor childDescriptor = ChildDescriptor(0, 0);// invalid until fetched
+  int idx = 0;
+  vec3 pos = vec3(1.0f, 1.0f, 1.0f);
+  int scale = SVO_CAST_STACK_DEPTH - 1;
+  float scaleExp2 = 0.5f;// exp2f(scale - s_max)
+
+  const float posCoef = 1.5f;
+  if (posCoef * distanceCoef.x - distanceBias.x > distanceMin) {
+    idx ^= 1;
+    pos.x = posCoef;
+  }
+  if (posCoef * distanceCoef.y - distanceBias.y > distanceMin) {
+    idx ^= 2;
+    pos.y = posCoef;
+  }
+  if (posCoef * distanceCoef.z - distanceBias.z > distanceMin) {
+    idx ^= 4;
+    pos.z = posCoef;
+  }
+
+  TraceResult res;
+  uint hitMaterial;
+  bool fetch = true;
+
+  while (scale < SVO_CAST_STACK_DEPTH) {
+    iter++;
+    if (iter > MAX_RAYCAST_ITERATIONS) break;
+
+    // Fetch child descriptor unless it is already valid.
+    if (fetch) {
+      childDescriptor.data1 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
+      childDescriptor.data2 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + 1];
+      fetch = false;
     }
-    if (ray.direction.y > 0.0f) {
-        octant_mask ^= 2;
-        t_bias.y = biasCoef * t_coef.y - t_bias.y;
-    }
-    if (ray.direction.z > 0.0f) {
-        octant_mask ^= 4;
-        t_bias.z = biasCoef * t_coef.z - t_bias.z;
-    }
 
-    float t_min = max(2.f * t_coef - t_bias);
-    float t_max = min(t_coef - t_bias);
-    float h = t_max;
-    t_min = max(t_min, 0.0f);
-    t_max = min(t_max, 1.0f);
+    vec3 distanceCorner = pos * distanceCoef - distanceBias;
+    float distanceCornerComponentMin = min(distanceCorner);
 
-    int parent = 0;
-    uint nodeOffset = 0;
-    ChildDescriptor child_descriptor = ChildDescriptor(0, 0);// invalid until fetched
-    int idx = 0;
-    vec3 pos = vec3(1.0f, 1.0f, 1.0f);
-    int scale = SVO_CAST_STACK_DEPTH - 1;
-    float scale_exp2 = 0.5f;// exp2f(scale - s_max)
+    int childShift = idx ^ octantMask;// permute child slots based on the mirroring
+    uint childMask = childDescriptor.data1 << childShift;
+    if ((childMask & 0x8000u) != 0 && distanceMin <= distanceMax) {
+      // Terminate if the voxel is small enough.
+      //if (distanceCornerComponentMin * ray.directionSize + ray_orig_sz >= scaleExp2) {
+      //    color = lut[childShift] * 0.5 + 0.1;
+      //    break;// at distanceMin
+      //}
+      //color = vec3(1, 0, 0);
 
-    const float posCoef = 1.5f;
-    if (posCoef * t_coef.x - t_bias.x > t_min) {
-        idx ^= 1;
-        pos.x = posCoef;
-    }
-    if (posCoef * t_coef.y - t_bias.y > t_min) {
-        idx ^= 2;
-        pos.y = posCoef;
-    }
-    if (posCoef * t_coef.z - t_bias.z > t_min) {
-        idx ^= 4;
-        pos.z = posCoef;
-    }
+      // INTERSECT
+      // Intersect active t-span with the cube and evaluate
+      // tx(), ty(), and tz() at the center of the voxel.
 
-    TraceResult res;
-    uint hitMaterial;
-    bool fetch = true;
+      float tvMax = min(distanceMax, distanceCornerComponentMin);
+      float halfScale = scaleExp2 * 0.5f;
+      vec3 distanceCenter = halfScale * distanceCoef + distanceCorner;
 
-    while (scale < SVO_CAST_STACK_DEPTH) {
-        iter++;
-        if (iter > MAX_RAYCAST_ITERATIONS) break;
+      if (distanceMin <= tvMax) {
+        // Terminate if the corresponding bit in the non-leaf mask is not set.
+        if ((childMask & 0x0080u) != 0) {
+          childShift = 7 - childShift;
+          vec3 norm, distanceCorner = distanceCoef * (pos + scaleExp2) - distanceBias;
+          if (distanceCorner.x > distanceCorner.y && distanceCorner.x > distanceCorner.z) {
+            norm = vec3(-1, 0, 0);
+          } else if (distanceCorner.y > distanceCorner.z) {
+            norm = vec3(0, -1, 0);
+          } else {
+            norm = vec3(0, 0, -1);
+          }
 
-        // Fetch child descriptor unless it is already valid.
+          if ((octantMask & 1) == 0u) { norm.x = -norm.x; }
+          if ((octantMask & 2) == 0u) { norm.y = -norm.y; }
+          if ((octantMask & 4) == 0u) { norm.z = -norm.z; }
+          res.normal = norm;
 
-        //if (child_descriptor.childData == 0)
-        if (fetch) {
-            child_descriptor.data1 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
-            child_descriptor.data2 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + 1];
-            fetch = false;
+          uint lookupOffset = svo.data[offsetInSVOBuffer];
+          uint lookupEntry = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + lookupOffset + nodeOffset];
+          uint lookupEntryMask = lookupEntry & 0xFFu;
+          uint siblingOffset = bitCount(lookupEntryMask << (8 - childShift) & 0xFFu);
+          uint attPtr = lookupEntry >> 8u & 0xFFFFFFu;
+          attPtr += siblingOffset + svo.data[offsetInSVOBuffer + 1];
+          //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+          //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
+          //             (phongAttrib >> 8 & 0xFFu) / 255.f);
+          hitMaterial = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+          //color = lut[childShift] * 0.5f + 0.5f;
+
+          //if ((lookupEntry & 0xFFu) != 0) {
+          //    color = RED;
+          //} else {
+          //    color = BLUE;
+          //}
+
+          break;// at distanceMin (overridden with tv_min).
         }
 
-        vec3 t_corner = pos * t_coef - t_bias;
-        float tc_max = min(t_corner);
+        // PUSH
+        // Write current parent to the stack.
 
-        int child_shift = idx ^ octant_mask;// permute child slots based on the mirroring
-        uint child_masks = child_descriptor.data1 << child_shift;
-        if ((child_masks & 0x8000u) != 0 && t_min <= t_max) {
-            // Terminate if the voxel is small enough.
-            //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2) {
-            //    color = lut[child_shift] * 0.5 + 0.1;
-            //    break;// at t_min
-            //}
-            //color = vec3(1, 0, 0);
+        if (distanceCornerComponentMin < h) { WRITE_SVO_STACK(svoStack, scale, parent, distanceMax, nodeOffset); }
+        h = distanceCornerComponentMin;
 
-            // INTERSECT
-            // Intersect active t-span with the cube and evaluate
-            // tx(), ty(), and tz() at the center of the voxel.
+        // Find child descriptor corresponding to the current voxel.
 
-            float tv_max = min(t_max, tc_max);
-            float halfScale = scale_exp2 * 0.5f;
-            vec3 t_center = halfScale * t_coef + t_corner;
+        //uint ptr = childDescriptor.data1 >> 16u;// child pointer
+        uint ptr = childDescriptor.data2;// child pointer
 
-            if (t_min <= tv_max) {
-                // Terminate if the corresponding bit in the non-leaf mask is not set.
-                if ((child_masks & 0x0080u) != 0) {
-                    child_shift = 7 - child_shift;
-                    vec3 norm, t_corner = t_coef * (pos + scale_exp2) - t_bias;
-                    if (t_corner.x > t_corner.y && t_corner.x > t_corner.z) {
-                        norm = vec3(-1, 0, 0);
-                    } else if (t_corner.y > t_corner.z) {
-                        norm = vec3(0, -1, 0);
-                    } else {
-                        norm = vec3(0, 0, -1);
-                    }
-
-                    if ((octant_mask & 1) == 0u) { norm.x = -norm.x; }
-                    if ((octant_mask & 2) == 0u) { norm.y = -norm.y; }
-                    if ((octant_mask & 4) == 0u) { norm.z = -norm.z; }
-                    res.normal = norm;
-
-                    uint lookupOffset = svo.data[offsetInSVOBuffer];
-                    uint lookupEntry = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + lookupOffset + nodeOffset];
-                    uint lookupEntryMask = lookupEntry & 0xFFu;
-                    uint siblingOffset = bitCount(lookupEntryMask << (8 - child_shift) & 0xFFu);
-                    uint attPtr = lookupEntry >> 8u & 0xFFFFFFu;
-                    attPtr += siblingOffset + svo.data[offsetInSVOBuffer + 1];
-                    //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-                    //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
-                    //             (phongAttrib >> 8 & 0xFFu) / 255.f);
-                    hitMaterial = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-                    //color = lut[child_shift] * 0.5f + 0.5f;
-
-                    //if ((lookupEntry & 0xFFu) != 0) {
-                    //    color = RED;
-                    //} else {
-                    //    color = BLUE;
-                    //}
-
-                    break;// at t_min (overridden with tv_min).
-                }
-
-                // PUSH
-                // Write current parent to the stack.
-
-                if (tc_max < h) { WRITE_SVO_STACK(svoStack, scale, parent, t_max, nodeOffset); }
-                h = tc_max;
-
-                // Find child descriptor corresponding to the current voxel.
-
-                //uint ptr = child_descriptor.data1 >> 16u;// child pointer
-                uint ptr = child_descriptor.data2;// child pointer
-
-                /* if ((child_descriptor.childData & 0x10000) != 0) { // FAR
+        /* if ((childDescriptor.childData & 0x10000) != 0) { // FAR
                           ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
                         }*/
 
-                uint validMask = (child_descriptor.data1 >> 8u) & 0xFFu;
-                uint leafMask = child_descriptor.data1 & 0xFFu;
+        uint validMask = (childDescriptor.data1 >> 8u) & 0xFFu;
+        uint leafMask = childDescriptor.data1 & 0xFFu;
 
-                child_shift = 7 - child_shift;
+        childShift = 7 - childShift;
 
-                validMask = validMask << (8 - child_shift) & 0xFFu;
-                leafMask = leafMask << (8 - child_shift) & 0xFFu;
+        validMask = validMask << (8 - childShift) & 0xFFu;
+        leafMask = leafMask << (8 - childShift) & 0xFFu;
 
-                uint ofs = bitCount(validMask) - bitCount(leafMask);
+        uint ofs = bitCount(validMask) - bitCount(leafMask);
 
-                //color = lut[ofs] * 0.5 + 0.3;
-                uint offsetFromParent = ptr + ofs;
-                nodeOffset = parent / 2 + offsetFromParent;
-                parent = parent + int(offsetFromParent * 2);
+        //color = lut[ofs] * 0.5 + 0.3;
+        uint offsetFromParent = ptr + ofs;
+        nodeOffset = parent / 2 + offsetFromParent;
+        parent = parent + int(offsetFromParent * 2);
 
-                // Select child voxel that the ray enters first.
+        // Select child voxel that the ray enters first.
 
-                idx = 0;
-                scale--;
-                scale_exp2 = halfScale;
+        idx = 0;
+        scale--;
+        scaleExp2 = halfScale;
 
-                if (t_center.x > t_min) {
-                    idx ^= 1;
-                    pos.x += scale_exp2;
-                }
-                if (t_center.y > t_min) {
-                    idx ^= 2;
-                    pos.y += scale_exp2;
-                }
-                if (t_center.z > t_min) {
-                    idx ^= 4;
-                    pos.z += scale_exp2;
-                }
-
-                // Update active t-span and invalidate cached child descriptor.
-
-                t_max = tv_max;
-                //child_descriptor.childData = 0;
-                fetch = true;
-                continue;
-            }
+        if (distanceCenter.x > distanceMin) {
+          idx ^= 1;
+          pos.x += scaleExp2;
+        }
+        if (distanceCenter.y > distanceMin) {
+          idx ^= 2;
+          pos.y += scaleExp2;
+        }
+        if (distanceCenter.z > distanceMin) {
+          idx ^= 4;
+          pos.z += scaleExp2;
         }
 
-        // ADVANCE
-        // Step along the ray.
-        int step_mask = 0;
-        if (t_corner.x <= tc_max) {
-            step_mask ^= 1;
-            pos.x -= scale_exp2;
-        }
-        if (t_corner.y <= tc_max) {
-            step_mask ^= 2;
-            pos.y -= scale_exp2;
-        }
-        if (t_corner.z <= tc_max) {
-            step_mask ^= 4;
-            pos.z -= scale_exp2;
-        }
+        // Update active t-span and invalidate cached child descriptor.
 
-        // Update active t-span and flip bits of the child slot index.
-
-        t_min = tc_max;
-        idx ^= step_mask;
-
-        // Proceed with pop if the bit flips disagree with the ray direction.
-
-        if ((idx & step_mask) != 0) {
-            // POP
-            // Find the highest differing bit between the two positions.
-
-            uint differing_bits = 0;
-            if ((step_mask & 1) != 0) differing_bits |= floatBitsToInt(pos.x) ^ floatBitsToInt(pos.x + scale_exp2);
-            if ((step_mask & 2) != 0) differing_bits |= floatBitsToInt(pos.y) ^ floatBitsToInt(pos.y + scale_exp2);
-            if ((step_mask & 4) != 0) differing_bits |= floatBitsToInt(pos.z) ^ floatBitsToInt(pos.z + scale_exp2);
-            scale = findMSB(differing_bits);// position of the highest bit
-            scale_exp2 = intBitsToFloat((scale - SVO_CAST_STACK_DEPTH + 127) << 23);// exp2f(scale - s_max)
-
-            // Restore parent voxel from the stack.
-
-            parent = READ_SVO_STACK(svoStack, scale).node;
-            t_max = READ_SVO_STACK(svoStack, scale).tMax;
-            nodeOffset = READ_SVO_STACK(svoStack, scale).offset;
-
-            // Round cube position and extract child slot index.
-
-            int shx = floatBitsToInt(pos.x) >> scale;
-            int shy = floatBitsToInt(pos.y) >> scale;
-            int shz = floatBitsToInt(pos.z) >> scale;
-            pos.x = intBitsToFloat(shx << scale);
-            pos.y = intBitsToFloat(shy << scale);
-            pos.z = intBitsToFloat(shz << scale);
-            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
-
-            // Prevent same parent from being stored again and invalidate cached child descriptor.
-
-            h = 0.0f;
-            //child_descriptor.childData = 0;
-            fetch = true;
-        }
+        distanceMax = tvMax;
+        //childDescriptor.childData = 0;
+        fetch = true;
+        continue;
+      }
     }
 
-    if (scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS) { t_min = 2.0f; }
+    // ADVANCE
+    // Step along the ray.
+    int stepMask = 0;
+    if (distanceCorner.x <= distanceCornerComponentMin) {
+      stepMask ^= 1;
+      pos.x -= scaleExp2;
+    }
+    if (distanceCorner.y <= distanceCornerComponentMin) {
+      stepMask ^= 2;
+      pos.y -= scaleExp2;
+    }
+    if (distanceCorner.z <= distanceCornerComponentMin) {
+      stepMask ^= 4;
+      pos.z -= scaleExp2;
+    }
 
-    // Undo mirroring of the coordinate system.
+    // Update active t-span and flip bits of the child slot index.
 
-    if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_exp2 - pos.x;
-    if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_exp2 - pos.y;
-    if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_exp2 - pos.z;
+    distanceMin = distanceCornerComponentMin;
+    idx ^= stepMask;
 
-    // Output results.
+    // Proceed with pop if the bit flips disagree with the ray direction.
 
-    res.t = t_min;
-    res.iter = iter;
-    res.pos.x = min(max(ray.origin.x + t_min * ray.direction.x, pos.x + epsilon), pos.x + scale_exp2 - epsilon);
-    res.pos.y = min(max(ray.origin.y + t_min * ray.direction.y, pos.y + epsilon), pos.y + scale_exp2 - epsilon);
-    res.pos.z = min(max(ray.origin.z + t_min * ray.direction.z, pos.z + epsilon), pos.z + scale_exp2 - epsilon);
-    res.node = parent;
-    res.childIdx = idx ^ octant_mask ^ 7;
-    res.stackPtr = scale;
-    res.materialId = hitMaterial;
-    res.hit = !(scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
-    return res;
+    if ((idx & stepMask) != 0) {
+      // POP
+      // Find the highest differing bit between the two positions.
+
+      uint differingBits = 0;
+      if ((stepMask & 1) != 0) differingBits |= floatBitsToInt(pos.x) ^ floatBitsToInt(pos.x + scaleExp2);
+      if ((stepMask & 2) != 0) differingBits |= floatBitsToInt(pos.y) ^ floatBitsToInt(pos.y + scaleExp2);
+      if ((stepMask & 4) != 0) differingBits |= floatBitsToInt(pos.z) ^ floatBitsToInt(pos.z + scaleExp2);
+      scale = findMSB(differingBits);                                        // position of the highest bit
+      scaleExp2 = intBitsToFloat((scale - SVO_CAST_STACK_DEPTH + 127) << 23);// exp2f(scale - s_max)
+
+      // Restore parent voxel from the stack.
+
+      parent = READ_SVO_STACK(svoStack, scale).node;
+      distanceMax = READ_SVO_STACK(svoStack, scale).tMax;
+      nodeOffset = READ_SVO_STACK(svoStack, scale).offset;
+
+      // Round cube position and extract child slot index.
+
+      int shx = floatBitsToInt(pos.x) >> scale;
+      int shy = floatBitsToInt(pos.y) >> scale;
+      int shz = floatBitsToInt(pos.z) >> scale;
+      pos.x = intBitsToFloat(shx << scale);
+      pos.y = intBitsToFloat(shy << scale);
+      pos.z = intBitsToFloat(shz << scale);
+      idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
+
+      // Prevent same parent from being stored again and invalidate cached child descriptor.
+
+      h = 0.0f;
+      //childDescriptor.childData = 0;
+      fetch = true;
+    }
+  }
+
+  if (scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS) { distanceMin = 2.0f; }
+
+  // Undo mirroring of the coordinate system.
+
+  if ((octantMask & 1) == 0) pos.x = 3.0f - scaleExp2 - pos.x;
+  if ((octantMask & 2) == 0) pos.y = 3.0f - scaleExp2 - pos.y;
+  if ((octantMask & 4) == 0) pos.z = 3.0f - scaleExp2 - pos.z;
+
+  // Output results.
+
+  res.iter = iter;
+  res.pos.x = min(max(ray.origin.x + distanceMin * ray.direction.x, pos.x + epsilon), pos.x + scaleExp2 - epsilon);
+  res.pos.y = min(max(ray.origin.y + distanceMin * ray.direction.y, pos.y + epsilon), pos.y + scaleExp2 - epsilon);
+  res.pos.z = min(max(ray.origin.z + distanceMin * ray.direction.z, pos.z + epsilon), pos.z + scaleExp2 - epsilon);
+  res.childIdx = idx ^ octantMask ^ 7;
+  res.stackPtr = scale;
+  res.materialId = hitMaterial;
+  res.hit = !(scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
+  return res;
 }
-
+/**
+ * Transform a ray into an object space and trace its SVO.
+ */
 TraceResult traceModel(uint modelIndex, Ray ray) {
-    ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
-    ray.direction =//normalize(
-    (transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz;//);
-    ray.originSize = 0.02;
-    ray.directionSize = 0;
-    TraceResult result;
-    result.objectId = modelIndex;
-    result.hit = false;
-    result.iter = 0;
+  ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
+  ray.direction =                                                                                //normalize(
+      (transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz;//);
+  ray.originSize = 0.02;
+  ray.directionSize = 0;
+  TraceResult result;
+  result.objectId = modelIndex;
+  result.hit = false;
+  result.iter = 0;
 
-    ray.origin += vec3(1, 1, 1);
+  ray.origin += vec3(1, 1, 1);
 
-    result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w),
-    modelInfos.infos[modelIndex].materialsOffset.x);
-    result.materialId += modelInfos.infos[modelIndex].materialsOffset.x;
-    result.objectId = modelIndex;
+  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w));
+  result.materialId += modelInfos.infos[modelIndex].materialsOffset.x;
+  result.objectId = modelIndex;
 
-    return result;
+  return result;
 }
 
-    #define IS_BVH_NODE_LEAF(node) ((floatBitsToUint(node.AABB2leafNext.z) & BVH_LEAF_NODE_MASK) != 0)
-    #define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
-    #define GET_BVH_MIN_AABB(node) node.AABB1.xyz
-    #define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
+#define IS_BVH_NODE_LEAF(node) ((floatBitsToUint(node.AABB2leafNext.z) & BVH_LEAF_NODE_MASK) != 0)
+#define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
+#define GET_BVH_MIN_AABB(node) node.AABB1.xyz
+#define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
 
-    #define READ_BVH_STACK_ALT(stack, idx) stack[idx]
-    #define WRITE_BVH_STACK_ALT(stack, idx, n) stack[idx] = n;
+#define READ_BVH_STACK_ALT(stack, idx) stack[idx]
+#define WRITE_BVH_STACK_ALT(stack, idx, n) stack[idx] = n;
 
 AABBIntersection_ALT bvhStack_ALT[BVH_STACK_SIZE];
+/**
+ * Trace a ray through a BVH. If there is a hit trace within an SVO.
+ */
 TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
-    Ray aabbRay = ray;
-    aabbRay.direction = normalize(aabbRay.direction);
+  Ray aabbRay = ray;
+  aabbRay.direction = normalize(aabbRay.direction);
 
-    TraceResult result;
-    result.hit = false;
-    result.isOnlyAABB = true;
-    result.iter = 0;
-    result.normal = vec3(0);
+  TraceResult result;
+  result.hit = false;
+  result.isOnlyAABB = true;
+  result.iter = 0;
+  result.normal = vec3(0);
 
-    TraceResult bestModelResult;
-    bestModelResult.hit = false;
-    bestModelResult.t = INF;
-    bestModelResult.iter = 0;
-    bestModelResult.distanceInWorldSpace = INF;
+  TraceResult bestModelResult;
+  bestModelResult.hit = false;
+  bestModelResult.iter = 0;
+  bestModelResult.distanceInWorldSpace = INF;
 
-    uint stackTop = 0;
+  uint stackTop = 0;
 
-    // BVH root
-    uint nodeToCheckIdx = 0;
-    BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
-    vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
-    vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
-    uint offset = GET_BVH_NODE_OFFSET(currentNode);
-    AABBIntersection_ALT intersectionA =
-    intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+  // BVH root
+  uint nodeToCheckIdx = 0;
+  BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
+  vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
+  vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
+  uint offset = GET_BVH_NODE_OFFSET(currentNode);
+  AABBIntersection_ALT intersectionA =
+      intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
 
-while (intersectionA.hit) {
+  while (intersectionA.hit) {
     while (!intersectionA.isLeaf && intersectionA.hit) {
-        nodeToCheckIdx = intersectionA.offset + 1;
-        currentNode = bvh.nodes[nodeToCheckIdx];
-        boxMin = GET_BVH_MIN_AABB(currentNode);
-        boxMax = GET_BVH_MAX_AABB(currentNode);
-        offset = GET_BVH_NODE_OFFSET(currentNode);
-        AABBIntersection_ALT intersectionB =
-        intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+      nodeToCheckIdx = intersectionA.offset + 1;
+      currentNode = bvh.nodes[nodeToCheckIdx];
+      boxMin = GET_BVH_MIN_AABB(currentNode);
+      boxMax = GET_BVH_MAX_AABB(currentNode);
+      offset = GET_BVH_NODE_OFFSET(currentNode);
+      AABBIntersection_ALT intersectionB =
+          intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
 
-nodeToCheckIdx = intersectionA.offset;
-currentNode = bvh.nodes[nodeToCheckIdx];
-boxMin = GET_BVH_MIN_AABB(currentNode);
-boxMax = GET_BVH_MAX_AABB(currentNode);
-offset = GET_BVH_NODE_OFFSET(currentNode);
-intersectionA = intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+      nodeToCheckIdx = intersectionA.offset;
+      currentNode = bvh.nodes[nodeToCheckIdx];
+      boxMin = GET_BVH_MIN_AABB(currentNode);
+      boxMax = GET_BVH_MAX_AABB(currentNode);
+      offset = GET_BVH_NODE_OFFSET(currentNode);
+      intersectionA = intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
 
-// sort child nodes
-if (intersectionB.distance < intersectionA.distance) {
-    AABBIntersection_ALT tmp = intersectionB;
-    intersectionB = intersectionA;
-    intersectionA = tmp;
-}
-// B is present only if both children have been hit, push it onto stack - if it's further away than the closest intersected model skip it
-if (intersectionB.hit && intersectionB.distance < bestModelResult.distanceInWorldSpace) {
-    WRITE_BVH_STACK_ALT(bvhStack_ALT, stackTop++, intersectionB);
-}
-// there was no hit, read stack
-if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
-}
-if (intersectionA.isLeaf && intersectionA.hit) {
-    if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
+      // sort child nodes
+      if (intersectionB.distance < intersectionA.distance) {
+        AABBIntersection_ALT tmp = intersectionB;
+        intersectionB = intersectionA;
+        intersectionA = tmp;
+      }
+      // B is present only if both children have been hit, push it onto stack - if it's further away than the closest intersected model skip it
+      if (intersectionB.hit && intersectionB.distance < bestModelResult.distanceInWorldSpace) {
+        WRITE_BVH_STACK_ALT(bvhStack_ALT, stackTop++, intersectionB);
+      }
+      // there was no hit, read stack
+      if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
+    }
+    if (intersectionA.isLeaf && intersectionA.hit) {
+      if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
         TraceResult modelTraceResult = traceModel(intersectionA.offset, ray);
         modelTraceResult.posInWorldSpace =
-        (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1))
-        .xyz;
+            (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1))
+                .xyz;
         modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
         if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
-            bestModelResult = modelTraceResult;
+          bestModelResult = modelTraceResult;
         }
         result.iter += modelTraceResult.iter;
-    }
+      }
 
-    // stack is empty, end
-    if (stackTop == 0) {
+      // stack is empty, end
+      if (stackTop == 0) {
         intersectionA.hit = false;
-    } else { // read stack
+      } else {// read stack
         intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop);
+      }
     }
-}
-}
+  }
 
-if (bestModelResult.hit) {
+  if (bestModelResult.hit) {
     bestModelResult.normal = normalize(
-    (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);
+        (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);
     bestModelResult.iter = result.iter;
     return bestModelResult;
-}
-return result;
+  }
+  return result;
 }
 
 /********************************************* PROBE FUNCTIONS *******************************************/
-
+/**
+ * Calculate probe grid coordinate using its index.
+ */
 ivec3 probeIndexToGridCoord(uint probeIndex) {
-    return ivec3(probeIndex & (grid.gridSize.x - 1),
-    (probeIndex & ((grid.gridSize.x * grid.gridSize.y) - 1)) >> findMSB(grid.gridSize.x),
-    probeIndex >> findMSB(grid.gridSize.x * grid.gridSize.y));
+  return ivec3(probeIndex & (grid.gridSize.x - 1),
+               (probeIndex & ((grid.gridSize.x * grid.gridSize.y) - 1)) >> findMSB(grid.gridSize.x),
+               probeIndex >> findMSB(grid.gridSize.x * grid.gridSize.y));
 }
+/**
+ * Convert probe's grid coordinate to world coordinate.
+ */
 vec3 gridCoordToProbeGoord(ivec3 gridCoord) { return grid.gridStep * gridCoord + grid.gridPos.xyz; }
-
+/**
+ * Calculate probe's index to its world coordinate.
+ */
 vec3 probeIndexToProbeCoord(uint probeIndex) { return gridCoordToProbeGoord(probeIndexToGridCoord(probeIndex)); }
+/**
+ * Encode and save data into probe atlas.
+ */
+void saveAtlasData(vec3 color, vec3 normal, float depth) {
+  const float colorBytes =
+      uintBitsToFloat(uint(color.r * R_MAX) | (uint(color.g * G_MAX) << G_SHIFT) | (uint(color.b * B_MAX) << B_SHIFT));
+
+  const vec2 encodedNormal = encodeNormal(normal);
+  const int encodedBitNormal1 = int(encodedNormal.x * NORMAL_ELEMENT_MAX);
+  const int encodedBitNormal2 = int(encodedNormal.y * NORMAL_ELEMENT_MAX);
+  const int encodedBitNormal = (encodedBitNormal1 << NORMAL1_SHIFT) | (encodedBitNormal2 << NORMAL2_SHIFT);
+
+  const float depthAndNormalBytes = uintBitsToFloat(uint(depth * DEPTH_MAX) | (encodedBitNormal << NORMALS_SHIFT));
+
+  const vec2 probeData = vec2(colorBytes, depthAndNormalBytes);
+
+  imageStore(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, gl_GlobalInvocationID.z),
+             vec4(probeData, 0, 0));
+}
 
 void main() {
-    ivec3 probeTextureSize = imageSize(probeImages);
-    if (gl_GlobalInvocationID.x > probeTextureSize.x || gl_GlobalInvocationID.y > probeTextureSize.y
-    || gl_GlobalInvocationID.z > probeTextureSize.z) {
-        return;
-    }
+  ivec3 probeTextureSize = imageSize(probeImages);
+  if (gl_GlobalInvocationID.x > probeTextureSize.x || gl_GlobalInvocationID.y > probeTextureSize.y
+      || gl_GlobalInvocationID.z > probeTextureSize.z) {
+    return;
+  }
 
-    const uint probeId = gl_GlobalInvocationID.z;
+  const uint probeId = gl_GlobalInvocationID.z;
 
-    vec2 normalisedOctCoords = (vec2(gl_GlobalInvocationID.xy) - 512.0) / 512.0;
-    vec3 v = octDecode(normalisedOctCoords);
+  vec2 normalisedOctCoords = (vec2(gl_GlobalInvocationID.xy) - 512.0) / 512.0;
+  vec3 v = octDecode(normalisedOctCoords);
 
-    Ray probeRay;
-    probeRay.origin = probeIndexToProbeCoord(probeId);
-    probeRay.direction = v * 10;
+  Ray probeRay;
+  probeRay.origin = probeIndexToProbeCoord(probeId);
+  probeRay.direction = v * TMP_FAR;
 
-    TraceResult traceResult;
-    traceResult.hit = false;
-    traceResult.t = INF;
-    traceResult.iter = 0;
+  TraceResult traceResult;
+  traceResult.hit = false;
+  traceResult.iter = 0;
 
-    traceResult = traceBVHImproved(probeRay, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+  traceResult = traceBVHImproved(probeRay, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
 
-    vec3 color = vec3(1);
-    if (traceResult.hit) {
-        Material material =
+  vec3 color = vec3(1);
+  if (traceResult.hit) {
+    Material material =
         materials.data[modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId];
-        color = vec3(material.red, material.green, material.blue);
-    }
-    const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);
-    //const float depth = traceResult.hit ? (traceResult.distanceInWorldSpace / TMP_FAR) : TMP_FAR;
-    const float depth = computeLogDepth(traceResult.hit ? traceResult.distanceInWorldSpace : TMP_FAR);
+    color = vec3(material.red, material.green, material.blue);
+  }
+  const vec3 normal = traceResult.hit ? traceResult.normal : vec3(0);
+  const float depth = computeLogDepth(traceResult.hit ? traceResult.distanceInWorldSpace : TMP_FAR);
 
-    const float colorBytes =
-    uintBitsToFloat(uint(color.r * R_MAX) | (uint(color.g * G_MAX) << G_SHIFT) | (uint(color.b * B_MAX) << B_SHIFT));
-
-    const vec2 encodedNormal = encodeNormal(traceResult.normal);
-    const int encodedBitNormal1 = int(encodedNormal.x * NORMAL_ELEMENT_MAX);
-    const int encodedBitNormal2 = int(encodedNormal.y * NORMAL_ELEMENT_MAX);
-    const int encodedBitNormal = (encodedBitNormal1 << NORMAL1_SHIFT) | (encodedBitNormal2 << NORMAL2_SHIFT);
-
-    const float depthAndNormalBytes = uintBitsToFloat(uint(depth * DEPTH_MAX) | (encodedBitNormal << NORMALS_SHIFT));
-
-    const vec2 probeData = vec2(colorBytes, depthAndNormalBytes);
-
-    imageStore(probeImages, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, probeId), vec4(probeData, 0, 0));
-
-    //--------------
+  saveAtlasData(color, normal, depth);
 }
