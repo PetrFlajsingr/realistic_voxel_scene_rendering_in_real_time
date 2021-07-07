@@ -1,6 +1,9 @@
-//
-// Created by petr on 9/24/20.
-//
+/**
+ * @file Application.h
+ * @brief And object to prepare a window and run a renderer.
+ * @author Petr Flajšingr
+ * @date 24.9.20
+ */
 
 #ifndef VOXEL_RENDER_APPLICATION_H
 #define VOXEL_RENDER_APPLICATION_H
@@ -15,14 +18,27 @@
 #include <range/v3/view.hpp>
 
 namespace pf {
+/**
+ * @brief Init settings for application.
+ */
 struct ApplicationSettings {
   bool debug{};
   ui::WindowSettings window_settings;
 };
 
+/**
+ * @brief An object which sets up the given window and runs the given renderer.
+ * @tparam Renderer type of renderer
+ * @tparam Window type of window
+ */
 template<std::derived_from<ui::Window> Window, Renderer Renderer>
 class Application {
  public:
+  /**
+   * Construct Application. Initialises the window and render loop.
+   * @param renderer renderer instance
+   * @param settings app settings
+   */
   explicit Application(Renderer &&renderer, const ApplicationSettings &settings)
       : window(std::make_shared<Window>(settings.window_settings)), renderer(std::move(renderer)) {
     logi(APP_TAG, "Creating application.");
@@ -30,6 +46,9 @@ class Application {
     init_window();
   }
 
+  /**
+   * Run window mainloop.
+   */
   void run() {
     window->run();
     renderer.stop();
