@@ -21,7 +21,7 @@
 #include <range/v3/view/map.hpp>
 #include <thread>
 #include <toml++/toml.h>
-#include <ui/SVOUI.h>
+#include <ui/EditorUI.h>
 #include <utility>
 #include <utils/Camera.h>
 #include <utils/FPSCounter.h>
@@ -122,7 +122,7 @@ class EditRenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Fence> vkComputeFence;
   std::shared_ptr<vulkan::RenderPass> vkRenderPass;
 
-  std::unique_ptr<SVOUI> ui;
+  std::unique_ptr<EditorUI> ui;
 
   FPSCounter fpsCounter;
 

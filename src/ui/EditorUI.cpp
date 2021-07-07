@@ -1,8 +1,11 @@
-//
-// Created by petr on 5/21/21.
-//
+/**
+ * @file EditorUI.cpp
+ * @brief UI definition for editor renderer.
+ * @author Petr Flajšingr
+ * @date 21.5.21
+ */
 
-#include "SVOUI.h"
+#include "EditorUI.h"
 #include <logging/loggers.h>
 #include <pf_imgui/backends/impl/imgui_impl_vulkan.h>
 #include <pf_imgui/elements/Bullet.h>
@@ -15,7 +18,7 @@
 namespace pf {
 using namespace ui::ig;
 
-SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface, std::shared_ptr<ui::Window> uiWindow,
+EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface, std::shared_ptr<ui::Window> uiWindow,
              const Camera &camera, TextureData iterTextureData, TextureData probesColorTextureData)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
       fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
@@ -329,7 +332,7 @@ SVOUI::SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
   activeModelList.setDropAllowed(true);
   modelListsLayout.setDrawBorder(true);
 }
-void SVOUI::setWindowsVisible(bool visible) {
+void EditorUI::setWindowsVisible(bool visible) {
   infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   renderSettingsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   debugWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
@@ -344,7 +347,7 @@ void SVOUI::setWindowsVisible(bool visible) {
   modelsMenuItem.setValue(visible);
 }
 
-std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> SVOUI::createLoadingDialog() {
+std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> EditorUI::createLoadingDialog() {
   auto &loadingDialog = imgui->createDialog(uniqueId(), "Loading model...");
   loadingDialog.setSize(Size{200, 100});
   auto &loadingProgressBar = loadingDialog.createChild<ProgressBar<float>>(uniqueId(), 1, 0, 100, 0);

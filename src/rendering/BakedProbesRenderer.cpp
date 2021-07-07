@@ -119,7 +119,7 @@ void BakedProbesRenderer::init(const std::shared_ptr<ui::Window> &win) {
   window->setInputIgnorePredicate([this] { return ui->imgui->isWindowHovered() || ui->imgui->isKeyboardCaptured(); });
   camera.registerControls(*window);
 
-  ui = std::make_unique<SVOUI>(
+  ui = std::make_unique<EditorUI>(
       std::move(imgui), window, camera, TextureData{*vkIterImage, *vkIterImageView, *vkIterImageSampler},
       TextureData{*probeRenderer->getProbesDebugImage(), *probeRenderer->getProbesDebugImageView(),
                   *probeRenderer->getProbesDebugSampler()});
@@ -1075,10 +1075,10 @@ void BakedProbesRenderer::rebuildAndUploadBVH() {
 
   const auto nodeCount = bvhTree.nodeCount;
   const auto depth = bvhTree.depth;
-  ui->sceneVoxelCountText.setText(SVOUI::SCENE_VOXEL_COUNT_INFO, totalVoxels);
-  ui->sceneModelCountText.setText(SVOUI::SCENE_MODEL_COUNT_INFO, totalModels);
-  ui->sceneBVHNodeCountText.setText(SVOUI::SCENE_BVH_NODE_COUNT_INFO, nodeCount);
-  ui->sceneBVHDepthText.setText(SVOUI::SCENE_BVH_DEPTH_INFO, depth);
+  ui->sceneVoxelCountText.setText(EditorUI::SCENE_VOXEL_COUNT_INFO, totalVoxels);
+  ui->sceneModelCountText.setText(EditorUI::SCENE_MODEL_COUNT_INFO, totalModels);
+  ui->sceneBVHNodeCountText.setText(EditorUI::SCENE_BVH_NODE_COUNT_INFO, nodeCount);
+  ui->sceneBVHDepthText.setText(EditorUI::SCENE_BVH_DEPTH_INFO, depth);
 
   auto mapping = bvhBuffer->mapping();
   vox::saveBVHToBuffer(bvhTree.data, mapping);

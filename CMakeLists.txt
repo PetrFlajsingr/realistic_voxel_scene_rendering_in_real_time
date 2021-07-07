@@ -211,7 +211,7 @@ set(SOURCES
         src/rendering/VulkanDebugCallbackImpl.cpp
         src/rendering/BakedProbesRenderer.cpp
         src/logging/CallbackSink.cpp
-        src/ui/SVOUI.cpp
+        src/ui/EditorUI.cpp
         src/ui/MainUI.cpp
         src/utils/Camera.cpp
         src/utils/FPSCounter.cpp
@@ -245,7 +245,7 @@ set(INCLUDES
         src/ui/GlfwWindow.h
         src/ui/events/common.h
         src/ui/events/EventDispatchImpl.h
-        src/ui/SVOUI.h
+        src/ui/EditorUI.h
         src/rendering/VulkanDebugCallbackImpl.h
         src/rendering/EditRenderer.h
         src/concepts/Renderer.h

@@ -1,6 +1,9 @@
-//
-// Created by petr on 5/21/21.
-//
+/**
+ * @file MainUI.cpp
+ * @brief UI definition for main renderer.
+ * @author Petr Flajšingr
+ * @date 21.5.21
+ */
 
 #include "MainUI.h"
 #include <logging/loggers.h>

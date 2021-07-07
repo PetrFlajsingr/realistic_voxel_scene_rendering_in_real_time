@@ -1,9 +1,13 @@
-//
-// Created by petr on 5/21/21.
-//
+/**
+ * @file EditorUI.h
+ * @brief UI definition for editor renderer.
+ * @author Petr Flajšingr
+ * @date 21.5.21
+ */
 
-#ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_SVOUI_H
-#define REALISTIC_VOXEL_RENDERING_SRC_UI_SVOUI_H
+
+#ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_EDITORUI_H
+#define REALISTIC_VOXEL_RENDERING_SRC_UI_EDITORUI_H
 
 #include "enums.h"
 #include <glm/glm.hpp>
@@ -47,10 +51,12 @@
 
 namespace pf {
 
-
-class SVOUI {
+/**
+ * @brief A UI definition for EditRenderer.
+ */
+class EditorUI {
  public:
-  explicit SVOUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
+  explicit EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
                                 std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
                                 TextureData probesColorTextureData);
 
@@ -173,7 +179,12 @@ class SVOUI {
   // clang-format on
 
   void setWindowsVisible(bool visible);
-
+  /**
+   * Create a window for conversion of .vox files to .pf_vox
+   * @param threadPool thread pool to convert files on
+   * @param modelFolder destination folder
+   * @param conversion conversion function
+   */
   void createConvertWindow(ThreadPool &threadPool, const std::filesystem::path &modelFolder,
                            std::invocable<std::filesystem::path, std::filesystem::path> auto &&conversion) {
     using namespace ui::ig;
@@ -245,4 +256,4 @@ class SVOUI {
 };
 
 }// namespace pf
-#endif//REALISTIC_VOXEL_RENDERING_SRC_UI_SVOUI_H
+#endif//REALISTIC_VOXEL_RENDERING_SRC_UI_EDITORUI_H

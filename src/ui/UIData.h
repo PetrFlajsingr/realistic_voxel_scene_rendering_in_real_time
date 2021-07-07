@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/30/21.
-//
+/**
+ * @file UIData.h
+ * @brief Structs for UI.
+ * @author Petr Flajšingr
+ * @date 30.6.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_UIDATA_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_UIDATA_H
@@ -10,16 +13,21 @@
 #include <string>
 
 namespace pf {
+/**
+ * @brief Texture data required for ui::ig::Image.
+ */
 struct TextureData {
   vulkan::Image &vkImage;
   vulkan::ImageView &vkImageView;
   vulkan::TextureSampler &vkImageSampler;
 };
-
+/**
+ * @brief Info about model file.
+ */
 struct ModelFileInfo {
   // TODO: group id and group controls
   ModelFileInfo() = default;
-  inline ModelFileInfo(std::filesystem::path path) : path(std::move(path)) {}
+  explicit inline ModelFileInfo(std::filesystem::path path) : path(std::move(path)) {}
   static inline auto IdGenerator = iota<std::size_t>();
   std::experimental::observer_ptr<vox::GPUModelInfo> modelData = nullptr;
   std::size_t id = getNext(IdGenerator);
