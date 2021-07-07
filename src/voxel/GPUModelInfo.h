@@ -8,6 +8,7 @@
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_GPUMODELINFO_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_GPUMODELINFO_H
 
+#include "Materials.h"
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -19,7 +20,6 @@
 #include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <string>
 #include <toml++/toml.h>
-#include "Materials.h"
 
 namespace pf::vox {
 
@@ -30,21 +30,24 @@ constexpr static auto ONE_MATERIAL_SIZE = sizeof(std::uint32_t) + 14 * sizeof(fl
  * @brief Struct for information of a model stored in the gpu.
  */
 struct GPUModelInfo {
-  std::filesystem::path path; /**< Path to file from which the model was loaded */
-  std::uint32_t svoHeight{0}; /**< Height of the SVO */
-  std::uint32_t voxelCount{0}; /**< Total loaded voxel count */
-  std::uint32_t minimizedVoxelCount{0}; /**< Total voxel count after minimisation */
-  glm::vec3 translateVec{0, 0, 0}; /**< Translation vector */
-  glm::vec3 scaleVec{1, 1, 1}; /**< Scale vector */
-  glm::vec3 rotateVec{0, 0, 0}; /**< Rotation vector */
-  glm::vec3 center{}; /**< Center of the model */
-  math::BoundingBox<3> AABB{}; /**< Axis aligned bounding box of the model */
+  std::filesystem::path path;                /**< Path to file from which the model was loaded */
+  std::uint32_t svoHeight{0};                /**< Height of the SVO */
+  std::uint32_t voxelCount{0};               /**< Total loaded voxel count */
+  std::uint32_t minimizedVoxelCount{0};      /**< Total voxel count after minimisation */
+  glm::vec3 translateVec{0, 0, 0};           /**< Translation vector */
+  glm::vec3 scaleVec{1, 1, 1};               /**< Scale vector */
+  glm::vec3 rotateVec{0, 0, 0};              /**< Rotation vector */
+  glm::vec3 center{};                        /**< Center of the model */
+  math::BoundingBox<3> AABB{};               /**< Axis aligned bounding box of the model */
   std::vector<MaterialProperties> materials; /**< All materials used in the model */
-  std::shared_ptr<vulkan::BufferMemoryPool::Block> svoMemoryBlock = nullptr; /**< Block of gpu memory storing svo data */
-  std::shared_ptr<vulkan::BufferMemoryPool::Block> modelInfoMemoryBlock = nullptr; /**< Block of gpu memory storing model info */
-  std::shared_ptr<vulkan::BufferMemoryPool::Block> materialsMemoryBlock = nullptr; /**< Block of gpu memory storing materials */
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> svoMemoryBlock =
+      nullptr; /**< Block of gpu memory storing svo data */
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> modelInfoMemoryBlock =
+      nullptr; /**< Block of gpu memory storing model info */
+  std::shared_ptr<vulkan::BufferMemoryPool::Block> materialsMemoryBlock =
+      nullptr;                             /**< Block of gpu memory storing materials */
   std::uint32_t id = getNext(IdGenerator); /**< A unique id of the model */
-  glm::mat4 transformMatrix{}; /**< Model's transform matrix */
+  glm::mat4 transformMatrix{};             /**< Model's transform matrix */
 
   bool operator==(const GPUModelInfo &rhs) const;
   bool operator!=(const GPUModelInfo &rhs) const;

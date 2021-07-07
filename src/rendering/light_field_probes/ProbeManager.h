@@ -54,8 +54,6 @@ class ProbeManager {
   void setProximityGridSize(const glm::ivec3 &proximityGridSize);
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesImageViewSmallest() const;
 
-
-
   [[nodiscard]] cppcoro::generator<glm::vec3> getProbePositions() const;
 
  private:

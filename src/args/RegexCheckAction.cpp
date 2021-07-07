@@ -5,7 +5,6 @@
  * @date 24.9.20
  */
 
-
 #include "RegexCheckAction.h"
 #include <fmt/format.h>
 

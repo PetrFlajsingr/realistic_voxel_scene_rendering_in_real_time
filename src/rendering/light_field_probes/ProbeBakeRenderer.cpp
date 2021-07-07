@@ -5,7 +5,6 @@
  * @date 19.6.21
  */
 
-
 #include "ProbeBakeRenderer.h"
 
 #include <utility>

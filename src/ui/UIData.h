@@ -10,7 +10,12 @@
 
 #include <experimental/memory>
 #include <filesystem>
+#include <pf_common/coroutines/Sequence.h>
+#include <pf_glfw_vulkan/vulkan/types/Image.h>
+#include <pf_glfw_vulkan/vulkan/types/ImageView.h>
+#include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
 #include <string>
+#include <voxel/GPUModelInfo.h>
 
 namespace pf {
 /**

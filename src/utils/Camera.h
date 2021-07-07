@@ -39,8 +39,8 @@ class Camera {
                   const glm::vec3 &position = {0, 0, 0}, const glm::vec3 &front = {0, 0, -1},
                   const glm::vec3 &up = {0, 1, 0}, float fieldOfView = 45, float yaw = -90, float pitch = 0,
                   float roll = 0);
-  Camera(Camera &&other) noexcept ;
-  Camera &operator=(Camera &&other) noexcept ;
+  Camera(Camera &&other) noexcept;
+  Camera &operator=(Camera &&other) noexcept;
   ~Camera();
 
   void registerControls(ui::Window &window);

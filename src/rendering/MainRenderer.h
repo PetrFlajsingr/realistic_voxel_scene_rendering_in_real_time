@@ -8,6 +8,7 @@
 #ifndef MAIN_RENDERER_H
 #define MAIN_RENDERER_H
 
+#include "GBufferRenderer.h"
 #include "VulkanDebugCallbackImpl.h"
 #include "enums.h"
 #include "light_field_probes/ProbeBakeRenderer.h"
@@ -31,7 +32,6 @@
 #include <voxel/AABB_BVH.h>
 #include <voxel/GPUModelManager.h>
 #include <voxel/SparseVoxelOctree.h>
-#include "GBufferRenderer.h"
 
 namespace pf {
 /**
@@ -105,7 +105,6 @@ class MainRenderer : public VulkanDebugCallbackImpl {
   std::reference_wrapper<toml::table> config;
   Camera camera;
 
-
   std::shared_ptr<vulkan::DescriptorPool> vkDescPool;
   std::vector<vk::UniqueDescriptorSet> vkDescriptorSets;
   std::shared_ptr<vulkan::Instance> vkInstance;
@@ -123,7 +122,6 @@ class MainRenderer : public VulkanDebugCallbackImpl {
 
   std::shared_ptr<vulkan::DescriptorSetLayout> vkComputeDescSetLayout;
   std::shared_ptr<vulkan::ComputePipeline> vkComputePipeline;
-
 
   std::shared_ptr<vulkan::Buffer> cameraUniformBuffer;
   std::shared_ptr<vulkan::Buffer> lightUniformBuffer;

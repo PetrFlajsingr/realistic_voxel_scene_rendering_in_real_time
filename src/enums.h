@@ -40,6 +40,6 @@ inline std::ostream &operator<<(std::ostream &o, GBufferViewType viewType) {
   return o;
 }
 
-}
+}// namespace pf
 
 #endif//REALISTIC_VOXEL_RENDERING_SRC_ENUMS_H

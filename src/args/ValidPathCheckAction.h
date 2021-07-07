@@ -5,7 +5,6 @@
  * @date 23.9.20
  */
 
-
 #ifndef VOXEL_RENDER_VALIDPATHCHECKACTION_H
 #define VOXEL_RENDER_VALIDPATHCHECKACTION_H
 #include "fmt/format.h"

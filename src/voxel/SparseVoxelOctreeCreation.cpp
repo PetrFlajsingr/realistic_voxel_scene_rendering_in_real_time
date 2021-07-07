@@ -118,10 +118,9 @@ std::vector<SparseVoxelOctreeCreateInfo> loadPfVoxFileAsSVO(std::ifstream &&istr
   offset += sizeof(std::uint32_t);
 
   auto materials = std::vector<MaterialProperties>(materialItemCount);
-  const auto matSrcSpan = std::span{reinterpret_cast<const MaterialProperties *>(dataView.subspan(offset).data()), materialItemCount};
-  std::ranges::copy(
-      matSrcSpan,
-      materials.begin());
+  const auto matSrcSpan =
+      std::span{reinterpret_cast<const MaterialProperties *>(dataView.subspan(offset).data()), materialItemCount};
+  std::ranges::copy(matSrcSpan, materials.begin());
   offset += materialDataCount;
 
   const auto svoVoxelCount = fromBytes<uint32_t>(dataView.subspan(offset, sizeof(uint32_t)));

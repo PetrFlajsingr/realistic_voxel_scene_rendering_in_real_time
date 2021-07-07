@@ -14,7 +14,10 @@
 
 argparse::ArgumentParser createArgumentParser() {
   auto argumentParser = argparse::ArgumentParser("Realistic voxel scene rendering in real time");
-  argumentParser.add_argument("--scene_edit").help("Run scene editing renderer").default_value(false).implicit_value(true);
+  argumentParser.add_argument("--scene_edit")
+      .help("Run scene editing renderer")
+      .default_value(false)
+      .implicit_value(true);
   argumentParser.add_argument("--bake").help("Run bake renderer").default_value(false).implicit_value(true);
   argumentParser.add_argument("-v", "--verbose").help("Verbose logging").default_value(false).implicit_value(true);
   argumentParser.add_argument("-l", "--log").help("Enable console logging.").default_value(false).implicit_value(true);

@@ -5,18 +5,22 @@
  * @date 21.5.21
  */
 
-
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UI_EDITORUI_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UI_EDITORUI_H
 
+#include "UIData.h"
 #include "enums.h"
 #include <glm/glm.hpp>
 #include <ostream>
 #include <pf_common/enums.h>
 #include <pf_common/math/BoundingBox.h>
 #include <pf_common/parallel/ThreadPool.h>
-#include <pf_imgui/elements/Checkbox.h>
+#include <pf_glfw_vulkan/vulkan/types/Image.h>
+#include <pf_glfw_vulkan/vulkan/types/ImageView.h>
+#include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
 #include <pf_imgui/ImGuiInterface.h>
+#include <pf_imgui/backends/ImGuiGlfwVulkanInterface.h>
+#include <pf_imgui/elements/Checkbox.h>
 #include <pf_imgui/elements/ColorChooser.h>
 #include <pf_imgui/elements/Combobox.h>
 #include <pf_imgui/elements/DragInput.h>
@@ -38,16 +42,11 @@
 #include <pf_imgui/elements/plots/types/Line.h>
 #include <pf_imgui/layouts/AbsoluteLayout.h>
 #include <pf_imgui/layouts/StretchLayout.h>
-#include <pf_imgui/backends/ImGuiGlfwVulkanInterface.h>
 #include <range/v3/view/cache1.hpp>
 #include <range/v3/view/join.hpp>
 #include <tuple>
 #include <utils/Camera.h>
 #include <voxel/GPUModelInfo.h>
-#include <pf_glfw_vulkan/vulkan/types/Image.h>
-#include <pf_glfw_vulkan/vulkan/types/ImageView.h>
-#include <pf_glfw_vulkan/vulkan/types/TextureSampler.h>
-#include "UIData.h"
 
 namespace pf {
 
@@ -57,8 +56,8 @@ namespace pf {
 class EditorUI {
  public:
   explicit EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
-                                std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
-                                TextureData probesColorTextureData);
+                    std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
+                    TextureData probesColorTextureData);
 
   std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> imgui;
   std::shared_ptr<ui::Window> window;

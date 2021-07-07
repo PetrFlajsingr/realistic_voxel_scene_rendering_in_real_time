@@ -18,8 +18,9 @@
 namespace pf {
 using namespace ui::ig;
 
-EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface, std::shared_ptr<ui::Window> uiWindow,
-             const Camera &camera, TextureData iterTextureData, TextureData probesColorTextureData)
+EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface,
+                   std::shared_ptr<ui::Window> uiWindow, const Camera &camera, TextureData iterTextureData,
+                   TextureData probesColorTextureData)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
       fileSubMenu(windowMenuBar.addSubmenu("file_main_menu", "File")),
       openModelMenuItem(fileSubMenu.addButtonItem("open_model_menu", ICON_FA_FILE_ALT "  Open model")),

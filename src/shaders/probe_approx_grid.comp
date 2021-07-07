@@ -36,20 +36,20 @@ const uint DEPTH_MAX = 65535;
 
 /********************************************* STRUCTS *******************************************/
 struct Box {
-  vec3 p1;
-  vec3 p2;
+    vec3 p1;
+    vec3 p2;
 };
 /********************************************* BINDINGS *******************************************/
 layout(binding = 0, std140) uniform ProbeGrid {
-  ivec4 gridSize;
-  vec4 gridPos;
-  float gridStep;
+    ivec4 gridSize;
+    vec4 gridPos;
+    float gridStep;
 }
 probeGrid;
 
 layout(binding = 1, std140) uniform Grid {
-  ivec4 gridSize;
-  vec4 gridStep;
+    ivec4 gridSize;
+    vec4 gridStep;
 }
 grid;
 
@@ -63,55 +63,55 @@ float signNotZero(float f) { return (f >= 0.0) ? 1.0 : -1.0; }
 vec2 signNotZero(vec2 v) { return vec2(signNotZero(v.x), signNotZero(v.y)); }
 
 vec2 octEncode(in vec3 v) {
-  float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
-  vec2 result = v.xy * (1.0 / l1norm);
-  if (v.z < 0.0) { result = (1.0 - abs(result.yx)) * signNotZero(result.xy); }
-  return result;
+    float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
+    vec2 result = v.xy * (1.0 / l1norm);
+    if (v.z < 0.0) { result = (1.0 - abs(result.yx)) * signNotZero(result.xy); }
+    return result;
 }
 
 vec3 octDecode(vec2 o) {
-  vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
-  if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
-  return normalize(v);
+    vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+    if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+    return normalize(v);
 }
 
 vec3[8] getBoxVertices(vec3 pos) {
-  vec3 result[8];
-  result[0] = pos + vec3(0, 0, 0) * grid.gridStep.xyz;
-  result[1] = pos + vec3(0, 0, 1) * grid.gridStep.xyz;
-  result[2] = pos + vec3(0, 1, 0) * grid.gridStep.xyz;
-  result[3] = pos + vec3(0, 1, 1) * grid.gridStep.xyz;
-  result[4] = pos + vec3(1, 0, 0) * grid.gridStep.xyz;
-  result[5] = pos + vec3(1, 0, 1) * grid.gridStep.xyz;
-  result[6] = pos + vec3(1, 1, 0) * grid.gridStep.xyz;
-  result[7] = pos + vec3(1, 1, 1) * grid.gridStep.xyz;
-  return result;
+    vec3 result[8];
+    result[0] = pos + vec3(0, 0, 0) * grid.gridStep.xyz;
+    result[1] = pos + vec3(0, 0, 1) * grid.gridStep.xyz;
+    result[2] = pos + vec3(0, 1, 0) * grid.gridStep.xyz;
+    result[3] = pos + vec3(0, 1, 1) * grid.gridStep.xyz;
+    result[4] = pos + vec3(1, 0, 0) * grid.gridStep.xyz;
+    result[5] = pos + vec3(1, 0, 1) * grid.gridStep.xyz;
+    result[6] = pos + vec3(1, 1, 0) * grid.gridStep.xyz;
+    result[7] = pos + vec3(1, 1, 1) * grid.gridStep.xyz;
+    return result;
 }
 
 bool isIn(uint value, uint values[4]) {
-  for (int i = 0; i < 4; ++i) {
-    if (values[i] == value) { return true; }
-  }
-  return false;
+    for (int i = 0; i < 4; ++i) {
+        if (values[i] == value) { return true; }
+    }
+    return false;
 }
 
-#define LOG_DEPTH_C 1
+    #define LOG_DEPTH_C 1
 float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
 float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 
 /********************************************* PROBE FUNCTIONS *******************************************/
 uvec3 probeIndexToGridCoord(uint index) {
-  uvec3 iPos;
-  iPos.x = index & (probeGrid.gridSize.x - 1);
-  iPos.y = (index & ((probeGrid.gridSize.x * probeGrid.gridSize.y) - 1)) >> findMSB(probeGrid.gridSize.x);
-  iPos.z = index >> findMSB(probeGrid.gridSize.x * probeGrid.gridSize.y);
+    uvec3 iPos;
+    iPos.x = index & (probeGrid.gridSize.x - 1);
+    iPos.y = (index & ((probeGrid.gridSize.x * probeGrid.gridSize.y) - 1)) >> findMSB(probeGrid.gridSize.x);
+    iPos.z = index >> findMSB(probeGrid.gridSize.x * probeGrid.gridSize.y);
 
-  return iPos;
+    return iPos;
 }
 
 uint gridCoordToProbeIndex(vec3 probeCoords) {
-  return uint(probeCoords.x + probeCoords.y * probeGrid.gridSize.x
-              + probeCoords.z * probeGrid.gridSize.x * probeGrid.gridSize.y);
+    return uint(probeCoords.x + probeCoords.y * probeGrid.gridSize.x
+    + probeCoords.z * probeGrid.gridSize.x * probeGrid.gridSize.y);
 }
 
 vec3 gridCoordToPosition(uvec3 c) { return probeGrid.gridStep * vec3(c) + probeGrid.gridPos.xyz; }
@@ -119,11 +119,11 @@ vec3 gridCoordToPosition(uvec3 c) { return probeGrid.gridStep * vec3(c) + probeG
 vec3 probeLocation(int index) { return gridCoordToPosition(probeIndexToGridCoord(index)); }
 
 uint probeIndexToCubeIndex(uint index) {
-  uvec3 gridCoord = probeIndexToGridCoord(index);
-  gridCoord.x = gridCoord.x - gridCoord.x % 2;
-  gridCoord.y = gridCoord.y - gridCoord.y % 2;
-  gridCoord.z = gridCoord.z - gridCoord.z % 2;
-  return gridCoordToProbeIndex(gridCoord);
+    uvec3 gridCoord = probeIndexToGridCoord(index);
+    gridCoord.x = gridCoord.x - gridCoord.x % 2;
+    gridCoord.y = gridCoord.y - gridCoord.y % 2;
+    gridCoord.z = gridCoord.z - gridCoord.z % 2;
+    return gridCoordToProbeIndex(gridCoord);
 }
 
 /********************************************* PROBE ATLAS FUNCTIONS *******************************************/
@@ -133,76 +133,76 @@ float depthFromProbe(uint data) { return linearizeLogDepth(float(data & DEPTH_MA
 
 /********************************************* VOXEL FIELD FUNCTIONS *******************************************/
 int bestMatchProbeForVertex(vec3 vertex, uint savedIndices[4]) {
-  const float DISTANCE_EPSILON = 0.001;
-  const uint probeCount = probeGrid.gridSize.x * probeGrid.gridSize.y * probeGrid.gridSize.z;
-  float bestDistance = INF;
-  int bestProbe = -1;
-  for (int i = 0; i < probeCount; ++i) {
-    if (isIn(i, savedIndices)) { continue; }
-    const vec3 probePos = probeLocation(i);
-    const vec3 directionFromProbe = normalize(vertex - probePos);
-    const float distanceToProbe = distance(vertex, probePos);
-    if (distanceToProbe == 0) {
-      bestProbe = i;
-      break;
+    const float DISTANCE_EPSILON = 0.001;
+    const uint probeCount = probeGrid.gridSize.x * probeGrid.gridSize.y * probeGrid.gridSize.z;
+    float bestDistance = INF;
+    int bestProbe = -1;
+    for (int i = 0; i < probeCount; ++i) {
+        if (isIn(i, savedIndices)) { continue; }
+        const vec3 probePos = probeLocation(i);
+        const vec3 directionFromProbe = normalize(vertex - probePos);
+        const float distanceToProbe = distance(vertex, probePos);
+        if (distanceToProbe == 0) {
+            bestProbe = i;
+            break;
+        }
+        const vec2 probeTextureCoord = octEncode(directionFromProbe);
+        uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * probeTextureCoord, i)).y);
+        float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
+        if (distanceFromProbeToSurface > distanceToProbe && distanceToProbe < bestDistance) {
+            bestDistance = distanceToProbe;
+            bestProbe = i;
+            if (bestDistance < DISTANCE_EPSILON) { break; }
+        }
     }
-    const vec2 probeTextureCoord = octEncode(directionFromProbe);
-    uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * probeTextureCoord, i)).y);
-    float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
-    if (distanceFromProbeToSurface > distanceToProbe && distanceToProbe < bestDistance) {
-      bestDistance = distanceToProbe;
-      bestProbe = i;
-      if (bestDistance < DISTANCE_EPSILON) { break; }
-    }
-  }
 
-  return bestProbe;
+    return bestProbe;
 }
 
-#define INDEX_MASK 0xFFFF
-#define INDEX_SIZE 16
+    #define INDEX_MASK 0xFFFF
+    #define INDEX_SIZE 16
 void saveIndices(uint indices[4]) {
-  const uint indexToSave = (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * grid.gridSize.x
-                            + gl_GlobalInvocationID.z * grid.gridSize.x * grid.gridSize.y)
-      * 2;
-  uint dataToSave = 0;
-  for (uint i = 0; i < 2; ++i) { dataToSave |= (indices[i] & INDEX_MASK) << (i * INDEX_SIZE); }
-  gridData.data[indexToSave] = dataToSave;
-  dataToSave = 0;
-  for (uint i = 0; i < 2; ++i) { dataToSave |= (indices[i + 2] & INDEX_MASK) << (i * INDEX_SIZE); }
-  gridData.data[indexToSave + 1] = dataToSave;
+    const uint indexToSave = (gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * grid.gridSize.x
+    + gl_GlobalInvocationID.z * grid.gridSize.x * grid.gridSize.y)
+    * 2;
+    uint dataToSave = 0;
+    for (uint i = 0; i < 2; ++i) { dataToSave |= (indices[i] & INDEX_MASK) << (i * INDEX_SIZE); }
+    gridData.data[indexToSave] = dataToSave;
+    dataToSave = 0;
+    for (uint i = 0; i < 2; ++i) { dataToSave |= (indices[i + 2] & INDEX_MASK) << (i * INDEX_SIZE); }
+    gridData.data[indexToSave + 1] = dataToSave;
 }
 
-#define INVALID_PROBE_IDX 0xFFFFu
+    #define INVALID_PROBE_IDX 0xFFFFu
 
 void main() {
-  if (gl_GlobalInvocationID.x > grid.gridSize.x || gl_GlobalInvocationID.y > grid.gridSize.y
-      || gl_GlobalInvocationID.z > grid.gridSize.z) {
-    return;
-  }
-  const uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * grid.gridSize.x
-      + gl_GlobalInvocationID.z * grid.gridSize.x * grid.gridSize.z;
-  const vec3 boxVertices[8] = getBoxVertices(probeGrid.gridPos.xyz + grid.gridStep.xyz * vec3(gl_GlobalInvocationID));
-  uint matchesToSave[4] = uint[4](INVALID_PROBE_IDX, INVALID_PROBE_IDX, INVALID_PROBE_IDX, INVALID_PROBE_IDX);
-  for (int i = 0; i < 8; ++i) {
-    const uint bestMatch = bestMatchProbeForVertex(boxVertices[i], matchesToSave);
-    if (bestMatch == INVALID_PROBE_IDX) { continue; }
-    const uint bestMatchCube = bestMatch;
-    bool isDuplicate = false;
-    for (int j = 0; j < 4; ++j) {
-      if (matchesToSave[j] == bestMatchCube) {
-        isDuplicate = true;
-        break;
-      }
+    if (gl_GlobalInvocationID.x > grid.gridSize.x || gl_GlobalInvocationID.y > grid.gridSize.y
+    || gl_GlobalInvocationID.z > grid.gridSize.z) {
+        return;
     }
-    if (!isDuplicate) {
-      for (int j = 0; j < 4; ++j) {
-        if (matchesToSave[j] == INVALID_PROBE_IDX) {
-          matchesToSave[j] = bestMatchCube;
-          break;
+    const uint idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * grid.gridSize.x
+    + gl_GlobalInvocationID.z * grid.gridSize.x * grid.gridSize.z;
+    const vec3 boxVertices[8] = getBoxVertices(probeGrid.gridPos.xyz + grid.gridStep.xyz * vec3(gl_GlobalInvocationID));
+    uint matchesToSave[4] = uint[4](INVALID_PROBE_IDX, INVALID_PROBE_IDX, INVALID_PROBE_IDX, INVALID_PROBE_IDX);
+    for (int i = 0; i < 8; ++i) {
+        const uint bestMatch = bestMatchProbeForVertex(boxVertices[i], matchesToSave);
+        if (bestMatch == INVALID_PROBE_IDX) { continue; }
+        const uint bestMatchCube = bestMatch;
+        bool isDuplicate = false;
+        for (int j = 0; j < 4; ++j) {
+            if (matchesToSave[j] == bestMatchCube) {
+                isDuplicate = true;
+                break;
+            }
         }
-      }
+        if (!isDuplicate) {
+            for (int j = 0; j < 4; ++j) {
+                if (matchesToSave[j] == INVALID_PROBE_IDX) {
+                    matchesToSave[j] = bestMatchCube;
+                    break;
+                }
+            }
+        }
     }
-  }
-  saveIndices(matchesToSave);
+    saveIndices(matchesToSave);
 }

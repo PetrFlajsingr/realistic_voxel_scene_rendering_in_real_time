@@ -6,7 +6,6 @@
  */
 
 #include "MainRenderer.h"
-#include "light_field_probes/GridProbeGenerator.h"
 #include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>

@@ -3,7 +3,6 @@
 //
 
 #include "BakedProbesRenderer.h"
-#include "light_field_probes/GridProbeGenerator.h"
 #include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>
@@ -1028,7 +1027,6 @@ void BakedProbesRenderer::initUI() {
 
   ui->cameraToOriginButton.addClickListener([this] { camera.setPosition({0, 0, 0}); });
 
-
   ui->svoConverterMenuItem.addClickListener([this] {
     ui->createConvertWindow(*threadpool,
                             std::filesystem::path(*config.get()["resources"]["path_models"].value<std::string>()),
@@ -1084,7 +1082,8 @@ void BakedProbesRenderer::rebuildAndUploadBVH() {
   vox::saveBVHToBuffer(bvhTree.data, mapping);
 }
 
-std::function<void()> BakedProbesRenderer::popupClickActiveModel(std::size_t itemId, vox::GPUModelManager::ModelPtr modelPtr) {
+std::function<void()> BakedProbesRenderer::popupClickActiveModel(std::size_t itemId,
+                                                                 vox::GPUModelManager::ModelPtr modelPtr) {
   return [=, this] {
     window->enqueue([this, itemId, modelPtr] {
       const auto idToRemove = itemId;
@@ -1096,7 +1095,7 @@ std::function<void()> BakedProbesRenderer::popupClickActiveModel(std::size_t ite
   };
 }
 void BakedProbesRenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
-                                          vox::GPUModelManager::ModelPtr modelPtr) {
+                                                  vox::GPUModelManager::ModelPtr modelPtr) {
   auto &itemPopupMenu = element.createPopupMenu();
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Remove").addClickListener(popupClickActiveModel(itemId, modelPtr));
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Duplicate").addClickListener([modelPtr, this] {

@@ -22,14 +22,14 @@ const uint BVH_OFFSET_MASK = 0x7FFFFFFF;
 const uint BVH_LEAF_NODE_MASK = ~BVH_OFFSET_MASK;
 
 #define MAX_RAYCAST_ITERATIONS 10000
-const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
-                            vec3(1, 0, 0),// 1
-                            vec3(0, 1, 0),// 2
-                            vec3(1, 1, 0),// 3
-                            vec3(0, 0, 1),// 4
-                            vec3(1, 0, 1),// 5
-                            vec3(0, 1, 1),// 6
-                            vec3(1, 1, 1) // 7
+const vec3 lut[8] = vec3[8](vec3(0, 0, 0), // 0
+vec3(1, 0, 0), // 1
+vec3(0, 1, 0), // 2
+vec3(1, 1, 0), // 3
+vec3(0, 0, 1), // 4
+vec3(1, 0, 1), // 5
+vec3(0, 1, 1), // 6
+vec3(1, 1, 1)// 7
 );
 
 const float minThickness = 0.03;
@@ -95,77 +95,77 @@ const uint NORMAL2_SHIFT = 8;
 #define GRID_COORD ivec3
 
 struct PosAndMatInfo {
-  vec3 hitPos;
-  bool isHit;
-  bool isInShadow;
-  uint materialId;
+    vec3 hitPos;
+    bool isHit;
+    bool isInShadow;
+    uint materialId;
 };
 
 struct Material {
-  MATERIAL_TYPE type;
-  float metalness;
-  float rougness;
-  float specular;
-  float indexOfRefraction;
-  float flux;
-  float emission;
-  float lowDynamicRange;
-  float transparency;
-  float alpha;
-  float density;
-  float red;
-  float green;
-  float blue;
-  float colorAlpha;
+MATERIAL_TYPE type;
+    float metalness;
+    float rougness;
+    float specular;
+    float indexOfRefraction;
+    float flux;
+    float emission;
+    float lowDynamicRange;
+    float transparency;
+    float alpha;
+    float density;
+    float red;
+    float green;
+    float blue;
+    float colorAlpha;
 };
 struct Ray {
-  vec3 origin;
-  float originSize;
-  vec3 direction;
-  float directionSize;
+    vec3 origin;
+    float originSize;
+    vec3 direction;
+    float directionSize;
 };
 
 struct ChildDescriptor {
-  uint data1;
-  uint data2;
+    uint data1;
+    uint data2;
 };
 
 struct AABBIntersection_ALT {
-  bool hit;
-  float distance;
-  uint offset;
-  bool isLeaf;
+    bool hit;
+    float distance;
+    uint offset;
+    bool isLeaf;
 };
 
 struct ModelInfo {
-  vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
-  mat4 objectMatrix;
-  mat4 inverseObjectMatrix;
-  vec4 AABB1;// xyz is p1.xyz, w is p2.x
-  vec4 AABB2;// xy is p2.yz
-  ivec4 materialsOffset;
+    vec4 scaleAndSvoBufferOffset;// .xyz is scale, floatBitsToInt(.w) is offset
+    mat4 objectMatrix;
+    mat4 inverseObjectMatrix;
+    vec4 AABB1;// xyz is p1.xyz, w is p2.x
+    vec4 AABB2;// xy is p2.yz
+    ivec4 materialsOffset;
 };
 
 struct BVHNode {
-  vec4 AABB1;        // p1.xyz, p2.x
-  vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
+    vec4 AABB1;// p1.xyz, p2.x
+    vec4 AABB2leafNext;// p2.yz, 1bit leaf/node, 31 bit child offset/model index
 };
 
 struct TraceResult {
-  float distance;
-  float distanceInWorldSpace;
-  vec3 pos;
-  vec3 posInWorldSpace;
-  uint node;
-  uint childIdx;
-  bool hit;
-  float t;
-  int iter;
-  int stackPtr;
-  uint materialId;
-  vec3 normal;
-  bool isOnlyAABB;
-  uint objectId;
+    float distance;
+    float distanceInWorldSpace;
+    vec3 pos;
+    vec3 posInWorldSpace;
+    uint node;
+    uint childIdx;
+    bool hit;
+    float t;
+    int iter;
+    int stackPtr;
+    uint materialId;
+    vec3 normal;
+    bool isOnlyAABB;
+    uint objectId;
 };
 /********************************************* BINDINGS *******************************************/
 layout(binding = 0, rgba32f) uniform image2D posAndMaterialImage;
@@ -176,24 +176,24 @@ layout(std430, binding = 3) buffer Materials { Material data[]; }
 materials;
 
 layout(binding = 4) uniform UniformLigtValues {
-  vec4 pos;
-  vec4 ambientColor;
-  vec4 diffuseColor;
-  vec4 specularColor;
+    vec4 pos;
+    vec4 ambientColor;
+    vec4 diffuseColor;
+    vec4 specularColor;
 }
 light;
 
 layout(binding = 5) uniform UniformCamera {
-  vec4 pos;
-  vec4 dir;
-  vec4 up;
-  mat4 view;
-  mat4 projection;
-  mat4 invProjView;
-  float near;
-  float far;
-  int screenWidth;
-  int screenHeight;
+    vec4 pos;
+    vec4 dir;
+    vec4 up;
+    mat4 view;
+    mat4 projection;
+    mat4 invProjView;
+    float near;
+    float far;
+    int screenWidth;
+    int screenHeight;
 }
 camera;
 
@@ -204,23 +204,23 @@ layout(std430, binding = 8) buffer ProxGridData { uint[] data; }
 proxGrid;
 
 layout(binding = 9) uniform ProxGridInfo {
-  ivec4 gridSize;
-  vec4 gridStep;
+    ivec4 gridSize;
+    vec4 gridStep;
 }
 proxGridInfo;
 
 layout(binding = 10, std140) uniform ProbeGrid {
-  ivec4 gridSize;
-  vec4 gridPos;
-  float gridStep;
+    ivec4 gridSize;
+    vec4 gridPos;
+    float gridStep;
 }
 grid;
 
 layout(std430, binding = 11) buffer VoxelSVO_SSBO {
-  //uint infoSectionPtr;
-  //uint attachmentsPtr;
-  //uint childDescriptors[];
-  uint data[];// uint infosectionPtr, uint attachmentsPtr, childDescriptors[]
+//uint infoSectionPtr;
+//uint attachmentsPtr;
+//uint childDescriptors[];
+    uint data[];// uint infosectionPtr, uint attachmentsPtr, childDescriptors[]
 }
 svo;
 
@@ -233,9 +233,9 @@ bvh;
 #define SVO_STACK_SIZE 23
 #define SVO_CAST_STACK_DEPTH SVO_STACK_SIZE
 struct SvoStackData {
-  int node;
-  float tMax;
-  uint offset;
+    int node;
+    float tMax;
+    uint offset;
 };
 
 SvoStackData svoStack[SVO_STACK_SIZE + 1];
@@ -248,7 +248,7 @@ SvoStackData svoStack[SVO_STACK_SIZE + 1];
 
 #define BVH_STACK_SIZE 23
 struct BvhStackData {
-  uint node;
+    uint node;
 };
 
 #define BVH_STACK_SIZE 23
@@ -259,33 +259,33 @@ BvhStackData bvhStack[BVH_STACK_SIZE];
 
 /********************************************* UTIL FUNCTIONS *******************************************/
 vec3 decodeNormal(vec2 f) {
-  f = f * 2.0f - 1.0f;
-  vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
-  float t = clamp(-n.z, 0.f, 1.f);
-  n.x += n.x >= 0.0 ? -t : t;
-  n.y += n.y >= 0.0 ? -t : t;
-  return normalize(n);
+    f = f * 2.0f - 1.0f;
+    vec3 n = vec3(f.x, f.y, 1.0 - abs(f.x) - abs(f.y));
+    float t = clamp(-n.z, 0.f, 1.f);
+    n.x += n.x >= 0.0 ? -t : t;
+    n.y += n.y >= 0.0 ? -t : t;
+    return normalize(n);
 }
 
-#define HIT_BIT_OFFSET 31u
-#define HIT_BIT_MASK 0x80000000u
-#define SHADOW_BIT_OFFSET 30u
-#define SHADOW_BIT_MASK 0x40000000
-#define MATERIAL_ID_MASK 0x3FFFFFFFu
+    #define HIT_BIT_OFFSET 31u
+    #define HIT_BIT_MASK 0x80000000u
+    #define SHADOW_BIT_OFFSET 30u
+    #define SHADOW_BIT_MASK 0x40000000
+    #define MATERIAL_ID_MASK 0x3FFFFFFFu
 PosAndMatInfo readPosAndMatInfo(ivec2 textureCoords) {
-  const vec4 data = imageLoad(posAndMaterialImage, textureCoords);
-  PosAndMatInfo result;
-  result.hitPos = data.xyz;
-  const uint rawMat = floatBitsToUint(data.w);
-  result.isHit = (HIT_BIT_MASK & rawMat) != 0;
-  result.isInShadow = (SHADOW_BIT_MASK & rawMat) != 0;
-  result.materialId = (rawMat & MATERIAL_ID_MASK);
-  return result;
+    const vec4 data = imageLoad(posAndMaterialImage, textureCoords);
+    PosAndMatInfo result;
+    result.hitPos = data.xyz;
+    const uint rawMat = floatBitsToUint(data.w);
+    result.isHit = (HIT_BIT_MASK & rawMat) != 0;
+    result.isInShadow = (SHADOW_BIT_MASK & rawMat) != 0;
+    result.materialId = (rawMat & MATERIAL_ID_MASK);
+    return result;
 }
 
 vec3 readNormal(ivec2 textureCoords) {
-  const vec4 data = imageLoad(normalImage, textureCoords);
-  return decodeNormal(data.xy);
+    const vec4 data = imageLoad(normalImage, textureCoords);
+    return decodeNormal(data.xy);
 }
 
 float max(vec2 v) { return max(v.x, v.y); }
@@ -303,18 +303,18 @@ vec2 signNotZero(vec2 v) { return vec2(signNotZero(v.x), signNotZero(v.y)); }
 
 /** Assumes that v is a unit vector. The result is an octahedral vector on the [-1, +1] square. */
 vec2 octEncode(in vec3 v) {
-  float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
-  vec2 result = v.xy * (1.0 / l1norm);
-  if (v.z < 0.0) { result = (1.0 - abs(result.yx)) * signNotZero(result.xy); }
-  return result;
+    float l1norm = abs(v.x) + abs(v.y) + abs(v.z);
+    vec2 result = v.xy * (1.0 / l1norm);
+    if (v.z < 0.0) { result = (1.0 - abs(result.yx)) * signNotZero(result.xy); }
+    return result;
 }
 
 /** Returns a unit vector. Argument o is an octahedral vector packed via octEncode,
     on the [-1, +1] square*/
 vec3 octDecode(vec2 o) {
-  vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
-  if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
-  return normalize(v);
+    vec3 v = vec3(o.x, o.y, 1.0 - abs(o.x) - abs(o.y));
+    if (v.z < 0.0) { v.xy = (1.0 - abs(v.yx)) * signNotZero(v.xy); }
+    return normalize(v);
 }
 
 float lengthSquared(in vec2 v) { return dot(v, v); }
@@ -322,8 +322,8 @@ float lengthSquared(in vec2 v) { return dot(v, v); }
 float lengthSquared(in vec3 v) { return dot(v, v); }
 
 float distanceSquared(vec2 v0, vec2 v1) {
-  vec2 d = v1 - v0;
-  return dot(d, d);
+    vec2 d = v1 - v0;
+    return dot(d, d);
 }
 
 int idot(ivec3 a, ivec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
@@ -332,428 +332,428 @@ float squaredLength(vec3 v) { return dot(v, v); }
 
 /** Two-element sort: maybe swaps a and b so that a' = min(a, b), b' = max(a, b). */
 void minSwap(inout float a, inout float b) {
-  float temp = min(a, b);
-  b = max(a, b);
-  a = temp;
+    float temp = min(a, b);
+    b = max(a, b);
+    a = temp;
 }
 
 /** Sort the three values in v from least to 
     greatest using an exchange network (i.e., no branches) */
 void sort(inout vec3 v) {
-  minSwap(v[0], v[1]);
-  minSwap(v[1], v[2]);
-  minSwap(v[0], v[1]);
+    minSwap(v[0], v[1]);
+    minSwap(v[1], v[2]);
+    minSwap(v[0], v[1]);
 }
-#define LOG_DEPTH_C 1
+    #define LOG_DEPTH_C 1
 float computeLogDepth(float depth) { return log(LOG_DEPTH_C * depth + 1) / log(LOG_DEPTH_C * TMP_FAR + 1); }
 float linearizeLogDepth(float logDepth) { return (pow(LOG_DEPTH_C * TMP_FAR + 1, logDepth) - 1) / LOG_DEPTH_C; }
 
 /********************************************* INTERSECTION FUNCTIONS *******************************************/
 
 AABBIntersection_ALT intersectAABBDistance_ALT(Ray ray, vec3 boxMin, vec3 boxMax, uint offset, bool isLeaf) {
-  const vec3 tMin = (boxMin - ray.origin) / ray.direction;
-  const vec3 tMax = (boxMax - ray.origin) / ray.direction;
-  const vec3 t1 = min(tMin, tMax);
-  const vec3 t2 = max(tMin, tMax);
-  const float tNear = max(max(t1.x, t1.y), t1.z);
-  const float tFar = min(min(t2.x, t2.y), t2.z);
-  AABBIntersection_ALT result;
-  result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
-  result.distance = tNear + float(!result.hit) * INF;
-  result.offset = offset;
-  result.isLeaf = isLeaf;
-  return result;
+    const vec3 tMin = (boxMin - ray.origin) / ray.direction;
+    const vec3 tMax = (boxMax - ray.origin) / ray.direction;
+    const vec3 t1 = min(tMin, tMax);
+    const vec3 t2 = max(tMin, tMax);
+    const float tNear = max(max(t1.x, t1.y), t1.z);
+    const float tFar = min(min(t2.x, t2.y), t2.z);
+    AABBIntersection_ALT result;
+    result.hit = tNear > 0.f && tNear < tFar || (tNear < 0.f && tFar > 0.f);
+    result.distance = tNear + float(!result.hit) * INF;
+    result.offset = offset;
+    result.isLeaf = isLeaf;
+    return result;
 }
 /********************************************* SVO TRACING FUNCTIONS *******************************************/
 
 TraceResult trace(Ray ray, uint offsetInSVOBuffer, uint offsetInMaterialBuffer) {
-  const float epsilon = exp2(-SVO_CAST_STACK_DEPTH);
-  float ray_orig_sz = ray.originSize;
-  int iter = 0;
+    const float epsilon = exp2(-SVO_CAST_STACK_DEPTH);
+    float ray_orig_sz = ray.originSize;
+    int iter = 0;
 
-  ray.direction.x = abs(ray.direction.x) > epsilon ? ray.direction.x : (ray.direction.x >= 0 ? epsilon : -epsilon);
-  ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
-  ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
+    ray.direction.x = abs(ray.direction.x) > epsilon ? ray.direction.x : (ray.direction.x >= 0 ? epsilon : -epsilon);
+    ray.direction.y = abs(ray.direction.y) > epsilon ? ray.direction.y : (ray.direction.y >= 0 ? epsilon : -epsilon);
+    ray.direction.z = abs(ray.direction.z) > epsilon ? ray.direction.z : (ray.direction.z >= 0 ? epsilon : -epsilon);
 
-  vec3 t_coef = 1.f / -abs(ray.direction);// / 10;
+    vec3 t_coef = 1.f / -abs(ray.direction);// / 10;
 
-  vec3 t_bias = t_coef * ray.origin;
+    vec3 t_bias = t_coef * ray.origin;
 
-  int octant_mask = 7;
-  const float biasCoef = 3.0f;
-  if (ray.direction.x > 0.0f) {
-    octant_mask ^= 1;
-    t_bias.x = biasCoef * t_coef.x - t_bias.x;
-  }
-  if (ray.direction.y > 0.0f) {
-    octant_mask ^= 2;
-    t_bias.y = biasCoef * t_coef.y - t_bias.y;
-  }
-  if (ray.direction.z > 0.0f) {
-    octant_mask ^= 4;
-    t_bias.z = biasCoef * t_coef.z - t_bias.z;
-  }
-
-  float t_min = max(2.f * t_coef - t_bias);
-  float t_max = min(t_coef - t_bias);
-  float h = t_max;
-  t_min = max(t_min, 0.0f);
-  t_max = min(t_max, 1.0f);
-
-  int parent = 0;
-  uint nodeOffset = 0;
-  ChildDescriptor child_descriptor = ChildDescriptor(0, 0);// invalid until fetched
-  int idx = 0;
-  vec3 pos = vec3(1.0f, 1.0f, 1.0f);
-  int scale = SVO_CAST_STACK_DEPTH - 1;
-  float scale_exp2 = 0.5f;// exp2f(scale - s_max)
-
-  const float posCoef = 1.5f;
-  if (posCoef * t_coef.x - t_bias.x > t_min) {
-    idx ^= 1;
-    pos.x = posCoef;
-  }
-  if (posCoef * t_coef.y - t_bias.y > t_min) {
-    idx ^= 2;
-    pos.y = posCoef;
-  }
-  if (posCoef * t_coef.z - t_bias.z > t_min) {
-    idx ^= 4;
-    pos.z = posCoef;
-  }
-
-  TraceResult res;
-  uint hitMaterial;
-  bool fetch = true;
-
-  while (scale < SVO_CAST_STACK_DEPTH) {
-    iter++;
-    if (iter > MAX_RAYCAST_ITERATIONS) break;
-
-    // Fetch child descriptor unless it is already valid.
-
-    //if (child_descriptor.childData == 0)
-    if (fetch) {
-      child_descriptor.data1 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
-      child_descriptor.data2 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + 1];
-      fetch = false;
+    int octant_mask = 7;
+    const float biasCoef = 3.0f;
+    if (ray.direction.x > 0.0f) {
+        octant_mask ^= 1;
+        t_bias.x = biasCoef * t_coef.x - t_bias.x;
+    }
+    if (ray.direction.y > 0.0f) {
+        octant_mask ^= 2;
+        t_bias.y = biasCoef * t_coef.y - t_bias.y;
+    }
+    if (ray.direction.z > 0.0f) {
+        octant_mask ^= 4;
+        t_bias.z = biasCoef * t_coef.z - t_bias.z;
     }
 
-    vec3 t_corner = pos * t_coef - t_bias;
-    float tc_max = min(t_corner);
+    float t_min = max(2.f * t_coef - t_bias);
+    float t_max = min(t_coef - t_bias);
+    float h = t_max;
+    t_min = max(t_min, 0.0f);
+    t_max = min(t_max, 1.0f);
 
-    int child_shift = idx ^ octant_mask;// permute child slots based on the mirroring
-    uint child_masks = child_descriptor.data1 << child_shift;
-    if ((child_masks & 0x8000u) != 0 && t_min <= t_max) {
-      // Terminate if the voxel is small enough.
-      //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2) {
-      //    color = lut[child_shift] * 0.5 + 0.1;
-      //    break;// at t_min
-      //}
-      //color = vec3(1, 0, 0);
+    int parent = 0;
+    uint nodeOffset = 0;
+    ChildDescriptor child_descriptor = ChildDescriptor(0, 0);// invalid until fetched
+    int idx = 0;
+    vec3 pos = vec3(1.0f, 1.0f, 1.0f);
+    int scale = SVO_CAST_STACK_DEPTH - 1;
+    float scale_exp2 = 0.5f;// exp2f(scale - s_max)
 
-      // INTERSECT
-      // Intersect active t-span with the cube and evaluate
-      // tx(), ty(), and tz() at the center of the voxel.
+    const float posCoef = 1.5f;
+    if (posCoef * t_coef.x - t_bias.x > t_min) {
+        idx ^= 1;
+        pos.x = posCoef;
+    }
+    if (posCoef * t_coef.y - t_bias.y > t_min) {
+        idx ^= 2;
+        pos.y = posCoef;
+    }
+    if (posCoef * t_coef.z - t_bias.z > t_min) {
+        idx ^= 4;
+        pos.z = posCoef;
+    }
 
-      float tv_max = min(t_max, tc_max);
-      float halfScale = scale_exp2 * 0.5f;
-      vec3 t_center = halfScale * t_coef + t_corner;
+    TraceResult res;
+    uint hitMaterial;
+    bool fetch = true;
 
-      if (t_min <= tv_max) {
-        // Terminate if the corresponding bit in the non-leaf mask is not set.
-        if ((child_masks & 0x0080u) != 0) {
-          child_shift = 7 - child_shift;
-          vec3 norm, t_corner = t_coef * (pos + scale_exp2) - t_bias;
-          if (t_corner.x > t_corner.y && t_corner.x > t_corner.z) {
-            norm = vec3(-1, 0, 0);
-          } else if (t_corner.y > t_corner.z) {
-            norm = vec3(0, -1, 0);
-          } else {
-            norm = vec3(0, 0, -1);
-          }
+    while (scale < SVO_CAST_STACK_DEPTH) {
+        iter++;
+        if (iter > MAX_RAYCAST_ITERATIONS) break;
 
-          if ((octant_mask & 1) == 0u) { norm.x = -norm.x; }
-          if ((octant_mask & 2) == 0u) { norm.y = -norm.y; }
-          if ((octant_mask & 4) == 0u) { norm.z = -norm.z; }
-          res.normal = norm;
+        // Fetch child descriptor unless it is already valid.
 
-          uint lookupOffset = svo.data[offsetInSVOBuffer];
-          uint lookupEntry = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + lookupOffset + nodeOffset];
-          uint lookupEntryMask = lookupEntry & 0xFFu;
-          uint siblingOffset = bitCount(lookupEntryMask << (8 - child_shift) & 0xFFu);
-          uint attPtr = lookupEntry >> 8u & 0xFFFFFFu;
-          attPtr += siblingOffset + svo.data[offsetInSVOBuffer + 1];
-          //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-          //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
-          //             (phongAttrib >> 8 & 0xFFu) / 255.f);
-          hitMaterial = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
-          //color = lut[child_shift] * 0.5f + 0.5f;
-
-          //if ((lookupEntry & 0xFFu) != 0) {
-          //    color = RED;
-          //} else {
-          //    color = BLUE;
-          //}
-
-          break;// at t_min (overridden with tv_min).
+        //if (child_descriptor.childData == 0)
+        if (fetch) {
+            child_descriptor.data1 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent];
+            child_descriptor.data2 = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + 1];
+            fetch = false;
         }
 
-        // PUSH
-        // Write current parent to the stack.
+        vec3 t_corner = pos * t_coef - t_bias;
+        float tc_max = min(t_corner);
 
-        if (tc_max < h) { WRITE_SVO_STACK(svoStack, scale, parent, t_max, nodeOffset); }
-        h = tc_max;
+        int child_shift = idx ^ octant_mask;// permute child slots based on the mirroring
+        uint child_masks = child_descriptor.data1 << child_shift;
+        if ((child_masks & 0x8000u) != 0 && t_min <= t_max) {
+            // Terminate if the voxel is small enough.
+            //if (tc_max * ray.directionSize + ray_orig_sz >= scale_exp2) {
+            //    color = lut[child_shift] * 0.5 + 0.1;
+            //    break;// at t_min
+            //}
+            //color = vec3(1, 0, 0);
 
-        // Find child descriptor corresponding to the current voxel.
+            // INTERSECT
+            // Intersect active t-span with the cube and evaluate
+            // tx(), ty(), and tz() at the center of the voxel.
 
-        //uint ptr = child_descriptor.data1 >> 16u;// child pointer
-        uint ptr = child_descriptor.data2;// child pointer
+            float tv_max = min(t_max, tc_max);
+            float halfScale = scale_exp2 * 0.5f;
+            vec3 t_center = halfScale * t_coef + t_corner;
 
-        /* if ((child_descriptor.childData & 0x10000) != 0) { // FAR
-                  ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
-                }*/
+            if (t_min <= tv_max) {
+                // Terminate if the corresponding bit in the non-leaf mask is not set.
+                if ((child_masks & 0x0080u) != 0) {
+                    child_shift = 7 - child_shift;
+                    vec3 norm, t_corner = t_coef * (pos + scale_exp2) - t_bias;
+                    if (t_corner.x > t_corner.y && t_corner.x > t_corner.z) {
+                        norm = vec3(-1, 0, 0);
+                    } else if (t_corner.y > t_corner.z) {
+                        norm = vec3(0, -1, 0);
+                    } else {
+                        norm = vec3(0, 0, -1);
+                    }
 
-        uint validMask = (child_descriptor.data1 >> 8u) & 0xFFu;
-        uint leafMask = child_descriptor.data1 & 0xFFu;
+                    if ((octant_mask & 1) == 0u) { norm.x = -norm.x; }
+                    if ((octant_mask & 2) == 0u) { norm.y = -norm.y; }
+                    if ((octant_mask & 4) == 0u) { norm.z = -norm.z; }
+                    res.normal = norm;
 
-        child_shift = 7 - child_shift;
+                    uint lookupOffset = svo.data[offsetInSVOBuffer];
+                    uint lookupEntry = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + lookupOffset + nodeOffset];
+                    uint lookupEntryMask = lookupEntry & 0xFFu;
+                    uint siblingOffset = bitCount(lookupEntryMask << (8 - child_shift) & 0xFFu);
+                    uint attPtr = lookupEntry >> 8u & 0xFFFFFFu;
+                    attPtr += siblingOffset + svo.data[offsetInSVOBuffer + 1];
+                    //uint phongAttrib = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+                    //color = vec3((phongAttrib >> 24u & 0xFFu) / 255.f, (phongAttrib >> 16u & 0xFFu) / 255.f,
+                    //             (phongAttrib >> 8 & 0xFFu) / 255.f);
+                    hitMaterial = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + attPtr];
+                    //color = lut[child_shift] * 0.5f + 0.5f;
 
-        validMask = validMask << (8 - child_shift) & 0xFFu;
-        leafMask = leafMask << (8 - child_shift) & 0xFFu;
+                    //if ((lookupEntry & 0xFFu) != 0) {
+                    //    color = RED;
+                    //} else {
+                    //    color = BLUE;
+                    //}
 
-        uint ofs = bitCount(validMask) - bitCount(leafMask);
+                    break;// at t_min (overridden with tv_min).
+                }
 
-        //color = lut[ofs] * 0.5 + 0.3;
-        uint offsetFromParent = ptr + ofs;
-        nodeOffset = parent / 2 + offsetFromParent;
-        parent = parent + int(offsetFromParent * 2);
+                // PUSH
+                // Write current parent to the stack.
 
-        // Select child voxel that the ray enters first.
+                if (tc_max < h) { WRITE_SVO_STACK(svoStack, scale, parent, t_max, nodeOffset); }
+                h = tc_max;
 
-        idx = 0;
-        scale--;
-        scale_exp2 = halfScale;
+                // Find child descriptor corresponding to the current voxel.
 
-        if (t_center.x > t_min) {
-          idx ^= 1;
-          pos.x += scale_exp2;
+                //uint ptr = child_descriptor.data1 >> 16u;// child pointer
+                uint ptr = child_descriptor.data2;// child pointer
+
+                /* if ((child_descriptor.childData & 0x10000) != 0) { // FAR
+                          ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
+                        }*/
+
+                uint validMask = (child_descriptor.data1 >> 8u) & 0xFFu;
+                uint leafMask = child_descriptor.data1 & 0xFFu;
+
+                child_shift = 7 - child_shift;
+
+                validMask = validMask << (8 - child_shift) & 0xFFu;
+                leafMask = leafMask << (8 - child_shift) & 0xFFu;
+
+                uint ofs = bitCount(validMask) - bitCount(leafMask);
+
+                //color = lut[ofs] * 0.5 + 0.3;
+                uint offsetFromParent = ptr + ofs;
+                nodeOffset = parent / 2 + offsetFromParent;
+                parent = parent + int(offsetFromParent * 2);
+
+                // Select child voxel that the ray enters first.
+
+                idx = 0;
+                scale--;
+                scale_exp2 = halfScale;
+
+                if (t_center.x > t_min) {
+                    idx ^= 1;
+                    pos.x += scale_exp2;
+                }
+                if (t_center.y > t_min) {
+                    idx ^= 2;
+                    pos.y += scale_exp2;
+                }
+                if (t_center.z > t_min) {
+                    idx ^= 4;
+                    pos.z += scale_exp2;
+                }
+
+                // Update active t-span and invalidate cached child descriptor.
+
+                t_max = tv_max;
+                //child_descriptor.childData = 0;
+                fetch = true;
+                continue;
+            }
         }
-        if (t_center.y > t_min) {
-          idx ^= 2;
-          pos.y += scale_exp2;
+
+        // ADVANCE
+        // Step along the ray.
+        int step_mask = 0;
+        if (t_corner.x <= tc_max) {
+            step_mask ^= 1;
+            pos.x -= scale_exp2;
         }
-        if (t_center.z > t_min) {
-          idx ^= 4;
-          pos.z += scale_exp2;
+        if (t_corner.y <= tc_max) {
+            step_mask ^= 2;
+            pos.y -= scale_exp2;
+        }
+        if (t_corner.z <= tc_max) {
+            step_mask ^= 4;
+            pos.z -= scale_exp2;
         }
 
-        // Update active t-span and invalidate cached child descriptor.
+        // Update active t-span and flip bits of the child slot index.
 
-        t_max = tv_max;
-        //child_descriptor.childData = 0;
-        fetch = true;
-        continue;
-      }
+        t_min = tc_max;
+        idx ^= step_mask;
+
+        // Proceed with pop if the bit flips disagree with the ray direction.
+
+        if ((idx & step_mask) != 0) {
+            // POP
+            // Find the highest differing bit between the two positions.
+
+            uint differing_bits = 0;
+            if ((step_mask & 1) != 0) differing_bits |= floatBitsToInt(pos.x) ^ floatBitsToInt(pos.x + scale_exp2);
+            if ((step_mask & 2) != 0) differing_bits |= floatBitsToInt(pos.y) ^ floatBitsToInt(pos.y + scale_exp2);
+            if ((step_mask & 4) != 0) differing_bits |= floatBitsToInt(pos.z) ^ floatBitsToInt(pos.z + scale_exp2);
+            scale = findMSB(differing_bits);// position of the highest bit
+            scale_exp2 = intBitsToFloat((scale - SVO_CAST_STACK_DEPTH + 127) << 23);// exp2f(scale - s_max)
+
+            // Restore parent voxel from the stack.
+
+            parent = READ_SVO_STACK(svoStack, scale).node;
+            t_max = READ_SVO_STACK(svoStack, scale).tMax;
+            nodeOffset = READ_SVO_STACK(svoStack, scale).offset;
+
+            // Round cube position and extract child slot index.
+
+            int shx = floatBitsToInt(pos.x) >> scale;
+            int shy = floatBitsToInt(pos.y) >> scale;
+            int shz = floatBitsToInt(pos.z) >> scale;
+            pos.x = intBitsToFloat(shx << scale);
+            pos.y = intBitsToFloat(shy << scale);
+            pos.z = intBitsToFloat(shz << scale);
+            idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
+
+            // Prevent same parent from being stored again and invalidate cached child descriptor.
+
+            h = 0.0f;
+            //child_descriptor.childData = 0;
+            fetch = true;
+        }
     }
 
-    // ADVANCE
-    // Step along the ray.
-    int step_mask = 0;
-    if (t_corner.x <= tc_max) {
-      step_mask ^= 1;
-      pos.x -= scale_exp2;
-    }
-    if (t_corner.y <= tc_max) {
-      step_mask ^= 2;
-      pos.y -= scale_exp2;
-    }
-    if (t_corner.z <= tc_max) {
-      step_mask ^= 4;
-      pos.z -= scale_exp2;
-    }
+    if (scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS) { t_min = 2.0f; }
 
-    // Update active t-span and flip bits of the child slot index.
+    // Undo mirroring of the coordinate system.
 
-    t_min = tc_max;
-    idx ^= step_mask;
+    if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_exp2 - pos.x;
+    if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_exp2 - pos.y;
+    if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_exp2 - pos.z;
 
-    // Proceed with pop if the bit flips disagree with the ray direction.
+    // Output results.
 
-    if ((idx & step_mask) != 0) {
-      // POP
-      // Find the highest differing bit between the two positions.
-
-      uint differing_bits = 0;
-      if ((step_mask & 1) != 0) differing_bits |= floatBitsToInt(pos.x) ^ floatBitsToInt(pos.x + scale_exp2);
-      if ((step_mask & 2) != 0) differing_bits |= floatBitsToInt(pos.y) ^ floatBitsToInt(pos.y + scale_exp2);
-      if ((step_mask & 4) != 0) differing_bits |= floatBitsToInt(pos.z) ^ floatBitsToInt(pos.z + scale_exp2);
-      scale = findMSB(differing_bits);                                        // position of the highest bit
-      scale_exp2 = intBitsToFloat((scale - SVO_CAST_STACK_DEPTH + 127) << 23);// exp2f(scale - s_max)
-
-      // Restore parent voxel from the stack.
-
-      parent = READ_SVO_STACK(svoStack, scale).node;
-      t_max = READ_SVO_STACK(svoStack, scale).tMax;
-      nodeOffset = READ_SVO_STACK(svoStack, scale).offset;
-
-      // Round cube position and extract child slot index.
-
-      int shx = floatBitsToInt(pos.x) >> scale;
-      int shy = floatBitsToInt(pos.y) >> scale;
-      int shz = floatBitsToInt(pos.z) >> scale;
-      pos.x = intBitsToFloat(shx << scale);
-      pos.y = intBitsToFloat(shy << scale);
-      pos.z = intBitsToFloat(shz << scale);
-      idx = (shx & 1) | ((shy & 1) << 1) | ((shz & 1) << 2);
-
-      // Prevent same parent from being stored again and invalidate cached child descriptor.
-
-      h = 0.0f;
-      //child_descriptor.childData = 0;
-      fetch = true;
-    }
-  }
-
-  if (scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS) { t_min = 2.0f; }
-
-  // Undo mirroring of the coordinate system.
-
-  if ((octant_mask & 1) == 0) pos.x = 3.0f - scale_exp2 - pos.x;
-  if ((octant_mask & 2) == 0) pos.y = 3.0f - scale_exp2 - pos.y;
-  if ((octant_mask & 4) == 0) pos.z = 3.0f - scale_exp2 - pos.z;
-
-  // Output results.
-
-  res.t = t_min;
-  res.iter = iter;
-  res.pos.x = min(max(ray.origin.x + t_min * ray.direction.x, pos.x + epsilon), pos.x + scale_exp2 - epsilon);
-  res.pos.y = min(max(ray.origin.y + t_min * ray.direction.y, pos.y + epsilon), pos.y + scale_exp2 - epsilon);
-  res.pos.z = min(max(ray.origin.z + t_min * ray.direction.z, pos.z + epsilon), pos.z + scale_exp2 - epsilon);
-  res.node = parent;
-  res.childIdx = idx ^ octant_mask ^ 7;
-  res.stackPtr = scale;
-  res.materialId = hitMaterial;
-  res.hit = !(scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
-  return res;
+    res.t = t_min;
+    res.iter = iter;
+    res.pos.x = min(max(ray.origin.x + t_min * ray.direction.x, pos.x + epsilon), pos.x + scale_exp2 - epsilon);
+    res.pos.y = min(max(ray.origin.y + t_min * ray.direction.y, pos.y + epsilon), pos.y + scale_exp2 - epsilon);
+    res.pos.z = min(max(ray.origin.z + t_min * ray.direction.z, pos.z + epsilon), pos.z + scale_exp2 - epsilon);
+    res.node = parent;
+    res.childIdx = idx ^ octant_mask ^ 7;
+    res.stackPtr = scale;
+    res.materialId = hitMaterial;
+    res.hit = !(scale >= SVO_CAST_STACK_DEPTH || iter > MAX_RAYCAST_ITERATIONS);
+    return res;
 }
 
 TraceResult traceModel(uint modelIndex, Ray ray) {
-  ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
-  ray.direction =                                                                                //normalize(
-      (transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz;//);
-  ray.originSize = 0.02;
-  ray.directionSize = 0;
-  TraceResult result;
-  result.objectId = modelIndex;
-  result.hit = false;
-  result.iter = 0;
+    ray.origin = (modelInfos.infos[modelIndex].inverseObjectMatrix * vec4(ray.origin, 1)).xyz;
+    ray.direction =//normalize(
+    (transpose(modelInfos.infos[modelIndex].inverseObjectMatrix) * vec4(ray.direction, 0)).xyz;//);
+    ray.originSize = 0.02;
+    ray.directionSize = 0;
+    TraceResult result;
+    result.objectId = modelIndex;
+    result.hit = false;
+    result.iter = 0;
 
-  ray.origin += vec3(1, 1, 1);
+    ray.origin += vec3(1, 1, 1);
 
-  result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w),
-                 modelInfos.infos[modelIndex].materialsOffset.x);
-  result.materialId += modelInfos.infos[modelIndex].materialsOffset.x;
-  result.objectId = modelIndex;
+    result = trace(ray, floatBitsToUint(modelInfos.infos[modelIndex].scaleAndSvoBufferOffset.w),
+    modelInfos.infos[modelIndex].materialsOffset.x);
+    result.materialId += modelInfos.infos[modelIndex].materialsOffset.x;
+    result.objectId = modelIndex;
 
-  return result;
+    return result;
 }
 
-#define IS_BVH_NODE_LEAF(node) ((floatBitsToUint(node.AABB2leafNext.z) & BVH_LEAF_NODE_MASK) != 0)
-#define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
-#define GET_BVH_MIN_AABB(node) node.AABB1.xyz
-#define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
+    #define IS_BVH_NODE_LEAF(node) ((floatBitsToUint(node.AABB2leafNext.z) & BVH_LEAF_NODE_MASK) != 0)
+    #define GET_BVH_NODE_OFFSET(node) (floatBitsToUint(node.AABB2leafNext.z) & BVH_OFFSET_MASK)
+    #define GET_BVH_MIN_AABB(node) node.AABB1.xyz
+    #define GET_BVH_MAX_AABB(node) vec3(node.AABB1.w, node.AABB2leafNext.xy)
 
-#define READ_BVH_STACK_ALT(stack, idx) stack[idx]
-#define WRITE_BVH_STACK_ALT(stack, idx, n) stack[idx] = n;
+    #define READ_BVH_STACK_ALT(stack, idx) stack[idx]
+    #define WRITE_BVH_STACK_ALT(stack, idx, n) stack[idx] = n;
 
 AABBIntersection_ALT bvhStack_ALT[BVH_STACK_SIZE];
 TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
-  Ray aabbRay = ray;
-  aabbRay.direction = normalize(aabbRay.direction);
+    Ray aabbRay = ray;
+    aabbRay.direction = normalize(aabbRay.direction);
 
-  TraceResult result;
-  result.hit = false;
-  result.isOnlyAABB = true;
-  result.iter = 0;
-  result.normal = vec3(0);
+    TraceResult result;
+    result.hit = false;
+    result.isOnlyAABB = true;
+    result.iter = 0;
+    result.normal = vec3(0);
 
-  TraceResult bestModelResult;
-  bestModelResult.hit = false;
-  bestModelResult.t = INF;
-  bestModelResult.iter = 0;
-  bestModelResult.distanceInWorldSpace = INF;
+    TraceResult bestModelResult;
+    bestModelResult.hit = false;
+    bestModelResult.t = INF;
+    bestModelResult.iter = 0;
+    bestModelResult.distanceInWorldSpace = INF;
 
-  uint stackTop = 0;
+    uint stackTop = 0;
 
-  // BVH root
-  uint nodeToCheckIdx = 0;
-  BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
-  vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
-  vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
-  uint offset = GET_BVH_NODE_OFFSET(currentNode);
-  AABBIntersection_ALT intersectionA =
-      intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+    // BVH root
+    uint nodeToCheckIdx = 0;
+    BVHNode currentNode = bvh.nodes[nodeToCheckIdx];
+    vec3 boxMin = GET_BVH_MIN_AABB(currentNode);
+    vec3 boxMax = GET_BVH_MAX_AABB(currentNode);
+    uint offset = GET_BVH_NODE_OFFSET(currentNode);
+    AABBIntersection_ALT intersectionA =
+    intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
 
-  while (intersectionA.hit) {
+while (intersectionA.hit) {
     while (!intersectionA.isLeaf && intersectionA.hit) {
-      nodeToCheckIdx = intersectionA.offset + 1;
-      currentNode = bvh.nodes[nodeToCheckIdx];
-      boxMin = GET_BVH_MIN_AABB(currentNode);
-      boxMax = GET_BVH_MAX_AABB(currentNode);
-      offset = GET_BVH_NODE_OFFSET(currentNode);
-      AABBIntersection_ALT intersectionB =
-          intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+        nodeToCheckIdx = intersectionA.offset + 1;
+        currentNode = bvh.nodes[nodeToCheckIdx];
+        boxMin = GET_BVH_MIN_AABB(currentNode);
+        boxMax = GET_BVH_MAX_AABB(currentNode);
+        offset = GET_BVH_NODE_OFFSET(currentNode);
+        AABBIntersection_ALT intersectionB =
+        intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
 
-      nodeToCheckIdx = intersectionA.offset;
-      currentNode = bvh.nodes[nodeToCheckIdx];
-      boxMin = GET_BVH_MIN_AABB(currentNode);
-      boxMax = GET_BVH_MAX_AABB(currentNode);
-      offset = GET_BVH_NODE_OFFSET(currentNode);
-      intersectionA = intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
+nodeToCheckIdx = intersectionA.offset;
+currentNode = bvh.nodes[nodeToCheckIdx];
+boxMin = GET_BVH_MIN_AABB(currentNode);
+boxMax = GET_BVH_MAX_AABB(currentNode);
+offset = GET_BVH_NODE_OFFSET(currentNode);
+intersectionA = intersectAABBDistance_ALT(aabbRay, boxMin, boxMax, offset, IS_BVH_NODE_LEAF(currentNode));
 
-      // sort child nodes
-      if (intersectionB.distance < intersectionA.distance) {
-        AABBIntersection_ALT tmp = intersectionB;
-        intersectionB = intersectionA;
-        intersectionA = tmp;
-      }
-      // B is present only if both children have been hit, push it onto stack - if it's further away than the closest intersected model skip it
-      if (intersectionB.hit && intersectionB.distance < bestModelResult.distanceInWorldSpace) {
-        WRITE_BVH_STACK_ALT(bvhStack_ALT, stackTop++, intersectionB);
-      }
-      // there was no hit, read stack
-      if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
-    }
-    if (intersectionA.isLeaf && intersectionA.hit) {
-      if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
+// sort child nodes
+if (intersectionB.distance < intersectionA.distance) {
+    AABBIntersection_ALT tmp = intersectionB;
+    intersectionB = intersectionA;
+    intersectionA = tmp;
+}
+// B is present only if both children have been hit, push it onto stack - if it's further away than the closest intersected model skip it
+if (intersectionB.hit && intersectionB.distance < bestModelResult.distanceInWorldSpace) {
+    WRITE_BVH_STACK_ALT(bvhStack_ALT, stackTop++, intersectionB);
+}
+// there was no hit, read stack
+if (!intersectionA.hit && stackTop > 0) { intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop); }
+}
+if (intersectionA.isLeaf && intersectionA.hit) {
+    if (intersectionA.distance < bestModelResult.distanceInWorldSpace) {
         TraceResult modelTraceResult = traceModel(intersectionA.offset, ray);
         modelTraceResult.posInWorldSpace =
-            (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1))
-                .xyz;
+        (modelInfos.infos[modelTraceResult.objectId].objectMatrix * vec4(modelTraceResult.pos - vec3(1, 1, 1), 1))
+        .xyz;
         modelTraceResult.distanceInWorldSpace = distance(ray.origin, modelTraceResult.posInWorldSpace);
         if (modelTraceResult.hit && modelTraceResult.distanceInWorldSpace < bestModelResult.distanceInWorldSpace) {
-          bestModelResult = modelTraceResult;
+            bestModelResult = modelTraceResult;
         }
         result.iter += modelTraceResult.iter;
-      }
-
-      // stack is empty, end
-      if (stackTop == 0) {
-        intersectionA.hit = false;
-      } else {// read stack
-        intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop);
-      }
     }
-  }
 
-  if (bestModelResult.hit) {
+    // stack is empty, end
+    if (stackTop == 0) {
+        intersectionA.hit = false;
+    } else { // read stack
+        intersectionA = READ_BVH_STACK_ALT(bvhStack_ALT, --stackTop);
+    }
+}
+}
+
+if (bestModelResult.hit) {
     bestModelResult.normal = normalize(
-        (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);
+    (transpose(modelInfos.infos[bestModelResult.objectId].objectMatrix) * vec4(bestModelResult.normal, 0)).xyz);
     bestModelResult.iter = result.iter;
     return bestModelResult;
-  }
-  return result;
+}
+return result;
 }
 
 /********************************************* PROBE  FUNCTIONS *******************************************/
@@ -761,144 +761,144 @@ TraceResult traceBVHImproved(Ray ray, uint idx, uint idy) {
  \param probeCoords Integer (stored in float) coordinates of the probe on the probe grid 
  */
 PROBE_INDEX gridCoordToProbeIndex(vec3 probeCoords) {
-  return int(probeCoords.x + probeCoords.y * grid.gridSize.x + probeCoords.z * grid.gridSize.x * grid.gridSize.y);
+    return int(probeCoords.x + probeCoords.y * grid.gridSize.x + probeCoords.z * grid.gridSize.x * grid.gridSize.y);
 }
 
-GRID_COORD baseGridCoord(vec3 X) {
-  return clamp(GRID_COORD((X - grid.gridPos.xyz) / grid.gridStep), GRID_COORD(0, 0, 0),
-               GRID_COORD(grid.gridSize.xyz) - GRID_COORD(1, 1, 1));
+    GRID_COORD baseGridCoord(vec3 X) {
+    return clamp(GRID_COORD((X - grid.gridPos.xyz) / grid.gridStep), GRID_COORD(0, 0, 0),
+    GRID_COORD(grid.gridSize.xyz) - GRID_COORD(1, 1, 1));
 }
 
-/** Returns the index of the probe at the floor along each dimension. */
-PROBE_INDEX baseProbeIndex(vec3 X) { return gridCoordToProbeIndex(baseGridCoord(X)); }
+    /** Returns the index of the probe at the floor along each dimension. */
+    PROBE_INDEX baseProbeIndex(vec3 X) { return gridCoordToProbeIndex(baseGridCoord(X)); }
 
-GRID_COORD probeIndexToGridCoord(PROBE_INDEX index) {
-  // Assumes probeCounts are powers of two.
-  // Precomputing the MSB actually slows this code down substantially
-  ivec3 iPos;
-  iPos.x = index & (grid.gridSize.x - 1);
-  iPos.y = (index & ((grid.gridSize.x * grid.gridSize.y) - 1)) >> findMSB(grid.gridSize.x);
-  iPos.z = index >> findMSB(grid.gridSize.x * grid.gridSize.y);
+    GRID_COORD probeIndexToGridCoord(PROBE_INDEX index) {
+    // Assumes probeCounts are powers of two.
+    // Precomputing the MSB actually slows this code down substantially
+    ivec3 iPos;
+    iPos.x = index & (grid.gridSize.x - 1);
+    iPos.y = (index & ((grid.gridSize.x * grid.gridSize.y) - 1)) >> findMSB(grid.gridSize.x);
+    iPos.z = index >> findMSB(grid.gridSize.x * grid.gridSize.y);
 
-  return iPos;
+    return iPos;
 }
 
-/** probeCoords Coordinates of the probe, computed as part of the process. */
-PROBE_INDEX nearestProbeIndex(vec3 X, out vec3 probeCoords) {
-  probeCoords =
-      clamp(round((X - grid.gridPos.xyz) / grid.gridStep), vec3(0, 0, 0), vec3(grid.gridSize.xyz) - vec3(1, 1, 1));
+    /** probeCoords Coordinates of the probe, computed as part of the process. */
+    PROBE_INDEX nearestProbeIndex(vec3 X, out vec3 probeCoords) {
+    probeCoords =
+    clamp(round((X - grid.gridPos.xyz) / grid.gridStep), vec3(0, 0, 0), vec3(grid.gridSize.xyz) - vec3(1, 1, 1));
 
-  return gridCoordToProbeIndex(probeCoords);
+    return gridCoordToProbeIndex(probeCoords);
 }
 
-/** 
-    \param neighbors The 8 probes surrounding X
-    \return Index into the neighbors array of the index of the nearest probe to X 
-*/
-INDEX_IN_PROBE_CUBE nearestProbeIndices(vec3 X) {
-  vec3 maxProbeCoords = vec3(grid.gridSize.xyz) - vec3(1, 1, 1);
-  vec3 floatProbeCoords = (X - grid.gridPos.xyz) / grid.gridStep;
-  vec3 baseProbeCoords = clamp(floor(floatProbeCoords), vec3(0, 0, 0), maxProbeCoords);
+    /**
+        \param neighbors The 8 probes surrounding X
+        \return Index into the neighbors array of the index of the nearest probe to X
+    */
+    INDEX_IN_PROBE_CUBE nearestProbeIndices(vec3 X) {
+    vec3 maxProbeCoords = vec3(grid.gridSize.xyz) - vec3(1, 1, 1);
+    vec3 floatProbeCoords = (X - grid.gridPos.xyz) / grid.gridStep;
+    vec3 baseProbeCoords = clamp(floor(floatProbeCoords), vec3(0, 0, 0), maxProbeCoords);
 
-  float minDist = TMP_FAR;
-  int nearestIndex = -1;
+    float minDist = TMP_FAR;
+    int nearestIndex = -1;
 
-  for (int i = 0; i < 8; ++i) {
-    vec3 newProbeCoords = min(baseProbeCoords + vec3(i & 1, (i >> 1) & 1, (i >> 2) & 1), maxProbeCoords);
-    float d = length(newProbeCoords - floatProbeCoords);
-    if (d < minDist) {
-      minDist = d;
-      nearestIndex = i;
+    for (int i = 0; i < 8; ++i) {
+        vec3 newProbeCoords = min(baseProbeCoords + vec3(i & 1, (i >> 1) & 1, (i >> 2) & 1), maxProbeCoords);
+        float d = length(newProbeCoords - floatProbeCoords);
+        if (d < minDist) {
+            minDist = d;
+            nearestIndex = i;
+        }
     }
-  }
 
-  return nearestIndex;
+    return nearestIndex;
 }
 
 vec3 gridCoordToPosition(GRID_COORD c) { return grid.gridStep * vec3(c) + grid.gridPos.xyz; }
 
 vec3 probeLocation(PROBE_INDEX index) { return gridCoordToPosition(probeIndexToGridCoord(index)); }
 
-/**
-   \param baseProbeIndex Index into L.radianceProbeGrid's TEXTURE_2D_ARRAY. This is the probe
-   at the floor of the current ray sampling position.
+    /**
+       \param baseProbeIndex Index into L.radianceProbeGrid's TEXTURE_2D_ARRAY. This is the probe
+       at the floor of the current ray sampling position.
 
-   \param relativeIndex on [0, 7]. This is used as a set of three 1-bit offsets
+       \param relativeIndex on [0, 7]. This is used as a set of three 1-bit offsets
 
-   Returns a probe index into L.radianceProbeGrid. It may be the *same* index as 
-   baseProbeIndex.
+       Returns a probe index into L.radianceProbeGrid. It may be the *same* index as
+       baseProbeIndex.
 
-   This will wrap when the camera is outside of the probe field probes...but that's OK. 
-   If that case arises, then the trace is likely to 
-   be poor quality anyway. Regardless, this function will still return the index 
-   of some valid probe, and that probe can either be used or fail because it does not 
-   have visibility to the location desired.
+       This will wrap when the camera is outside of the probe field probes...but that's OK.
+       If that case arises, then the trace is likely to
+       be poor quality anyway. Regardless, this function will still return the index
+       of some valid probe, and that probe can either be used or fail because it does not
+       have visibility to the location desired.
 
-   \see nextCycleIndex, baseProbeIndex
- */
-PROBE_INDEX relativeProbeIndex(PROBE_INDEX baseProbeIndex, INDEX_IN_PROBE_CUBE relativeIndex) {
-  // Guaranteed to be a power of 2
-  PROBE_INDEX numProbes = grid.gridSize.x * grid.gridSize.y * grid.gridSize.z;
+       \see nextCycleIndex, baseProbeIndex
+     */
+    PROBE_INDEX relativeProbeIndex(PROBE_INDEX baseProbeIndex, INDEX_IN_PROBE_CUBE relativeIndex) {
+    // Guaranteed to be a power of 2
+    PROBE_INDEX numProbes = grid.gridSize.x * grid.gridSize.y * grid.gridSize.z;
 
-  ivec3 offset = ivec3(relativeIndex & 1, (relativeIndex >> 1) & 1, (relativeIndex >> 2) & 1);
-  ivec3 stride = ivec3(1, grid.gridSize.x, grid.gridSize.x * grid.gridSize.y);
+    ivec3 offset = ivec3(relativeIndex & 1, (relativeIndex >> 1) & 1, (relativeIndex >> 2) & 1);
+    ivec3 stride = ivec3(1, grid.gridSize.x, grid.gridSize.x * grid.gridSize.y);
 
-  return (baseProbeIndex + idot(offset, stride)) & (numProbes - 1);
+    return (baseProbeIndex + idot(offset, stride)) & (numProbes - 1);
 }
 
-/** Given a CycleIndex [0, 7] on a cube of probes, returns the next CycleIndex to use. 
-    \see relativeProbeIndex
-*/
-INDEX_IN_PROBE_CUBE nextCycleIndex(INDEX_IN_PROBE_CUBE cycleIndex) { return (cycleIndex + 3) & 7; }
-/********************************************* VOXEL FIELD FUNCTIONS *******************************************/
-#define INVALID_PROX_IDX 0xFFFFu
-#define PROX_MASK 0xFFFFu
+    /** Given a CycleIndex [0, 7] on a cube of probes, returns the next CycleIndex to use.
+        \see relativeProbeIndex
+    */
+    INDEX_IN_PROBE_CUBE nextCycleIndex(INDEX_IN_PROBE_CUBE cycleIndex) { return (cycleIndex + 3) & 7; }
+    /********************************************* VOXEL FIELD FUNCTIONS *******************************************/
+    #define INVALID_PROX_IDX 0xFFFFu
+    #define PROX_MASK 0xFFFFu
 
 uint gridCoordToProxGridIndex(ivec3 voxelCoord) {
-  return uint(voxelCoord.x + voxelCoord.y * proxGridInfo.gridSize.x
-              + voxelCoord.z * proxGridInfo.gridSize.x * proxGridInfo.gridSize.y);
+    return uint(voxelCoord.x + voxelCoord.y * proxGridInfo.gridSize.x
+    + voxelCoord.z * proxGridInfo.gridSize.x * proxGridInfo.gridSize.y);
 }
 
 vec2 intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax) {
-  vec3 tMin = (boxMin - rayOrigin) / rayDir;
-  vec3 tMax = (boxMax - rayOrigin) / rayDir;
-  vec3 t1 = min(tMin, tMax);
-  vec3 t2 = max(tMin, tMax);
-  float tNear = max(max(t1.x, t1.y), t1.z);
-  float tFar = min(min(t2.x, t2.y), t2.z);
-  return vec2(tNear, tFar);
+    vec3 tMin = (boxMin - rayOrigin) / rayDir;
+    vec3 tMax = (boxMax - rayOrigin) / rayDir;
+    vec3 t1 = min(tMin, tMax);
+    vec3 t2 = max(tMin, tMax);
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
+    return vec2(tNear, tFar);
 }
 
 bool isInAABB(vec3 pos, vec3 boxMin, vec3 boxMax) {
-  return boxMin.x <= pos.x && boxMin.y <= pos.y && boxMin.z <= pos.z && pos.x <= boxMax.x && pos.y <= boxMax.y
-      && pos.z <= boxMax.z;
+    return boxMin.x <= pos.x && boxMin.y <= pos.y && boxMin.z <= pos.z && pos.x <= boxMax.x && pos.y <= boxMax.y
+    && pos.z <= boxMax.z;
 }
 
 ivec3 nearestVoxelGridCoord(vec3 pos) {
-  return clamp(ivec3((pos - grid.gridPos.xyz) / proxGridInfo.gridStep.xyz), ivec3(0, 0, 0),
-               ivec3(proxGridInfo.gridSize.xyz) - ivec3(1, 1, 1));
+    return clamp(ivec3((pos - grid.gridPos.xyz) / proxGridInfo.gridStep.xyz), ivec3(0, 0, 0),
+    ivec3(proxGridInfo.gridSize.xyz) - ivec3(1, 1, 1));
 }
 
 ivec3 nearestVoxelGridCoordFirst(Ray ray) {
-  const vec3 gridStart = grid.gridPos.xyz;
-  const vec3 gridEnd = grid.gridPos.xyz + grid.gridSize.xyz * grid.gridStep;
-  if (!isInAABB(ray.origin, gridStart, gridEnd)) {
-    vec2 voxFieldIntersection = intersectAABB(ray.origin, ray.direction, gridStart, gridEnd);
-    if (voxFieldIntersection.x <= voxFieldIntersection.y) {
-      return nearestVoxelGridCoord(ray.origin + voxFieldIntersection.x * ray.direction);
+    const vec3 gridStart = grid.gridPos.xyz;
+    const vec3 gridEnd = grid.gridPos.xyz + grid.gridSize.xyz * grid.gridStep;
+    if (!isInAABB(ray.origin, gridStart, gridEnd)) {
+        vec2 voxFieldIntersection = intersectAABB(ray.origin, ray.direction, gridStart, gridEnd);
+        if (voxFieldIntersection.x <= voxFieldIntersection.y) {
+            return nearestVoxelGridCoord(ray.origin + voxFieldIntersection.x * ray.direction);
+        }
     }
-  }
 
-  return nearestVoxelGridCoord(ray.origin);
+    return nearestVoxelGridCoord(ray.origin);
 }
 
 uint nearestProxVoxelIndex(vec3 pos) { return gridCoordToProxGridIndex(nearestVoxelGridCoord(pos)); }
 uint nearestProxVoxelIndexFirst(Ray ray) { return gridCoordToProxGridIndex(nearestVoxelGridCoordFirst(ray)); }
 
 int getProxProbeIdx(uint proxIdx, uint idx) {
-  uint val = (proxGrid.data[proxIdx * 2 + idx / 2] >> (16 * (idx % 2)) & PROX_MASK);
-  if ((val & PROX_MASK) == INVALID_PROX_IDX) { return -1; }
-  return int(val);
+    uint val = (proxGrid.data[proxIdx * 2 + idx / 2] >> (16 * (idx % 2)) & PROX_MASK);
+    if ((val & PROX_MASK) == INVALID_PROX_IDX) { return -1; }
+    return int(val);
 }
 
 /********************************************* ATLAS READING FUNCTIONS *******************************************/
@@ -906,197 +906,197 @@ float depthFromProbe(uint data) { return linearizeLogDepth(float(data & DEPTH_MA
 float depthFromSmallProbe(uint data) { return linearizeLogDepth(float(data) / DEPTH_MAX); }
 
 vec3 normalFromProbe(uint data) {
-  const float probeNormalEncoded1 =
-      float((data >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
-  const float probeNormalEncoded2 =
-      float((data >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
-  return decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
+    const float probeNormalEncoded1 =
+    float((data >> (NORMALS_SHIFT + NORMAL1_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    const float probeNormalEncoded2 =
+    float((data >> (NORMALS_SHIFT + NORMAL2_SHIFT)) & NORMAL_ELEMENT_MASK) / NORMAL_ELEMENT_MAX;
+    return decodeNormal(vec2(probeNormalEncoded1, probeNormalEncoded2));
 }
 
 vec3 calcLight(vec3 color, vec3 pos, vec3 normal, vec3 lightDir, bool isInShadow) {
-  const vec3 LAmbient = light.ambientColor.xyz;
-  if (isInShadow) { return color * LAmbient; }
+    const vec3 LAmbient = light.ambientColor.xyz;
+    if (isInShadow) { return color * LAmbient; }
 
-  const float NoL = max(dot(normal, -lightDir), 0.0);
-  const vec3 LDirectional = light.diffuseColor.xyz * NoL;
-  const vec3 diffuse = (LDirectional + LAmbient);
-  const float specular = dot(normalize(light.pos.xyz - pos), reflect(normalize(pos - camera.pos.xyz), normal));
-  vec3 intensity = diffuse + light.specularColor.xyz * (0.25 * pow(clamp(specular, 0.0, 1.0), 200.0));
-  return color * intensity;
+    const float NoL = max(dot(normal, -lightDir), 0.0);
+    const vec3 LDirectional = light.diffuseColor.xyz * NoL;
+    const vec3 diffuse = (LDirectional + LAmbient);
+    const float specular = dot(normalize(light.pos.xyz - pos), reflect(normalize(pos - camera.pos.xyz), normal));
+    vec3 intensity = diffuse + light.specularColor.xyz * (0.25 * pow(clamp(specular, 0.0, 1.0), 200.0));
+    return color * intensity;
 }
 
 vec3 getDiffuseIndirectForPoint(vec3 hitPoint) {
-  uint nearestProx = nearestProxVoxelIndex(hitPoint);
+    uint nearestProx = nearestProxVoxelIndex(hitPoint);
 
-  vec3 diffuseAlbedo = vec3(0, 0, 0);
-  int hitCnt = 0;
+    vec3 diffuseAlbedo = vec3(0, 0, 0);
+    int hitCnt = 0;
 
-  for (uint i = 0; i < 4; ++i) {
-    int baseProbeIdx = getProxProbeIdx(nearestProx, i);
-    if (baseProbeIdx == -1) { break; }
-    int probeIndexInCube = baseProbeIdx;
-    for (uint j = 0; j < 8; ++j) {
-      const int probeIndex = relativeProbeIndex(baseProbeIdx, probeIndexInCube);
-      const vec3 probePos = probeLocation(probeIndex);
-      vec3 probeToHitDir = hitPoint - probePos;
-      const float probeToHitDist = length(probeToHitDir);
-      probeToHitDir = normalize(probeToHitDir);
-      const vec2 texCoord = octEncode(probeToHitDir) * 0.5 + 0.5;
+    for (uint i = 0; i < 4; ++i) {
+        int baseProbeIdx = getProxProbeIdx(nearestProx, i);
+        if (baseProbeIdx == -1) { break; }
+        int probeIndexInCube = baseProbeIdx;
+        for (uint j = 0; j < 8; ++j) {
+            const int probeIndex = relativeProbeIndex(baseProbeIdx, probeIndexInCube);
+            const vec3 probePos = probeLocation(probeIndex);
+            vec3 probeToHitDir = hitPoint - probePos;
+            const float probeToHitDist = length(probeToHitDir);
+            probeToHitDir = normalize(probeToHitDir);
+            const vec2 texCoord = octEncode(probeToHitDir) * 0.5 + 0.5;
 
-      uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
-      float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
-      if (distance(distanceFromProbeToSurface, probeToHitDist) < 0.01) {
-        uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(texCoord * TEX_SIZE, probeIndex)).x);
-        const vec3 a =
-            vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
-                 float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
-        diffuseAlbedo += a;
-        ++hitCnt;
-      }
-      probeIndexInCube = nextCycleIndex(probeIndexInCube);
+            uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
+            float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
+            if (distance(distanceFromProbeToSurface, probeToHitDist) < 0.01) {
+                uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(texCoord * TEX_SIZE, probeIndex)).x);
+                const vec3 a =
+                vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+                float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+                diffuseAlbedo += a;
+                ++hitCnt;
+            }
+            probeIndexInCube = nextCycleIndex(probeIndexInCube);
+        }
     }
-  }
-  if (hitCnt == 0) {
-    vec3 ignore;
+    if (hitCnt == 0) {
+        vec3 ignore;
 
-    int baseProbeIndex = getProxProbeIdx(nearestProx, 0);
-    if (baseProbeIndex == -1) { baseProbeIndex = nearestProbeIndex(hitPoint, ignore); }
-    int probeIndexInCube = 0;
+        int baseProbeIndex = getProxProbeIdx(nearestProx, 0);
+        if (baseProbeIndex == -1) { baseProbeIndex = nearestProbeIndex(hitPoint, ignore); }
+        int probeIndexInCube = 0;
 
-    for (uint j = 0; j < 8; ++j) {
-      const int probeIndex = relativeProbeIndex(baseProbeIndex, probeIndexInCube);
-      const vec3 probePos = probeLocation(probeIndex);
-      vec3 probeToHitDir = normalize(hitPoint - probePos);
-      vec2 hitCoord = octEncode(hitPoint) * 0.5 + 0.5;
+        for (uint j = 0; j < 8; ++j) {
+            const int probeIndex = relativeProbeIndex(baseProbeIndex, probeIndexInCube);
+            const vec3 probePos = probeLocation(probeIndex);
+            vec3 probeToHitDir = normalize(hitPoint - probePos);
+            vec2 hitCoord = octEncode(hitPoint) * 0.5 + 0.5;
 
-      uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, probeIndex)).x);
-      const vec3 a = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
-                          float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
-      diffuseAlbedo += a;
-      ++hitCnt;
-      probeIndexInCube = nextCycleIndex(probeIndexInCube);
+            uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(hitCoord * TEX_SIZE, probeIndex)).x);
+            const vec3 a = vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
+            float((savedColorBytes >> B_SHIFT) & MASK10) / B_MAX);
+            diffuseAlbedo += a;
+            ++hitCnt;
+            probeIndexInCube = nextCycleIndex(probeIndexInCube);
+        }
     }
-  }
-  if (hitCnt > 0) {
-    return (diffuseAlbedo / hitCnt);
-  } else {
-    return vec3(1, 1, 1);
-  }
+    if (hitCnt > 0) {
+        return (diffuseAlbedo / hitCnt);
+    } else {
+        return vec3(1, 1, 1);
+    }
 }
 
-#define MAX_REFLECT_BOUNCES 3
+    #define MAX_REFLECT_BOUNCES 3
 vec3 traceReflection(vec3 hitPoint, vec3 normal, vec3 incomingDir) {
-  TraceResult traceResult;
-  vec3 color = vec3(1, 1, 1);
-  bool isDone = false;
-  uint i;
-  const vec3 reflectDir = reflect(incomingDir, normal);
-  Ray ray;
-  ray.origin = hitPoint + EPSILON * reflectDir;
-  ray.direction = reflectDir * TMP_FAR;
-  uint bounceCnt = 0;
-  for (i = 0; i < MAX_REFLECT_BOUNCES; ++i) {
-    traceResult = traceBVHImproved(ray, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    if (!traceResult.hit) { break; }
-    const Material material =
+    TraceResult traceResult;
+    vec3 color = vec3(1, 1, 1);
+    bool isDone = false;
+    uint i;
+    const vec3 reflectDir = reflect(incomingDir, normal);
+    Ray ray;
+    ray.origin = hitPoint + EPSILON * reflectDir;
+    ray.direction = reflectDir * TMP_FAR;
+    uint bounceCnt = 0;
+    for (i = 0; i < MAX_REFLECT_BOUNCES; ++i) {
+        traceResult = traceBVHImproved(ray, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+        if (!traceResult.hit) { break; }
+        const Material material =
         materials.data[modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId];
-    vec3 hitPoint = traceResult.posInWorldSpace;
-    const vec3 normal = traceResult.normal;
-    switch (material.type) {
-      case MATERIAL_TYPE_GLASS:
-      case MATERIAL_TYPE_DIFFUSE: {
-        const vec3 indirect = getDiffuseIndirectForPoint(hitPoint);
-        const vec3 matColor = vec3(material.red, material.green, material.blue);
-        color = matColor * indirect;
-        isDone = true;
-        break;
-      }
-      case MATERIAL_TYPE_METAL: {
-        const float roughness = material.rougness;
-        const float indexOfRefraction = material.indexOfRefraction;
-        const float metalness = material.metalness;
-        ray.direction = reflect(ray.direction, normal);
-        ray.origin = hitPoint + ray.direction * EPSILON;
-        ray.direction *= TMP_FAR;
-        const vec3 indirect = getDiffuseIndirectForPoint(hitPoint);
-        const vec3 matColor = vec3(material.red, material.green, material.blue);
-        color += mix(vec3(0, 0, 0), mix(matColor, indirect * matColor, roughness), metalness);
-        break;
-      }
-      case MATERIAL_TYPE_EMIT: {
-        const float ldr = material.lowDynamicRange;
-        const float emission = material.emission;
-        const float flux = material.flux;
-        const vec3 matColor = vec3(material.red, material.green, material.blue);
-        color = matColor;
-        isDone = true;
-        break;
-      }
+        vec3 hitPoint = traceResult.posInWorldSpace;
+        const vec3 normal = traceResult.normal;
+        switch (material.type) {
+            case MATERIAL_TYPE_GLASS:
+            case MATERIAL_TYPE_DIFFUSE: {
+                const vec3 indirect = getDiffuseIndirectForPoint(hitPoint);
+                const vec3 matColor = vec3(material.red, material.green, material.blue);
+                color = matColor * indirect;
+                isDone = true;
+                break;
+            }
+            case MATERIAL_TYPE_METAL: {
+                const float roughness = material.rougness;
+                const float indexOfRefraction = material.indexOfRefraction;
+                const float metalness = material.metalness;
+                ray.direction = reflect(ray.direction, normal);
+                ray.origin = hitPoint + ray.direction * EPSILON;
+                ray.direction *= TMP_FAR;
+                const vec3 indirect = getDiffuseIndirectForPoint(hitPoint);
+                const vec3 matColor = vec3(material.red, material.green, material.blue);
+                color += mix(vec3(0, 0, 0), mix(matColor, indirect * matColor, roughness), metalness);
+                break;
+            }
+            case MATERIAL_TYPE_EMIT: {
+                const float ldr = material.lowDynamicRange;
+                const float emission = material.emission;
+                const float flux = material.flux;
+                const vec3 matColor = vec3(material.red, material.green, material.blue);
+                color = matColor;
+                isDone = true;
+                break;
+            }
+        }
+        ++bounceCnt;
+        if (isDone) { break; }
     }
-    ++bounceCnt;
-    if (isDone) { break; }
-  }
-  if (bounceCnt == 0) { return color; }
-  return color / bounceCnt;
+    if (bounceCnt == 0) { return color; }
+    return color / bounceCnt;
 }
 
 void main() {
-  const uint idx = gl_GlobalInvocationID.x;
-  const uint idy = gl_GlobalInvocationID.y;
+    const uint idx = gl_GlobalInvocationID.x;
+    const uint idy = gl_GlobalInvocationID.y;
 
-  ivec2 dimensions = imageSize(outputImage);
-  if (idx >= dimensions.x || idy >= dimensions.y) { return; }
-  const ivec2 threadTexCoords = ivec2(idx, idy);
+    ivec2 dimensions = imageSize(outputImage);
+    if (idx >= dimensions.x || idy >= dimensions.y) { return; }
+    const ivec2 threadTexCoords = ivec2(idx, idy);
 
-  const PosAndMatInfo posAndMatInfo = readPosAndMatInfo(threadTexCoords);
+    const PosAndMatInfo posAndMatInfo = readPosAndMatInfo(threadTexCoords);
 
-  vec3 color = vec3(1, 1, 1);
-  if (posAndMatInfo.isHit) {
-    const vec3 normal = readNormal(threadTexCoords);
-    const Material material = materials.data[posAndMatInfo.materialId];
+    vec3 color = vec3(1, 1, 1);
+    if (posAndMatInfo.isHit) {
+        const vec3 normal = readNormal(threadTexCoords);
+        const Material material = materials.data[posAndMatInfo.materialId];
 
-    const vec3 lightDir = normalize(light.pos.xyz - posAndMatInfo.hitPos);
-    switch (material.type) {
-      case MATERIAL_TYPE_DIFFUSE: {
-        const vec3 indirect = getDiffuseIndirectForPoint(posAndMatInfo.hitPos);
-        const vec3 matColor = vec3(material.red, material.green, material.blue);
-        color = matColor * indirect;
-        if (posAndMatInfo.isInShadow) { color *= 0.35; }
-        break;
-      }
-      case MATERIAL_TYPE_GLASS: {
-        const float rougness = material.rougness;
-        const float indexOfRefraction = material.indexOfRefraction;
-        const float transparency = material.transparency;
-        color = calcLight(vec3(material.red, material.green, material.blue), posAndMatInfo.hitPos, normal, lightDir,
-                          posAndMatInfo.isInShadow);
-        if (posAndMatInfo.isInShadow) { color *= 0.35; }
-        break;
-      }
-      case MATERIAL_TYPE_METAL: {
-        const float rougness = material.rougness;
-        const float indexOfRefraction = material.indexOfRefraction;
-        const float metalness = material.metalness;
+        const vec3 lightDir = normalize(light.pos.xyz - posAndMatInfo.hitPos);
+        switch (material.type) {
+            case MATERIAL_TYPE_DIFFUSE: {
+                const vec3 indirect = getDiffuseIndirectForPoint(posAndMatInfo.hitPos);
+                const vec3 matColor = vec3(material.red, material.green, material.blue);
+                color = matColor * indirect;
+                if (posAndMatInfo.isInShadow) { color *= 0.35; }
+                break;
+            }
+            case MATERIAL_TYPE_GLASS: {
+                const float rougness = material.rougness;
+                const float indexOfRefraction = material.indexOfRefraction;
+                const float transparency = material.transparency;
+                color = calcLight(vec3(material.red, material.green, material.blue), posAndMatInfo.hitPos, normal, lightDir,
+                posAndMatInfo.isInShadow);
+                if (posAndMatInfo.isInShadow) { color *= 0.35; }
+                break;
+            }
+            case MATERIAL_TYPE_METAL: {
+                const float rougness = material.rougness;
+                const float indexOfRefraction = material.indexOfRefraction;
+                const float metalness = material.metalness;
 
-        const vec3 hitRayDir = normalize(posAndMatInfo.hitPos - camera.pos.xyz);
-        const vec3 reflColor = traceReflection(posAndMatInfo.hitPos, normal, hitRayDir);
-        const vec3 matColor = vec3(material.red, material.green, material.blue);
+                const vec3 hitRayDir = normalize(posAndMatInfo.hitPos - camera.pos.xyz);
+                const vec3 reflColor = traceReflection(posAndMatInfo.hitPos, normal, hitRayDir);
+                const vec3 matColor = vec3(material.red, material.green, material.blue);
 
-        const vec3 indirect = getDiffuseIndirectForPoint(posAndMatInfo.hitPos);
+                const vec3 indirect = getDiffuseIndirectForPoint(posAndMatInfo.hitPos);
 
-        color = mix(mix(matColor, indirect * matColor, rougness), reflColor, metalness);
-        if (posAndMatInfo.isInShadow) { color *= 0.35; }
-        break;
-      }
-      case MATERIAL_TYPE_EMIT: {
-        const float ldr = material.lowDynamicRange;
-        const float emission = material.emission;
-        const float flux = material.flux;
-        const vec3 matColor = vec3(material.red, material.green, material.blue);
-        color = matColor;
-        break;
-      }
+                color = mix(mix(matColor, indirect * matColor, rougness), reflColor, metalness);
+                if (posAndMatInfo.isInShadow) { color *= 0.35; }
+                break;
+            }
+            case MATERIAL_TYPE_EMIT: {
+                const float ldr = material.lowDynamicRange;
+                const float emission = material.emission;
+                const float flux = material.flux;
+                const vec3 matColor = vec3(material.red, material.green, material.blue);
+                color = matColor;
+                break;
+            }
+        }
     }
-  }
-  imageStore(outputImage, threadTexCoords, vec4(color, 1));
+    imageStore(outputImage, threadTexCoords, vec4(color, 1));
 }

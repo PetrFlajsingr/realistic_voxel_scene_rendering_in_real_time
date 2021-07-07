@@ -6,7 +6,6 @@
  */
 
 #include "EditRenderer.h"
-#include "light_field_probes/GridProbeGenerator.h"
 #include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>
@@ -1049,7 +1048,6 @@ void EditRenderer::initUI() {
   ui->probeTextureCombobox.addValueListener([this](const auto type) { probeRenderer->setProbeDebugRenderType(type); },
                                             true);
 
-
   ui->renderProbesButton.addClickListener([this] { probeRenderer->renderProbesInNextPass(); });
   ui->selectedProbeSpinner.addValueListener([this](auto val) {
     probeRenderer->setProbeToRender(val);
@@ -1121,7 +1119,7 @@ std::function<void()> EditRenderer::popupClickActiveModel(std::size_t itemId, vo
   };
 }
 void EditRenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
-                                          vox::GPUModelManager::ModelPtr modelPtr) {
+                                           vox::GPUModelManager::ModelPtr modelPtr) {
   auto &itemPopupMenu = element.createPopupMenu();
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Remove").addClickListener(popupClickActiveModel(itemId, modelPtr));
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Duplicate").addClickListener([modelPtr, this] {

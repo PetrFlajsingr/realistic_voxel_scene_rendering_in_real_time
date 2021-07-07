@@ -180,7 +180,7 @@ VoxDataGroup VoxBox::toVoxDataGroup() {
   std::ranges::transform(voxes, std::back_inserter(result.groups), [](Vox &vox) { return vox.toVoxDataGroup(); });
   std::ranges::transform(instances, std::back_inserter(result.groups),
                          [](Instance &instance) { return instance.toVoxDataGroup(); });
-#if false // todo: fix this
+#if false// todo: fix this
   VoxData voxData{};
   voxData.position = glm::vec3{0};
   voxData.rotation = glm::vec3{0};

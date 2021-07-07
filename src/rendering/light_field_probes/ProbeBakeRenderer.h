@@ -5,7 +5,6 @@
  * @date 19.6.21
  */
 
-
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEBAKERENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_LIGHT_FIELD_PROBES_PROBEBAKERENDERER_H
 
@@ -39,10 +38,11 @@ namespace pf::lfp {
 class ProbeBakeRenderer {
  public:
   ProbeBakeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
-                std::shared_ptr<vulkan::PhysicalDevice> vkDevice, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
-                std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
-                std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
-                std::shared_ptr<vulkan::Buffer> materialBuffer, std::unique_ptr<ProbeManager> probeManag);
+                    std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
+                    std::shared_ptr<vulkan::LogicalDevice> logicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
+                    std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
+                    std::shared_ptr<vulkan::Buffer> camBuffer, std::shared_ptr<vulkan::Buffer> materialBuffer,
+                    std::unique_ptr<ProbeManager> probeManag);
 
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesDebugImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesDebugImageView() const;
@@ -52,7 +52,6 @@ class ProbeBakeRenderer {
   [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getProximityBuffer() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getProximityInfoBuffer() const;
   [[nodiscard]] const std::shared_ptr<vulkan::Buffer> &getGridInfoBuffer() const;
-
 
   void setGridStart(const glm::vec3 &gridStart);
   void setGridStep(float gridStep);

@@ -5,7 +5,6 @@
  * @date 15.12.20
  */
 
-
 #include "SparseVoxelOctree.h"
 #include "../../../pf_common/include/pf_common/bin.h"
 #include <pf_common/exceptions/StackTraceException.h>

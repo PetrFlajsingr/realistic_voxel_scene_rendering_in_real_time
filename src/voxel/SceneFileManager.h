@@ -36,7 +36,7 @@ std::optional<std::string> saveSceneToFile(
   tomlTable.insert("models", tomlData);
   tomlTable.insert("probeGridPos", ui::ig::serializeGlmVec(probeGridPos));
   tomlTable.insert("proximityGridSize", ui::ig::serializeGlmVec(proximityGridSize));
-  tomlTable.insert("probeGridStep",probeGridStep);
+  tomlTable.insert("probeGridStep", probeGridStep);
   ostream << tomlTable;
 
   return std::nullopt;

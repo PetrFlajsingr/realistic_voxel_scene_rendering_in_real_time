@@ -5,7 +5,6 @@
  * @date 15.12.20
  */
 
-
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_SPARSEVOXELOCTREE_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_SPARSEVOXELOCTREE_H
 
@@ -52,7 +51,6 @@ struct alignas(8) ChildDescriptor {
   // if not validMask[x] and not leafMask[x] then the space is empty
   // if validMask[x] and not leafMask[x] then the space is represented by another ChildDescriptor
   // if validMask[x] and leafMask[x] then the space contains a voxel and is not further represented by a ChildDescriptor
-
 
   uint16_t UNUSED;
 
