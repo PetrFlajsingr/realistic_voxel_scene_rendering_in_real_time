@@ -1,6 +1,9 @@
-//
-// Created by petr on 11/9/20.
-//
+/**
+ * @file FlameGraphSampler.h
+ * @brief A sampler for ui::ig::FlameGraph
+ * @author Petr Flajšingr
+ * @date 9.11.20
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UTILS_FLAMEGRAPHSAMPLER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UTILS_FLAMEGRAPHSAMPLER_H
@@ -18,7 +21,9 @@ struct FlameGraphSamplerBase {
 };
 
 }// namespace details
-
+/**
+ * @brief A sampler for code block.
+ */
 class BlockFlameGraphSampler : public details::FlameGraphSamplerBase {
  public:
   BlockFlameGraphSampler(FlameGraphSamplerBase &owner, std::string sampleCaption,
@@ -48,7 +53,9 @@ class BlockFlameGraphSampler : public details::FlameGraphSamplerBase {
 
   std::vector<ui::ig::FlameGraphSample> childSamples;
 };
-
+/**
+ * @brief A main sampler.
+ */
 class FlameGraphSampler : public details::FlameGraphSamplerBase {
  public:
   BlockFlameGraphSampler blockSampler(std::string subCaption);

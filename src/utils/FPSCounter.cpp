@@ -1,6 +1,9 @@
-//
-// Created by petr on 11/9/20.
-//
+/**
+ * @file FPSCounter.cpp
+ * @brief An FPS counter.
+ * @author Petr Flajšingr
+ * @date 9.11.20
+ */
 
 #include "FPSCounter.h"
 

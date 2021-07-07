@@ -1,6 +1,9 @@
-//
-// Created by petr on 11/8/20.
-//
+/**
+ * @file Camera.h
+ * @brief 3D camera.
+ * @author Petr Flajšingr
+ * @date 8.11.20
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UTILS_CAMERA_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UTILS_CAMERA_H
@@ -12,15 +15,32 @@
 #include <vector>
 
 namespace pf {
+/**
+ * @brief A camera, which can register it's movement callbacks within a Window.
+ */
 class Camera {
  public:
-
+  /**
+   * Construct Camera.
+   * @param resolution resolution of the screen.
+   * @param near near plane distance
+   * @param far far plane distance
+   * @param movementSpeed
+   * @param mouseSpeed
+   * @param position
+   * @param front
+   * @param up
+   * @param fieldOfView
+   * @param yaw
+   * @param pitch
+   * @param roll
+   */
   explicit Camera(ui::Resolution resolution, float near, float far, float movementSpeed = 2.5, float mouseSpeed = 2.5,
                   const glm::vec3 &position = {0, 0, 0}, const glm::vec3 &front = {0, 0, -1},
                   const glm::vec3 &up = {0, 1, 0}, float fieldOfView = 45, float yaw = -90, float pitch = 0,
                   float roll = 0);
-  Camera(Camera &&other);
-  Camera &operator=(Camera &&other);
+  Camera(Camera &&other) noexcept ;
+  Camera &operator=(Camera &&other) noexcept ;
   ~Camera();
 
   void registerControls(ui::Window &window);
@@ -79,7 +99,7 @@ class Camera {
   glm::vec3 up;
   glm::vec3 right;
 
-  bool swapLeftRight;
+  bool swapLeftRight = false;
 
   float fieldOfView;
 

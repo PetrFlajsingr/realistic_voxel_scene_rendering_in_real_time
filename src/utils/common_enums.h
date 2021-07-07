@@ -1,6 +1,9 @@
-//
-// Created by petr on 10/28/20.
-//
+/**
+ * @file common_enums.h
+ * @brief Some common enums used in the app.
+ * @author Petr Flajšingr
+ * @date 28.10.20
+ */
 
 #ifndef VOXEL_RENDER_COMMON_ENUMS_H
 #define VOXEL_RENDER_COMMON_ENUMS_H

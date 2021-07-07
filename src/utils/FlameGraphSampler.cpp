@@ -1,6 +1,9 @@
-//
-// Created by petr on 11/9/20.
-//
+/**
+ * @file FlameGraphSampler.cpp
+ * @brief A sampler for ui::ig::FlameGraph
+ * @author Petr Flajšingr
+ * @date 9.11.20
+ */
 
 #include "FlameGraphSampler.h"
 

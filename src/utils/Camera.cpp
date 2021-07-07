@@ -1,7 +1,9 @@
-//
-// Created by petr on 11/8/20.
-//
-
+/**
+ * @file Camera.cpp
+ * @brief 3D camera.
+ * @author Petr Flajšingr
+ * @date 8.11.20
+ */
 #include "Camera.h"
 #include <bits/stl_algo.h>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -10,7 +12,7 @@
 #include <glm/trigonometric.hpp>
 
 namespace pf {
-// glm inverzni projekcni matice
+
 Camera::Camera(ui::Resolution resolution, float near, float far, float movementSpeed, float mouseSpeed,
                const glm::vec3 &position, const glm::vec3 &front, const glm::vec3 &up, float fieldOfView, float yaw,
                float pitch, float roll)
