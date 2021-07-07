@@ -205,7 +205,7 @@ set(SOURCES
         src/args/ValidPathCheckAction.cpp
         src/logging/loggers.cpp
         src/args/RegexCheckAction.cpp
-        src/rendering/SVORenderer.cpp
+        src/rendering/EditRenderer.cpp
         src/rendering/MainRenderer.cpp
         src/rendering/GBufferRenderer.cpp
         src/rendering/VulkanDebugCallbackImpl.cpp
@@ -247,7 +247,7 @@ set(INCLUDES
         src/ui/events/EventDispatchImpl.h
         src/ui/SVOUI.h
         src/rendering/VulkanDebugCallbackImpl.h
-        src/rendering/SVORenderer.h
+        src/rendering/EditRenderer.h
         src/concepts/Renderer.h
         src/ui/ImGuiGlfwVulkan.h
         src/utils/common_enums.h

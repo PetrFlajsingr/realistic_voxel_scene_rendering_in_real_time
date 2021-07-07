@@ -2,7 +2,7 @@
 // Created by petr on 1/5/21.
 //
 
-#include "SVORenderer.h"
+#include "EditRenderer.h"
 #include "light_field_probes/GridProbeGenerator.h"
 #include "logging/loggers.h"
 #include <experimental/array>
@@ -44,13 +44,13 @@ std::ostream &operator<<(std::ostream &o, pf::Enum auto e) {
  */
 
 // TODO: teardown map file loading
-SVORenderer::SVORenderer(toml::table &tomlConfig)
+EditRenderer::EditRenderer(toml::table &tomlConfig)
     : config(tomlConfig), camera({0, 0}, 0.001f, 2000.f, 2.5, 2.5, {1.4, 0.8, 2.24}, {0, 0, -1}, {0, -1, 0}) {
   computeLocalSize = std::pair{config.get()["rendering"]["compute"]["local_size_x"].value_or<std::size_t>(8),
                                config.get()["rendering"]["compute"]["local_size_y"].value_or<std::size_t>(8)};
 }
 
-SVORenderer::~SVORenderer() {
+EditRenderer::~EditRenderer() {
   if (vkLogicalDevice == nullptr) { return; }
   stop();
   window->setExceptionHandler([](auto) { return false; });
@@ -60,7 +60,7 @@ SVORenderer::~SVORenderer() {
   ui->imgui->updateConfig();
   config.get()["ui"].as_table()->insert_or_assign("imgui", ui->imgui->getConfig());
 }
-void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
+void EditRenderer::init(const std::shared_ptr<ui::Window> &win) {
   window = win;
   closeWindow = [this] { window->close(); };
   camera.setSwapLeftRight(false);
@@ -132,11 +132,11 @@ void SVORenderer::init(const std::shared_ptr<ui::Window> &win) {
   window->setMainLoopCallback([&] { render(); });
 }
 
-std::unordered_set<std::string> SVORenderer::getValidationLayers() {
+std::unordered_set<std::string> EditRenderer::getValidationLayers() {
   return std::unordered_set<std::string>{"VK_LAYER_KHRONOS_validation"};
 }
 
-void SVORenderer::buildVulkanObjects() {
+void EditRenderer::buildVulkanObjects() {
   createBuffers();
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
       config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
@@ -180,7 +180,7 @@ void SVORenderer::buildVulkanObjects() {
   // clang-format on
 }
 
-void SVORenderer::createInstance() {
+void EditRenderer::createInstance() {
   using namespace vulkan;
   using namespace vulkan::literals;
   const auto windowExtensions = window->requiredVulkanExtensions();
@@ -198,9 +198,9 @@ void SVORenderer::createInstance() {
                      }});
 }
 
-void SVORenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
+void EditRenderer::createSurface() { vkSurface = vkInstance->createSurface(window); }
 
-void SVORenderer::render() {
+void EditRenderer::render() {
   auto sampler = FlameGraphSampler{};
   auto mainSample = sampler.blockSampler("render loop");
 
@@ -268,7 +268,7 @@ void SVORenderer::render() {
   ui->flameGraph.setSamples(sampler.getSamples());
 }
 
-void SVORenderer::createDevices() {
+void EditRenderer::createDevices() {
   vkDevice = vkInstance->selectDevice(DefaultDeviceSuitabilityScorer(
       {}, {}, [](const vk::PhysicalDeviceFeatures &, const vk::PhysicalDeviceProperties &deviceProperties) {
         return deviceProperties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu ? 1000 : 0;
@@ -285,7 +285,7 @@ void SVORenderer::createDevices() {
                                      .surface = *vkSurface});
 }
 
-void SVORenderer::createSwapchain() {
+void EditRenderer::createSwapchain() {
   using namespace ranges;
   auto queuesView = vkLogicalDevice->getQueueIndices() | views::values;
   auto sharingQueues = std::unordered_set(queuesView.begin(), queuesView.end());
@@ -307,7 +307,7 @@ void SVORenderer::createSwapchain() {
        .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque});
 }
 
-void SVORenderer::createTextures() {
+void EditRenderer::createTextures() {
   vkRenderImage = vkLogicalDevice->createImage(
       {.imageType = vk::ImageType::e2D,
        .format = vkSwapChain->getFormat(),
@@ -355,7 +355,7 @@ void SVORenderer::createTextures() {
                            .mip = {.mode = vk::SamplerMipmapMode::eLinear, .lodBias = 0, .minLod = 0, .maxLod = 1}});
 }
 
-void SVORenderer::createDescriptorPool() {
+void EditRenderer::createDescriptorPool() {
   vkDescPool = vkLogicalDevice->createDescriptorPool({.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
                                                       .maxSets = 1,
                                                       .poolSizes = {
@@ -372,7 +372,7 @@ void SVORenderer::createDescriptorPool() {
                                                       }});
 }
 
-void SVORenderer::createPipeline() {
+void EditRenderer::createPipeline() {
   // TODO: compute pipeline builder
   // TODO: descriptor sets
   vkComputeDescSetLayout = vkLogicalDevice->createDescriptorSetLayout(
@@ -541,7 +541,7 @@ void SVORenderer::createPipeline() {
   vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
-void SVORenderer::createCommands() {
+void EditRenderer::createCommands() {
   vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
 
@@ -559,7 +559,7 @@ void SVORenderer::createCommands() {
       {.level = vk::CommandBufferLevel::ePrimary,
        .count = static_cast<uint32_t>(vkSwapChain->getFrameBuffers().size())});
 }
-void SVORenderer::recordCommands() {
+void EditRenderer::recordCommands() {
   // TODO: add these calls to recording
   static bool isComputeRecorded = false;
 
@@ -636,17 +636,17 @@ void SVORenderer::recordCommands() {
   ui->imgui->addToCommandBuffer(*graphRecording.getCommandBuffer());
   graphRecording.endRenderPass();
 }
-void SVORenderer::createFences() {
+void EditRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   std::ranges::generate_n(std::back_inserter(fences), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled}); });
 }
-void SVORenderer::createSemaphores() {
+void EditRenderer::createSemaphores() {
   computeSemaphore = vkLogicalDevice->createSemaphore();
   std::ranges::generate_n(std::back_inserter(renderSemaphores), vkSwapChain->getFrameBuffers().size(),
                           [&] { return vkLogicalDevice->createSemaphore(); });
 }
-void SVORenderer::initUI() {
+void EditRenderer::initUI() {
   using namespace std::string_literals;
   using namespace pf::ui::ig;
   using namespace pf::enum_operators;
@@ -1074,7 +1074,7 @@ void SVORenderer::initUI() {
 
   ui->imgui->setStateFromConfig();
 }
-std::vector<std::filesystem::path> SVORenderer::loadModelFileNames(const std::filesystem::path &dir) {
+std::vector<std::filesystem::path> EditRenderer::loadModelFileNames(const std::filesystem::path &dir) {
   const auto potentialModelFiles = filesInFolder(dir);
   return potentialModelFiles | ranges::views::filter([](const auto &path) {
            return isIn(path.extension(), std::vector{".vox", ".pf_vox"});
@@ -1082,12 +1082,12 @@ std::vector<std::filesystem::path> SVORenderer::loadModelFileNames(const std::fi
       | ranges::to_vector | ranges::actions::sort;
 }
 
-void SVORenderer::stop() {
+void EditRenderer::stop() {
   for (auto &subscription : subscriptions) { subscription.unsubscribe(); }
   subscriptions.clear();
 }
 
-void SVORenderer::rebuildAndUploadBVH() {
+void EditRenderer::rebuildAndUploadBVH() {
   auto totalModels = std::size_t{};
   auto totalVoxels = std::size_t{};
   std::ranges::for_each(modelManager->getModels(), [&totalModels, &totalVoxels](const auto &model) {
@@ -1108,7 +1108,7 @@ void SVORenderer::rebuildAndUploadBVH() {
   vox::saveBVHToBuffer(bvhTree.data, mapping);
 }
 
-std::function<void()> SVORenderer::popupClickActiveModel(std::size_t itemId, vox::GPUModelManager::ModelPtr modelPtr) {
+std::function<void()> EditRenderer::popupClickActiveModel(std::size_t itemId, vox::GPUModelManager::ModelPtr modelPtr) {
   return [=, this] {
     window->enqueue([this, itemId, modelPtr] {
       const auto idToRemove = itemId;
@@ -1119,7 +1119,7 @@ std::function<void()> SVORenderer::popupClickActiveModel(std::size_t itemId, vox
     });
   };
 }
-void SVORenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
+void EditRenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size_t itemId,
                                           vox::GPUModelManager::ModelPtr modelPtr) {
   auto &itemPopupMenu = element.createPopupMenu();
   itemPopupMenu.addItem<MenuButtonItem>(uniqueId(), "Remove").addClickListener(popupClickActiveModel(itemId, modelPtr));
@@ -1131,7 +1131,7 @@ void SVORenderer::addActiveModelPopupMenu(ui::ig::Selectable &element, std::size
   });
 }
 
-void SVORenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
+void EditRenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
   threadpool->enqueue([this, original] {
     auto newInstancePtr = modelManager->duplicateModel(original);
     if (!newInstancePtr.has_value()) {
@@ -1151,7 +1151,7 @@ void SVORenderer::duplicateModel(vox::GPUModelManager::ModelPtr original) {
     }
   });
 }
-void SVORenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
+void EditRenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
   threadpool->enqueue([this, original] {
     auto newInstancePtr = modelManager->createModelInstance(original);
     if (!newInstancePtr.has_value()) {
@@ -1173,7 +1173,7 @@ void SVORenderer::instantiateModel(vox::GPUModelManager::ModelPtr original) {
 }
 
 #include <fstream>
-void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std::filesystem::path &dir) {
+void EditRenderer::convertAndSaveSVO(const std::filesystem::path &src, const std::filesystem::path &dir) {
   const auto dst = (dir / src.filename()).replace_extension(".pf_vox");
   logd("CONVERT", "Converting: {} to: {}", src.string(), dst.string());
   const auto svoCreate = vox::loadFileAsSVO(src, true);
@@ -1194,7 +1194,7 @@ void SVORenderer::convertAndSaveSVO(const std::filesystem::path &src, const std:
   ostream.write(reinterpret_cast<const char *>(centerData.data()), centerData.size());
   ostream.write(reinterpret_cast<const char *>(svoBinData.data()), svoBinData.size());
 }
-void SVORenderer::createBuffers() {
+void EditRenderer::createBuffers() {
   cameraUniformBuffer =
       vkLogicalDevice->createBuffer({.size = sizeof(glm::vec4) * 3 + sizeof(glm::mat4) * 3 + 2 * sizeof(float),
                                      .usageFlags = vk::BufferUsageFlagBits::eUniformBuffer,
@@ -1244,7 +1244,7 @@ void SVORenderer::createBuffers() {
                                                   .queueFamilyIndices = {}});
   materialMemoryPool = BufferMemoryPool::CreateShared(materialBuffer, 1);
 }
-void SVORenderer::updateProbePositions() {
+void EditRenderer::updateProbePositions() {
   auto probeMapping = probePosBuffer->mapping();
   const auto totalProbeCount = probeRenderer->probeManager->getTotalProbeCount();
   auto probePositions = probeRenderer->probeManager->getProbePositions();

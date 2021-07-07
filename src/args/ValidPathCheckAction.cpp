@@ -1,6 +1,9 @@
-//
-// Created by petr on 9/23/20.
-//
+/**
+ * @file ValidPathCheckAction.cpp
+ * @brief An action to test argument value as valid path.
+ * @author Petr Flajšingr
+ * @date 23.9.20
+ */
 
 #include "ValidPathCheckAction.h"
 

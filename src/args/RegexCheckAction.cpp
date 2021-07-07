@@ -1,6 +1,10 @@
-//
-// Created by petr on 9/24/20.
-//
+/**
+ * @file RegexCheckAction.cpp
+ * @brief An action to match argument value to a regex.
+ * @author Petr Flajšingr
+ * @date 24.9.20
+ */
+
 
 #include "RegexCheckAction.h"
 #include <fmt/format.h>

@@ -3,8 +3,8 @@
 #include "args/ValidPathCheckAction.h"
 #include "logging/loggers.h"
 #include "rendering/BakedProbesRenderer.h"
+#include "rendering/EditRenderer.h"
 #include "rendering/MainRenderer.h"
-#include "rendering/SVORenderer.h"
 #include <filesystem>
 #include <pf_common/RAII.h>
 #include <pf_glfw_vulkan/ui/GlfwWindow.h>
@@ -69,8 +69,8 @@ int main(int argc, char *argv[]) {
                          .title = "test",
                          .mode = ui::Mode::Windowed};
   if (argumentParser.get<bool>("--scene_edit")) {
-    auto app = Application<ui::GlfwWindow, SVORenderer>(
-        SVORenderer(*config.as_table()),
+    auto app = Application<ui::GlfwWindow, EditRenderer>(
+        EditRenderer(*config.as_table()),
         ApplicationSettings{.debug = argumentParser.get<bool>("-d"), .window_settings = windowSettings});
     app.run();
   } else if (argumentParser.get<bool>("--bake")) {
