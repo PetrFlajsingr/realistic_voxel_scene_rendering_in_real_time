@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/4/21.
-//
+/**
+ * @file AABB_BVH.cpp
+ * @brief Structures and algorithms for BVH.
+ * @author Petr Flajšingr
+ * @date 3.6.21
+ */
 
 #include "AABB_BVH.h"
 #include <fmt/ostream.h>
@@ -49,27 +52,6 @@ details::GPUBVHNode BVHData::toGPUData() const {
   return result;
 }
 
-std::unique_ptr<Node<BVHData>> createNodeFrom2(std::vector<std::unique_ptr<Node<BVHData>>> &nodes) {
-  auto closestDist = std::numeric_limits<float>::max();
-  auto closestIdx = 0;
-
-  auto current = std::move(nodes.back());
-  nodes.pop_back();
-  for (const auto &[idx, node] : nodes | ranges::views::enumerate) {
-    const auto distance = node->value().aabb.distance(current->value().aabb);
-    if (distance < closestDist) {
-      closestDist = distance;
-      closestIdx = idx;
-    }
-  }
-  auto &closest = nodes[closestIdx];
-  auto newNode = std::make_unique<details::Node>(BVHData{current->value().aabb.combine(closest->value().aabb), 0});
-  newNode->appendChild(std::move(current));
-  newNode->appendChild(std::move(closest));
-  nodes.erase(nodes.begin() + closestIdx);
-  return newNode;
-}
-// TODO: implement on gpu
 std::unique_ptr<Node<BVHData>> createNodeFromClosest2(std::vector<std::unique_ptr<Node<BVHData>>> &nodes) {
   auto distanceMatrix = std::vector<float>(std::pow(nodes.size(), 2));
   auto distance2DView = makeView2D(distanceMatrix, nodes.size());

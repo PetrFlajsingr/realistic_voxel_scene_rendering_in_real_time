@@ -931,9 +931,11 @@ void BakedProbesRenderer::initUI() {
     ui->imgui->openFileDialog(
         "Select file to load scene info", {FileExtensionSettings{{"toml"}, "toml", ImVec4{1, 0, 0, 1}}},
         [this](const auto &selected) {
-          assert(false && "FIX THIS LOADING");
           auto path = selected[0];
           auto loadSceneInfo = vox::loadSceneFromFile(path);
+          probeRenderer->setGridStart(loadSceneInfo.probeGridPos);
+          probeRenderer->setGridStep(loadSceneInfo.probeGridStep);
+          probeRenderer->setProximityGridSize(loadSceneInfo.proximityGridSize);
           auto models = std::move(loadSceneInfo.models);
           const auto &[loadingDialog, loadingProgress, loadingText] = ui->createLoadingDialog();
           threadpool->enqueue([this, models, &loadingDialog, &loadingProgress, &loadingText] {

@@ -1,6 +1,9 @@
-//
-// Created by petr on 12/7/20.
-//
+/**
+ * @file RawVoxelModel.cpp
+ * @brief Structures to store raw voxel models.
+ * @author Petr Flajšingr
+ * @date 7.12.20
+ */
 
 #include "RawVoxelModel.h"
 

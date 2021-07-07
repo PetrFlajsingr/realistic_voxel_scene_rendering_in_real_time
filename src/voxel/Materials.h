@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/26/21.
-//
+/**
+ * @file Materials.h
+ * @brief Struct for materials.
+ * @author Petr Flajšingr
+ * @date 26.6.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MATERIALS_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_MATERIALS_H
@@ -33,6 +36,9 @@ namespace pf::vox {
  */
 enum class MatType : std::uint32_t { Diffuse = 0, Metal = 1, Glass = 2, Emit = 3, Blend = 4, Media = 5, Cloud = 6 };
 
+/**
+ * @brief All properties for a material.
+ */
 struct MaterialProperties {
   MaterialProperties() = default;
   explicit MaterialProperties(const ogt_vox_matl &source, glm::vec4 col);

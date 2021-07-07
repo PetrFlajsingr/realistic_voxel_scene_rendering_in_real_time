@@ -1,6 +1,10 @@
-//
-// Created by petr on 12/15/20.
-//
+/**
+ * @file SparseVoxelOctree.h
+ * @brief Structs for sparse voxel octree.
+ * @author Petr Flajšingr
+ * @date 15.12.20
+ */
+
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_SPARSEVOXELOCTREE_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_SPARSEVOXELOCTREE_H
@@ -11,7 +15,7 @@
 namespace pf::vox {
 
 constexpr uint32_t PAGE_SIZE = 8192;
-/* FIXME: this is the ESVO paper correct version
+/* this is the ESVO paper correct version
 // tree node describing children of the given node
 // must be 64 bytes
 struct alignas(8) ChildDescriptor {

@@ -1,6 +1,9 @@
-//
-// Created by petr on 12/7/20.
-//
+/**
+ * @file ModelLoading.cpp
+ * @brief Functions for raw model/scene loading.
+ * @author Petr Flajšingr
+ * @date 7.12.20
+ */
 
 #include "ModelLoading.h"
 #include "logging/loggers.h"

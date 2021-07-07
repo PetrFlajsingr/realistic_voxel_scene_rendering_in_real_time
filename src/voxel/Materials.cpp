@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/26/21.
-//
+/**
+ * @file Materials.cpp
+ * @brief Struct for materials.
+ * @author Petr Flajšingr
+ * @date 26.6.21
+ */
 
 #include "Materials.h"
 

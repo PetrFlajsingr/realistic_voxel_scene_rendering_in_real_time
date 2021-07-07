@@ -10,7 +10,6 @@
 #include "light_field_probes/ProbeBakeRenderer.h"
 #include "logging/loggers.h"
 #include "utils/common_enums.h"
-#include <RunInfo.h>
 #include <chaiscript/chaiscript.hpp>
 #include <pf_common/parallel/ThreadPool.h>
 #include <pf_glfw_vulkan/lib_config.h>

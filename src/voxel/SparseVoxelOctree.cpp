@@ -1,6 +1,10 @@
-//
-// Created by petr on 12/15/20.
-//
+/**
+ * @file SparseVoxelOctree.cpp
+ * @brief Structs for sparse voxel octree.
+ * @author Petr Flajšingr
+ * @date 15.12.20
+ */
+
 
 #include "SparseVoxelOctree.h"
 #include "../../../pf_common/include/pf_common/bin.h"

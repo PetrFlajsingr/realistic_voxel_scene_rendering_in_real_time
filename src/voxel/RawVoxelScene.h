@@ -1,6 +1,9 @@
-//
-// Created by petr on 12/7/20.
-//
+/**
+ * @file RawVoxelScene.h
+ * @brief A class to store raw voxel scene data.
+ * @author Petr Flajšingr
+ * @date 7.12.20
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_RAWVOXELSCENE_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_RAWVOXELSCENE_H
@@ -13,6 +16,9 @@
 #include <vector>
 
 namespace pf::vox {
+/**
+ * @brief Information on voxel scene with raw inefficiently stored voxel data. It also stores scene's materials and basic transforms.
+ */
 class RawVoxelScene {
  public:
   RawVoxelScene(std::string name, std::vector<std::unique_ptr<RawVoxelModel>> models, glm::vec3 center,

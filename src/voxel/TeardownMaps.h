@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/17/21.
-//
+/**
+ * @file TeardownMaps.h
+ * @brief Functions for loading scenes for Teardown game.
+ * @author Petr Flajšingr
+ * @date 17.6.21
+ */
 
 #ifndef HIHI__TEARDOWNMAPS_H
 #define HIHI__TEARDOWNMAPS_H

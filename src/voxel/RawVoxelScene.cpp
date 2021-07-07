@@ -1,6 +1,9 @@
-//
-// Created by petr on 12/7/20.
-//
+/**
+ * @file RawVoxelScene.cpp
+ * @brief A class to store raw voxel scene data.
+ * @author Petr Flajšingr
+ * @date 7.12.20
+ */
 
 #include "RawVoxelScene.h"
 

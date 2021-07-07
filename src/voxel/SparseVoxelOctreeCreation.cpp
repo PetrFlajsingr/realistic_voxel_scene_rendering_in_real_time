@@ -40,37 +40,6 @@ std::vector<SparseVoxelOctreeCreateInfo> loadFileAsSVO(const std::filesystem::pa
   }
 }
 
-SparseVoxelOctreeCreateInfo convertSceneToSVO(const RawVoxelScene &scene) {
-  auto bb = details::findSceneBB(scene);
-  //logd("VOX", "Found BB");
-  const auto octreeLevels = details::calcOctreeLevelCount(bb);
-  //logd("VOX", "Octree level count: {}", octreeLevels);
-  auto voxels = scene.getModels() | views::transform([](const auto &model) { return model->getVoxels() | views::all; })
-      | views::join | to_vector | actions::sort([](const auto &a, const auto &b) {
-                  return a.position.x < b.position.x && a.position.y < b.position.y && a.position.z < b.position.z;
-                });
-  //logd("VOX", "Voxel count: {}", voxels.size());
-
-  auto tree = Tree<details::TemporaryTreeNode>();
-
-  std::ranges::for_each(
-      voxels, [&tree, octreeLevels](const auto &voxel) { details::addVoxelToTree(tree, voxel, octreeLevels); });
-  //logd("VOX", "Built intermediate tree");
-  const auto octreeSizeLength = std::pow(2, octreeLevels);
-  const auto bbDiff = (bb.p2 - bb.p1) / static_cast<float>(octreeSizeLength);
-  bb.p2 = bb.p1 + bbDiff;
-  auto resultTree = rawTreeToSVO(tree);
-  auto createInfo = SparseVoxelOctreeCreateInfo{octreeLevels,
-                                                static_cast<uint32_t>(voxels.size()),
-                                                0,
-                                                bb,
-                                                std::move(resultTree.first),
-                                                scene.getSceneCenter().xzy(),
-                                                scene.getMaterials()};
-  createInfo.voxelCount = resultTree.second == 0 ? createInfo.initVoxelCount : resultTree.second;
-  return createInfo;
-}
-
 std::vector<SparseVoxelOctreeCreateInfo> convertSceneToSVO(const RawVoxelScene &scene, bool sceneAsOneSVO) {
   if (sceneAsOneSVO) {
     auto bb = details::findSceneBB(scene);

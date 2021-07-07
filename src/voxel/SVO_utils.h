@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file SVO_utils.h
+ * @brief Utility functions for working with SVO data.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_VOXEL_SVO_UTILS_H
 #define REALISTIC_VOXEL_RENDERING_SRC_VOXEL_SVO_UTILS_H
@@ -10,6 +13,11 @@
 #include <pf_glfw_vulkan/vulkan/types/Buffer.h>
 
 namespace pf::vox {
+/**
+ * Copies SparseVoxelOctree into a gpu buffer.
+ * @param svo source data
+ * @param mapping target data
+ */
 inline void copySvoToBuffer(const SparseVoxelOctree &svo, vulkan::BufferMapping &mapping) {
   mapping.data<PageHeader>()[0] = svo.getBlocks()[0].pages[0].header;
   const auto &descriptors = svo.getBlocks()[0].pages[0].childDescriptors;
@@ -23,9 +31,14 @@ inline void copySvoToBuffer(const SparseVoxelOctree &svo, vulkan::BufferMapping 
       + sizeof(AttachmentLookupEntry) * lookups.size();
   mapping.setRawOffset(attachments, attachmentsOffset);
 }
+/**
+ * Leases memory from the memory pool and copies SVO data into it.
+ * @param svo source data
+ * @param memoryPool memory pool to lease memory from
+ * @return error string if no memory could be leased, used memory block otherwise
+ */
 inline tl::expected<vulkan::BufferMemoryPool::Block, std::string>
-copySvoToMemoryBlock([[maybe_unused]] const SparseVoxelOctree &svo,
-                     [[maybe_unused]] vulkan::BufferMemoryPool &memoryPool) {
+copySvoToMemoryBlock(const SparseVoxelOctree &svo, vulkan::BufferMemoryPool &memoryPool) {
   auto data = toBytes(svo.getBlocks()[0].pages[0].header);
   auto addData([&data](const auto &newData) { std::ranges::copy(newData, std::back_inserter(data)); });
 
@@ -38,8 +51,8 @@ copySvoToMemoryBlock([[maybe_unused]] const SparseVoxelOctree &svo,
       std::span(reinterpret_cast<const std::byte *>(lookups.data()), lookups.size() * sizeof(AttachmentLookupEntry)));
 
   const auto &attachments = svo.getBlocks()[0].infoSection.attachments.attachments;
-  addData(
-      std::span(reinterpret_cast<const std::byte *>(attachments.data()), attachments.size() * sizeof(MaterialIndexAttachment)));
+  addData(std::span(reinterpret_cast<const std::byte *>(attachments.data()),
+                    attachments.size() * sizeof(MaterialIndexAttachment)));
   auto memBlock = memoryPool.leaseMemory(data.size());
   auto mapping = memBlock->mapping();
   mapping.set(data);

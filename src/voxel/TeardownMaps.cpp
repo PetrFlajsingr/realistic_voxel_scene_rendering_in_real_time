@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/17/21.
-//
+/**
+ * @file TeardownMaps.cpp
+ * @brief Functions for loading scenes for Teardown game.
+ * @author Petr Flajšingr
+ * @date 17.6.21
+ */
 
 #include "TeardownMaps.h"
 #include "ModelLoading.h"

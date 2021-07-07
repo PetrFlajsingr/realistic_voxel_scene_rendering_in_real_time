@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/8/21.
-//
+/**
+ * @file GPUModelManager.cpp
+ * @brief Management for models and gpu memory used for them.
+ * @author Petr Flajšingr
+ * @date 8.6.21
+ */
 
 #include "GPUModelManager.h"
 #include "SVO_utils.h"
@@ -17,7 +20,7 @@ GPUModelManager::GPUModelManager(std::shared_ptr<vulkan::BufferMemoryPool> svoMe
                                  std::shared_ptr<vulkan::BufferMemoryPool> materialMemoryPool,
                                  std::size_t defaultSvoHeightSize)
     : defaultSVOHeightSize(defaultSvoHeightSize), svoMemoryPool(std::move(svoMemoryPool)),
-      modelInfoMemoryPool(std::move(modelInfoMemoryPool)), materialsMemoryPool(materialMemoryPool) {}
+      modelInfoMemoryPool(std::move(modelInfoMemoryPool)), materialsMemoryPool(std::move(materialMemoryPool)) {}
 
 tl::expected<std::vector<GPUModelManager::ModelPtr>, std::string>
 GPUModelManager::loadModel(const std::filesystem::path &path, const Callbacks &callbacks, bool sceneAsOneSVO,

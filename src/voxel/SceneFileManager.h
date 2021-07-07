@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/6/21.
-//
+/**
+ * @file SceneFileManager.h
+ * @brief Functions to save nad load scene files.
+ * @author Petr Flajšingr
+ * @date 6.6.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_UTILS_SCENEFILEMANAGER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_UTILS_SCENEFILEMANAGER_H
@@ -15,13 +18,14 @@
 
 namespace pf::vox {
 /**
- * File format:
- *
- *
- *
- *
+ * Save model infos as one scene, including their transformations and probe grid information.
+ * @param models models to save
+ * @param path output path
+ * @param probeGridPos probe grid position
+ * @param probeGridStep probe grid step
+ * @param proximityGridSize proximity grid size
+ * @return error string if error occurred
  */
-
 std::optional<std::string> saveSceneToFile(
     std::ranges::range auto &&models, const std::filesystem::path &path, glm::vec3 probeGridPos, float probeGridStep,
     glm::ivec3 proximityGridSize) requires(std::same_as<std::ranges::range_value_t<decltype(models)>, GPUModelInfo>) {
@@ -37,13 +41,20 @@ std::optional<std::string> saveSceneToFile(
 
   return std::nullopt;
 }
-
+/**
+ * @brief Information about a scene loaded from a file.
+ */
 struct SceneFileInfo {
   std::vector<GPUModelInfo> models;
   glm::vec3 probeGridPos;
   float probeGridStep;
   glm::ivec3 proximityGridSize;
 };
+/**
+ * Load scene information from given file
+ * @param path path to scene describing file
+ * @return information about the scene
+ */
 [[nodiscard]] inline SceneFileInfo loadSceneFromFile(const std::filesystem::path &path) {
   auto result = SceneFileInfo{};
   auto tomlData = toml::parse_file(path.string());

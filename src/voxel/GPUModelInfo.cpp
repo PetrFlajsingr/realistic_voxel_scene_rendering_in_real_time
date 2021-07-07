@@ -1,6 +1,9 @@
-//
-// Created by petr on 6/3/21.
-//
+/**
+ * @file GPUModelInfo.cpp
+ * @brief Information about a model stored on the GPU.
+ * @author Petr Flajšingr
+ * @date 3.6.21
+ */
 
 #include "GPUModelInfo.h"
 #include <glm/gtx/quaternion.hpp>
