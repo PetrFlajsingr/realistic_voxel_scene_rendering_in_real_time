@@ -1,7 +1,9 @@
-//
-// Created by petr on 11/2/20.
-//
-
+/**
+ * @file CallbackSink.cpp
+ * @brief An spdlog sink which calls a function on log.
+ * @author Petr Flajšingr
+ * @date 2.11.20
+ */
 #include "CallbackSink.h"
 #include <mutex>
 #include <spdlog/details/pattern_formatter.h>

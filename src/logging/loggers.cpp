@@ -1,13 +1,16 @@
-//
-// Created by petr on 9/23/20.
-//
+/**
+ * @file loggers.cpp
+ * @brief Global functions to manage loggers and for logging.
+ * @author Petr Flajšingr
+ * @date 23.9.20
+ */
 
 #include "loggers.h"
 
 #include "CallbackSink.h"
 #include "SomeLevelsSink.h"
-#include <utility>
 #include <pf_common/ByteLiterals.h>
+#include <utility>
 
 std::vector<std::shared_ptr<spdlog::sinks::sink>> createConsoleLogSinks(const GlobalLoggerSettings &settings,
                                                                         std::string_view tag) {
@@ -66,12 +69,6 @@ void pf::initGlobalLogger(const GlobalLoggerSettings &settings) {
   details::settings = settings;
   createLoggerForTag(settings, GLOBAL_LOGGER_NAME);
   globalLogger = spdlog::get(GLOBAL_LOGGER_NAME);
-}
-
-void pf::logSrc(spdlog::level::level_enum level, std::string_view tag, std::string_view msg,
-                std::experimental::source_location src_loc) {
-  const auto format = "[{}:{}] {}";
-  log(level, tag, fmt::format(format, src_loc.file_name(), src_loc.function_name(), msg));
 }
 
 GlobalLoggerInterface::GlobalLoggerInterface(const std::string &loggerName) : ILogger(loggerName) {}

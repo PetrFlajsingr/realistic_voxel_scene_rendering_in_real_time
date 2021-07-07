@@ -1,6 +1,9 @@
-//
-// Created by petr on 9/27/20.
-//
+/**
+ * @file Renderer.h
+ * @brief A concept for valid renderer.
+ * @author Petr Flajšingr
+ * @date 27.9.20
+ */
 
 #ifndef VOXEL_RENDER_RENDERER_H
 #define VOXEL_RENDER_RENDERER_H
@@ -9,6 +12,10 @@
 #include <pf_glfw_vulkan/ui/Window.h>
 
 namespace pf {
+/**
+ * @brief Checks for renderer validity.
+ * @tparam T renderer type
+ */
 template<typename T>
 concept Renderer = requires(T t, std::shared_ptr<ui::Window> window) {
   {t.init(window)};
