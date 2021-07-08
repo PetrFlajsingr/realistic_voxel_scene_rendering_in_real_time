@@ -5,7 +5,6 @@
  * @date 8.11.20
  */
 #include "Camera.h"
-#include <bits/stl_algo.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/geometric.hpp>

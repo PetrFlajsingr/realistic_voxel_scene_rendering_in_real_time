@@ -6,7 +6,6 @@
  */
 
 #include "EditRenderer.h"
-#include "logging/loggers.h"
 #include <experimental/array>
 #include <fmt/chrono.h>
 #include <glm/gtc/matrix_transform.hpp>

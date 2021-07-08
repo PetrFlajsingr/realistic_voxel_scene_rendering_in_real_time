@@ -35,6 +35,7 @@ const uint DEPTH_MASK = 0xFFFF;
 const uint DEPTH_MAX = 65535;
 #define TMP_FAR 100.0
 
+#define INVALID_PROBE_IDX 0xFFFFu
 /********************************************* BINDINGS *******************************************/
 /**
  * Information about probe grid.
@@ -183,7 +184,7 @@ int bestMatchProbeForVertex(vec3 vertex, uint savedIndices[4]) {
     const vec2 probeTextureCoord = octEncode(directionFromProbe);
     uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * probeTextureCoord, i)).y);
     float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
-    if (distanceFromProbeToSurface > distanceToProbe && distanceToProbe < bestDistance) {
+    if (distanceFromProbeToSurface >= distanceToProbe && distanceToProbe < bestDistance) {
       bestDistance = distanceToProbe;
       bestProbe = i;
       if (bestDistance < DISTANCE_EPSILON) { break; }
@@ -210,8 +211,6 @@ void saveIndices(uint indices[4]) {
   gridData.data[indexToSave + 1] = dataToSave;
 }
 
-#define INVALID_PROBE_IDX 0xFFFFu
-
 void main() {
   if (gl_GlobalInvocationID.x > grid.gridSize.x || gl_GlobalInvocationID.y > grid.gridSize.y
       || gl_GlobalInvocationID.z > grid.gridSize.z) {
@@ -223,7 +222,7 @@ void main() {
   uint matchesToSave[4] = uint[4](INVALID_PROBE_IDX, INVALID_PROBE_IDX, INVALID_PROBE_IDX, INVALID_PROBE_IDX);
   for (int i = 0; i < 8; ++i) {
     const uint bestMatch = bestMatchProbeForVertex(boxVertices[i], matchesToSave);
-    if (bestMatch == INVALID_PROBE_IDX) { continue; }
+    if (bestMatch == -1) { continue; }
     const uint bestMatchCube = bestMatch;
     bool isDuplicate = false;
     for (int j = 0; j < 4; ++j) {

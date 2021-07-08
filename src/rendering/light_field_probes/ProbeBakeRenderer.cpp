@@ -7,6 +7,7 @@
 
 #include "ProbeBakeRenderer.h"
 
+#include <logging/loggers.h>
 #include <utility>
 
 namespace pf::lfp {

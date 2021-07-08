@@ -256,6 +256,8 @@ modelInfos;
  */
 layout(std430, binding = 13) buffer BVHModelAABBs { BVHNode nodes[]; }
 bvh;
+layout(std140, binding = 14) uniform Debug { float indirectLimit; }
+debug;
 
 /********************************************* STACK *******************************************/
 #define SVO_STACK_SIZE 23
@@ -1027,7 +1029,7 @@ vec3 getDiffuseIndirectForPoint(vec3 hitPoint) {
 
       uint savedDepthAndNormalBytes = floatBitsToUint(imageLoad(probeImages, ivec3(TEX_SIZE * texCoord, probeIndex)).y);
       float distanceFromProbeToSurface = depthFromProbe(savedDepthAndNormalBytes);
-      if (distance(distanceFromProbeToSurface, probeToHitDist) < 0.01) {
+      if (distance(distanceFromProbeToSurface, probeToHitDist) < debug.indirectLimit) {
         uint savedColorBytes = floatBitsToUint(imageLoad(probeImages, ivec3(texCoord * TEX_SIZE, probeIndex)).x);
         const vec3 a =
             vec3(float(savedColorBytes & MASK11) / R_MAX, float((savedColorBytes >> G_SHIFT) & MASK11) / G_MAX,
@@ -1084,7 +1086,7 @@ vec3 traceReflection(vec3 hitPoint, vec3 normal, vec3 incomingDir) {
     traceResult = traceBVHImproved(ray, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
     if (!traceResult.hit) { break; }
     const Material material =
-        materials.data[modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId];
+        materials.data[/*modelInfos.infos[traceResult.objectId].materialsOffset.x + */ traceResult.materialId];
     vec3 hitPoint = traceResult.posInWorldSpace;
     const vec3 normal = traceResult.normal;
     switch (material.type) {

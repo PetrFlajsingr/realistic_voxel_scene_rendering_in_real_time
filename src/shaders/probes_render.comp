@@ -57,6 +57,19 @@ const uint NORMAL1_SHIFT = 0;
 const uint NORMAL2_SHIFT = 8;
 
 #define TMP_FAR 100.0
+
+/**
+ * Lookup table for debug colors
+ */
+const vec3 lut[8] = vec3[8](vec3(0, 0, 0),// 0
+                            vec3(1, 0, 0),// 1
+                            vec3(0, 1, 0),// 2
+                            vec3(1, 1, 0),// 3
+                            vec3(0, 0, 1),// 4
+                            vec3(1, 0, 1),// 5
+                            vec3(0, 1, 1),// 6
+                            vec3(1, 1, 1) // 7
+);
 /********************************************* STRUCTS *******************************************/
 
 struct Ray {
@@ -636,6 +649,11 @@ void render() {
   worldSpaceRay.direction = normalize(
       (camera.invProjView * vec4(uv * (camera.far - camera.near), camera.far + camera.near, camera.far - camera.near))
           .xyz);
+
+  if (gl_GlobalInvocationID.x == 0 && gl_GlobalInvocationID.y == 0) {
+    //debugPrintfEXT("%d", nearestProxVoxelIndex(worldSpaceRay.origin));
+    //debugPrintfEXT("%d %d %d", proxGridInfo.gridSize.x, proxGridInfo.gridSize.y, proxGridInfo.gridSize.z);
+  }
 
   vec3 probeCoords;
   float tMin = 0;

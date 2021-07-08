@@ -20,7 +20,7 @@ class VulkanDebugCallbackImpl {
                             const vk::DebugUtilsMessageTypeFlagsEXT &);
 
  private:
-  static std::string makeValidationMessageReadable(std::string message, uint maxLineLength);
+  static std::string makeValidationMessageReadable(std::string message, uint32_t maxLineLength);
 };
 }// namespace pf
 #endif//REALISTIC_VOXEL_RENDERING_SRC_RENDERING_VULKANDEBUGCALLBACKIMPL_H

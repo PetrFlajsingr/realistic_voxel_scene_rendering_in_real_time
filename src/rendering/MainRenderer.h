@@ -129,6 +129,7 @@ class MainRenderer : public VulkanDebugCallbackImpl {
   std::shared_ptr<vulkan::Buffer> modelInfoBuffer;
   std::shared_ptr<vulkan::Buffer> bvhBuffer;
   std::shared_ptr<vulkan::Buffer> materialBuffer;
+  std::shared_ptr<vulkan::Buffer> debugBuffer;
   std::shared_ptr<vulkan::Semaphore> computeSemaphore;
   std::vector<std::shared_ptr<vulkan::Semaphore>> renderSemaphores;
 

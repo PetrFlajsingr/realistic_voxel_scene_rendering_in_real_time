@@ -96,6 +96,8 @@ void ProbeManager::setGridStart(const glm::vec3 &gridStart) { ProbeManager::grid
 void ProbeManager::setGridStep(float gridStep) { ProbeManager::gridStep = gridStep; }
 void ProbeManager::setProximityGridSize(const glm::ivec3 &proximityGridSize) {
   ProbeManager::proximityGridSize = proximityGridSize;
+  const auto totalGridSize = glm::vec3{ProbeManager::probeCount} * gridStep;
+  proximityGridStep = totalGridSize / glm::vec3{proximityGridSize};
 }
 
 ProbeCount::operator glm::ivec3() const { return value; }

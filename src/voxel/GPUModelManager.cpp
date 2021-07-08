@@ -128,6 +128,7 @@ GPUModelManager::prepareDuplicate(GPUModelManager::ModelPtr original) {
   newItem->AABB = original->AABB;
   newItem->transformMatrix = original->transformMatrix;
   newItem->center = original->center;
+  newItem->materials = original->materials;
   auto modelBlockAllocResult = modelInfoMemoryPool->leaseMemory(original->modelInfoMemoryBlock->getSize());
   auto err = std::string{};
   if (!modelBlockAllocResult.has_value()) { err += modelBlockAllocResult.error(); }

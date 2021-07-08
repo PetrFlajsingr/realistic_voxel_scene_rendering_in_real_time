@@ -853,7 +853,8 @@ void main() {
   }
   const ivec2 threadTexCoords = ivec2(idx, idy);
   const PosAndMatInfo posAndMatInfo =
-      PosAndMatInfo(traceResult.posInWorldSpace, traceResult.hit, hitShadow, traceResult.materialId);
+      PosAndMatInfo(traceResult.posInWorldSpace, traceResult.hit, hitShadow,
+                    modelInfos.infos[traceResult.objectId].materialsOffset.x + traceResult.materialId);
 
   savePosAndMatInfo(threadTexCoords, posAndMatInfo);
   saveNormal(threadTexCoords, traceResult.normal);

@@ -6,7 +6,6 @@
  */
 
 #include "EditorUI.h"
-#include <logging/loggers.h>
 #include <pf_imgui/backends/impl/imgui_impl_vulkan.h>
 #include <pf_imgui/elements/Bullet.h>
 #include <pf_imgui/elements/Slider2D.h>

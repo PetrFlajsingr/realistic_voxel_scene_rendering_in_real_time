@@ -297,19 +297,19 @@ const std::shared_ptr<vulkan::Semaphore> &ProbeRenderer::renderProbeTextures() {
                                         .signalSemaphores = {*probeGenData.vkComputeSemaphore},
                                         .flags = {},
                                         .fence = *vkComputeFence,
-                                        .wait = true});
+                                        .wait = false});
   vkComputeFence->reset();
   smallProbeGenData.vkCommandBuffer->submit({.waitSemaphores = {*probeGenData.vkComputeSemaphore},
                                              .signalSemaphores = {*smallProbeGenData.vkComputeSemaphore},
                                              .flags = {vk::PipelineStageFlagBits::eComputeShader},
                                              .fence = *vkComputeFence,
-                                             .wait = true});
+                                             .wait = false});
   vkComputeFence->reset();
   proximityGridData.vkCommandBuffer->submit({.waitSemaphores = {*smallProbeGenData.vkComputeSemaphore},
                                              .signalSemaphores = {*proximityGridData.vkComputeSemaphore},
                                              .flags = {vk::PipelineStageFlagBits::eComputeShader},
                                              .fence = *vkComputeFence,
-                                             .wait = true});
+                                             .wait = false});
 
   return proximityGridData.vkComputeSemaphore;
 }

@@ -41,7 +41,7 @@ void createLogger(argparse::ArgumentParser &argument_parser) {
   pf::initGlobalLogger(loggerSettings);
 }
 
-void saveConfig(const std::filesystem::path &dst, toml::table &config) {
+void saveConfig(const std::filesystem::path &dst, const toml::table &config) {
   auto ofstream = std::ofstream(dst);
   ofstream << config;
 }

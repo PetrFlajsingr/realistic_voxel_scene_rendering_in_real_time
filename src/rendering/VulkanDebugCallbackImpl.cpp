@@ -44,7 +44,7 @@ bool VulkanDebugCallbackImpl::debugCallback(const pf::vulkan::DebugCallbackData 
 #endif
   return false;
 }
-std::string VulkanDebugCallbackImpl::makeValidationMessageReadable(std::string message, uint maxLineLength) {
+std::string VulkanDebugCallbackImpl::makeValidationMessageReadable(std::string message, uint32_t maxLineLength) {
   for (std::size_t i = maxLineLength; i < message.size(); i += maxLineLength) {
     message.insert(message.begin() + i, '\n');
   }
