@@ -13,6 +13,7 @@
 #include "RawVoxelModel.h"
 #include "RawVoxelScene.h"
 #include <memory>
+#include <mutex>
 #include <pf_glfw_vulkan/vulkan/types/BufferMemoryPool.h>
 #include <range/v3/view/addressof.hpp>
 #include <tl/expected.hpp>
