@@ -12,14 +12,14 @@
 
 namespace pf::lfp {
 
-ProbeBakeRenderer::ProbeBakeRenderer(
-    toml::table config, std::shared_ptr<vulkan::Instance> vkInstance, std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
-    std::shared_ptr<vulkan::LogicalDevice> logicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
-    std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
-    std::shared_ptr<vulkan::Buffer> camBuffer, std::shared_ptr<vulkan::Buffer> materialBuffer,
-    std::unique_ptr<ProbeManager> probeManag)
-    : config(std::move(config)), vkInstance(std::move(vkInstance)), vkDevice(std::move(vkDevice)),
-      vkLogicalDevice(std::move(logicalDevice)), svoBuffer(std::move(svoBuffer)),
+ProbeBakeRenderer::ProbeBakeRenderer(toml::table config, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
+                                     std::shared_ptr<vulkan::Buffer> svoBuffer,
+                                     std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
+                                     std::shared_ptr<vulkan::Buffer> bvhBuffer,
+                                     std::shared_ptr<vulkan::Buffer> camBuffer,
+                                     std::shared_ptr<vulkan::Buffer> materialBuffer,
+                                     std::unique_ptr<ProbeManager> probeManag)
+    : config(std::move(config)), vkLogicalDevice(std::move(logicalDevice)), svoBuffer(std::move(svoBuffer)),
       modelInfoBuffer(std::move(modelInfoBuffer)), bvhBuffer(std::move(bvhBuffer)), cameraBuffer(std::move(camBuffer)),
       materialsBuffer(std::move(materialBuffer)), probeManager(std::move(probeManag)) {
   using namespace byte_literals;
@@ -251,6 +251,7 @@ void ProbeBakeRenderer::createProbeGenPipeline() {
   probeGenData.vkComputePipeline = ComputePipeline::CreateShared(
       (*vkLogicalDevice)->createComputePipelineUnique(nullptr, pipelineInfo).value, std::move(computePipelineLayout));
 }
+
 void ProbeBakeRenderer::createProbeGenCommands() {
   probeGenData.vkCommandPool = vkLogicalDevice->createCommandPool(
       {.queueFamily = vk::QueueFlagBits::eCompute, .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer});
@@ -262,6 +263,7 @@ void ProbeBakeRenderer::createProbeGenCommands() {
   probeGenData.vkCommandBuffer =
       probeGenData.vkCommandPool->createCommandBuffers({.level = vk::CommandBufferLevel::ePrimary, .count = 1})[0];
 }
+
 void ProbeBakeRenderer::createFences() {
   vkComputeFence = vkLogicalDevice->createFence({.flags = vk::FenceCreateFlagBits::eSignaled});
   probeGenData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
@@ -269,10 +271,13 @@ void ProbeBakeRenderer::createFences() {
   proximityGridData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
   renderData.vkComputeSemaphore = vkLogicalDevice->createSemaphore();
 }
+
 const std::shared_ptr<vulkan::Image> &ProbeBakeRenderer::getProbesDebugImage() const { return vkProbesDebugImage; }
+
 const std::shared_ptr<vulkan::ImageView> &ProbeBakeRenderer::getProbesDebugImageView() const {
   return vkProbesDebugImageView;
 }
+
 const std::shared_ptr<vulkan::TextureSampler> &ProbeBakeRenderer::getProbesDebugSampler() const {
   return vkProbesDebugImageSampler;
 }
@@ -280,6 +285,7 @@ const std::shared_ptr<vulkan::TextureSampler> &ProbeBakeRenderer::getProbesDebug
 const std::shared_ptr<vulkan::Buffer> &ProbeBakeRenderer::getProbeGenDebugUniformBuffer() const {
   return probeGenData.debugUniformBuffer;
 }
+
 void ProbeBakeRenderer::recordProbeGenCommands() {
   auto recording = probeGenData.vkCommandBuffer->begin(vk::CommandBufferUsageFlagBits::eSimultaneousUse);
   recording.bindPipeline(vk::PipelineBindPoint::eCompute, *probeGenData.vkComputePipeline);
@@ -289,17 +295,35 @@ void ProbeBakeRenderer::recordProbeGenCommands() {
   recording.getCommandBuffer()->bindDescriptorSets(
       vk::PipelineBindPoint::eCompute, probeGenData.vkComputePipeline->getVkPipelineLayout(), 0, vkDescSets, {});
   recording.dispatch(probeManager->TEXTURE_SIZE.x / 8, probeManager->TEXTURE_SIZE.y / 8,
-                     probeManager->getTotalProbeCount());
+                     1 /*probeManager->getTotalProbeCount()*/);
   recording.end();
 }
+
 const std::shared_ptr<vulkan::Semaphore> &ProbeBakeRenderer::renderProbeTextures() {
   vkComputeFence->reset();
-  probeGenData.vkCommandBuffer->submit({.waitSemaphores = {},
+  for (std::uint32_t i = 0; i < probeManager->getTotalProbeCount(); ++i) {
+    probeGenData.debugUniformBuffer->mapping().set(i);
+    if (i == 0) {
+      probeGenData.vkCommandBuffer->submit({.waitSemaphores = {},
+                                            .signalSemaphores = {*probeGenData.vkComputeSemaphore},
+                                            .flags = {},
+                                            .fence = *vkComputeFence,
+                                            .wait = true});
+    } else {
+      probeGenData.vkCommandBuffer->submit({.waitSemaphores = {*probeGenData.vkComputeSemaphore},
+                                            .signalSemaphores = {*probeGenData.vkComputeSemaphore},
+                                            .flags = {vk::PipelineStageFlagBits::eComputeShader},
+                                            .fence = *vkComputeFence,
+                                            .wait = true});
+    }
+    vkComputeFence->reset();
+  }
+  /*probeGenData.vkCommandBuffer->submit({.waitSemaphores = {},
                                         .signalSemaphores = {*probeGenData.vkComputeSemaphore},
                                         .flags = {},
                                         .fence = *vkComputeFence,
                                         .wait = true});
-  vkComputeFence->reset();
+  vkComputeFence->reset();*/
   smallProbeGenData.vkCommandBuffer->submit({.waitSemaphores = {*probeGenData.vkComputeSemaphore},
                                              .signalSemaphores = {*smallProbeGenData.vkComputeSemaphore},
                                              .flags = {vk::PipelineStageFlagBits::eComputeShader},
@@ -314,15 +338,19 @@ const std::shared_ptr<vulkan::Semaphore> &ProbeBakeRenderer::renderProbeTextures
 
   return proximityGridData.vkComputeSemaphore;
 }
-ProbeManager &ProbeBakeRenderer::getProbeManager() { return *probeManager; }
+
+ProbeManager &ProbeBakeRenderer::getProbeManager() const { return *probeManager; }
+
 void ProbeBakeRenderer::setProbeToRender(std::uint32_t index) {
   renderData.debugUniformBuffer->mapping().set(index, 1);
 }
+
 void ProbeBakeRenderer::setProbeToRender(glm::ivec3 position) {
   const auto probeCount = probeManager->getProbeCount();
   const auto index = (position.x + position.y * probeCount.x + position.z * probeCount.x * probeCount.y);
   setProbeToRender(index);
 }
+
 void ProbeBakeRenderer::renderProbesInNextPass() { renderingProbesInNextPass = true; }
 
 void ProbeBakeRenderer::createRenderDescriptorPool() {

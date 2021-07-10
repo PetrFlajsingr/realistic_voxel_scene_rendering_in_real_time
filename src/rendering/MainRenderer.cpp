@@ -139,8 +139,7 @@ std::unordered_set<std::string> MainRenderer::getValidationLayers() {
 void MainRenderer::buildVulkanObjects() {
   createBuffers();
   probeRenderer = std::make_unique<lfp::ProbeBakeRenderer>(
-      config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
-      materialBuffer,
+      config.get(), vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer, materialBuffer,
       std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{128, 128, 128},
                                           vkLogicalDevice));
 

@@ -37,12 +37,10 @@ namespace pf::lfp {
  */
 class ProbeBakeRenderer {
  public:
-  ProbeBakeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
-                    std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
-                    std::shared_ptr<vulkan::LogicalDevice> logicalDevice, std::shared_ptr<vulkan::Buffer> svoBuffer,
-                    std::shared_ptr<vulkan::Buffer> modelInfoBuffer, std::shared_ptr<vulkan::Buffer> bvhBuffer,
-                    std::shared_ptr<vulkan::Buffer> camBuffer, std::shared_ptr<vulkan::Buffer> materialBuffer,
-                    std::unique_ptr<ProbeManager> probeManag);
+  ProbeBakeRenderer(toml::table config, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
+                    std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
+                    std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
+                    std::shared_ptr<vulkan::Buffer> materialBuffer, std::unique_ptr<ProbeManager> probeManag);
 
   [[nodiscard]] const std::shared_ptr<vulkan::Image> &getProbesDebugImage() const;
   [[nodiscard]] const std::shared_ptr<vulkan::ImageView> &getProbesDebugImageView() const;
@@ -61,7 +59,7 @@ class ProbeBakeRenderer {
 
   const std::shared_ptr<vulkan::Semaphore> &render();
 
-  [[nodiscard]] ProbeManager &getProbeManager();
+  [[nodiscard]] ProbeManager &getProbeManager() const;
 
   void setProbeToRender(std::uint32_t index);
   void setProbeToRender(glm::ivec3 position);
@@ -78,8 +76,6 @@ class ProbeBakeRenderer {
   void updateGridBuffers();
   bool renderingProbesInNextPass = false;
   toml::table config;
-  std::shared_ptr<vulkan::Instance> vkInstance;
-  std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
 
   struct {

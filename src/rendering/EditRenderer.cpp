@@ -138,8 +138,7 @@ std::unordered_set<std::string> EditRenderer::getValidationLayers() {
 void EditRenderer::buildVulkanObjects() {
   createBuffers();
   probeRenderer = std::make_unique<lfp::ProbeRenderer>(
-      config.get(), vkInstance, vkDevice, vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer,
-      materialBuffer,
+      config.get(), vkLogicalDevice, svoBuffer, modelInfoBuffer, bvhBuffer, cameraUniformBuffer, materialBuffer,
       std::make_unique<lfp::ProbeManager>(glm::ivec3{4, 4, 4}, glm::vec3{-2, -2, -2}, 1.4f, glm::ivec3{64, 64, 64},
                                           vkLogicalDevice));
 

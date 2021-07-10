@@ -38,8 +38,7 @@ namespace pf::lfp {
  */
 class ProbeRenderer {
  public:
-  ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
-                std::shared_ptr<vulkan::PhysicalDevice> vkDevice, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
+  ProbeRenderer(toml::table config, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
                 std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
                 std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
                 std::shared_ptr<vulkan::Buffer> materialBuffer, std::unique_ptr<ProbeManager> probeManag);
@@ -78,8 +77,6 @@ class ProbeRenderer {
   void updateGridBuffers();
   bool renderingProbesInNextPass = false;
   toml::table config;
-  std::shared_ptr<vulkan::Instance> vkInstance;
-  std::shared_ptr<vulkan::PhysicalDevice> vkDevice;
   std::shared_ptr<vulkan::LogicalDevice> vkLogicalDevice;
 
   struct {

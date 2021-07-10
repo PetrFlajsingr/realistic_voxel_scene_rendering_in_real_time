@@ -11,14 +11,11 @@
 
 namespace pf::lfp {
 
-ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::Instance> vkInstance,
-                             std::shared_ptr<vulkan::PhysicalDevice> vkDevice,
-                             std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
+ProbeRenderer::ProbeRenderer(toml::table config, std::shared_ptr<vulkan::LogicalDevice> logicalDevice,
                              std::shared_ptr<vulkan::Buffer> svoBuffer, std::shared_ptr<vulkan::Buffer> modelInfoBuffer,
                              std::shared_ptr<vulkan::Buffer> bvhBuffer, std::shared_ptr<vulkan::Buffer> camBuffer,
                              std::shared_ptr<vulkan::Buffer> materialBuffer, std::unique_ptr<ProbeManager> probeManag)
-    : config(std::move(config)), vkInstance(std::move(vkInstance)), vkDevice(std::move(vkDevice)),
-      vkLogicalDevice(std::move(logicalDevice)), svoBuffer(std::move(svoBuffer)),
+    : config(std::move(config)), vkLogicalDevice(std::move(logicalDevice)), svoBuffer(std::move(svoBuffer)),
       modelInfoBuffer(std::move(modelInfoBuffer)), bvhBuffer(std::move(bvhBuffer)), cameraBuffer(std::move(camBuffer)),
       materialsBuffer(std::move(materialBuffer)), probeManager(std::move(probeManag)) {
   using namespace byte_literals;
