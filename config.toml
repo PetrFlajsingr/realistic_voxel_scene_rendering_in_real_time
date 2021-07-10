@@ -1,48 +1,68 @@
-[resources]
-path_models = '/home/petr/Desktop/magica_voxel/vox'
-path_shaders = '/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders'
-
 [rendering.compute]
 local_size_x = 8
 local_size_y = 8
 
-[ui.imgui.cameraFOVSlider]
-value = 45.0
+[resources]
+path_models = '/home/petr/Desktop/magica_voxel/vox'
+path_shaders = '/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/src/shaders'
 
-[ui.imgui.cameraGroup]
-collapsed = false
+[ui.imgui]
+path_icons = '/home/petr/CLionProjects/realistic_voxel_scene_rendering_in_real_time/assets/icons'
 
-[ui.imgui.cameraMouseSpeedSlider]
-value = 2.5
+    [ui.imgui.cameraFOVSlider]
+    value = 90
 
-[ui.imgui.cameraMoveSpeedSlider]
-value = 2.5
+    [ui.imgui.cameraMouseSpeedSlider]
+    value = 0.2240000069141388
 
-[ui.imgui.check_shadows]
-checked = true
+    [ui.imgui.cameraMoveSpeedSlider]
+    value = 1.458999991416931
 
-[ui.imgui.debug_val_inpug]
-value = 1
+    [ui.imgui.camera_group]
+    collapsed = false
 
-[ui.imgui.models_choice]
-selected = 50
+    [ui.imgui.check_shadows]
+    checked = true
 
-[ui.imgui.picker_light_ambient]
-color = [ 0.1000000014901161, 0.1000000014901161, 0.1000000014901161 ]
+    [ui.imgui.gbuffer_type_cb]
+    selected = 'Color'
 
-[ui.imgui.picker_light_diffuse]
-color = [ 0.6000000238418579, 0.6000000238418579, 0.6000000238418579 ]
+    [ui.imgui.loading_separate_models_checkbox]
+    checked = false
 
-[ui.imgui.picker_light_specular]
-color = [ 0.8999999761581421, 0.8999999761581421, 0.8999999761581421 ]
+    [ui.imgui.models_list]
+    selected = '!#christmas_scene_w_mats2.vox'
 
-[ui.imgui.slider_lightpos]
-value = [ 0.0, -2.0, 0.0 ]
+    [ui.imgui.picker_light_ambient]
+    color = [ 0.1843137294054031, 0.1843137294054031, 0.1843137294054031 ]
 
-[ui.imgui.view_choice]
-[ui.imgui.vsync_chckbx]
-checked = true
+    [ui.imgui.picker_light_diffuse]
+    color = [ 0.5441122651100159, 0.5441122651100159, 0.5441176891326904 ]
+
+    [ui.imgui.picker_light_specular]
+    color = [ 0.8480392098426819, 0.8480307459831238, 0.8480307459831238 ]
+
+    [ui.imgui.probe_texture_type_combobox]
+    selected = 'CameraView'
+
+    [ui.imgui.scene_info_group]
+    collapsed = false
+
+    [ui.imgui.shader_int1_drag]
+    value = 1
+
+    [ui.imgui.shader_iter_divide_drag]
+    value = 76.0
+
+    [ui.imgui.slider_lightpos]
+    value = [ -10.50035095214844, -55.50015258789062, -27.00019836425781 ]
+
+    [ui.imgui.view_choice]
+    selected = 'Color'
+
+    [ui.imgui.vsync_chckbx]
+    checked = false
 
 [ui.window]
-height = 1200
-width = 1600
+height = 1080
+width = 1920
