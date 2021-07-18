@@ -161,7 +161,7 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
                                                                                 0.01, -180, 180, glm::vec3{0})),
       modelDetailScaleDrag(modelDetailLayout.createChild<DragInput<glm::vec3>>("model_detail_scale_drag", "Scale", 0.01,
                                                                                0.01, 10, glm::vec3{1, 1, 1})),
-      probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes debug")),
+      probesDebugWindow(imgui->createWindow("probes_debug_window", "Probes info")),
       renderProbesButton(probesDebugWindow.createChild<Button>("render_probes_button", "Render probes in next pass")),
       fillProbeHolesButton(
           probesDebugWindow.createChild<Checkbox>("fill_probe_holes_button", "Fill holes while rendering")),

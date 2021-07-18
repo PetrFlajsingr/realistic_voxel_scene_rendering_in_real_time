@@ -181,7 +181,7 @@ if (ENABLE_STACKTRACE)
     CPMAddPackage(
             NAME pf_glfw_vulkan
             GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
-            GIT_TAG v0.1.2
+            GIT_TAG v0.1.3
             OPTIONS "PF_GLFW_EXCEPTIONS ON"
     )
     add_compile_definitions(PF_GLFW_WINDOW_EXCEPTIONS_ENABLED)
@@ -189,7 +189,7 @@ else ()
     CPMAddPackage(
             NAME pf_glfw_vulkan
             GITHUB_REPOSITORY PetrFlajsingr/pf_glfw_vulkan
-            GIT_TAG v0.1.2
+            GIT_TAG v0.1.3
     )
 endif ()
 
