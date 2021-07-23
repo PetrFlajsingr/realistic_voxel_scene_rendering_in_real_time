@@ -198,6 +198,7 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
   shaderControlsWindow.setIsDockable(true);
   modelsWindow.setIsDockable(true);
   probesDebugWindow.setIsDockable(true);
+  probeGridWindow.setIsDockable(true);
 
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);

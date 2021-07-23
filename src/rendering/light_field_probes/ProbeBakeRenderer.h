@@ -33,7 +33,7 @@ namespace pf::lfp {
  * @brief A probe texture atlas renderer.
  *
  * This is based on Real-Time Global Illumination using Precomputed Light Field Probes.
- * Each probe has a indirect lighting, depth and normal texture.
+ * Each probe has indirect lighting, depth and normal texture.
  */
 class ProbeBakeRenderer {
  public:

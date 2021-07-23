@@ -55,7 +55,6 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
       debugWindow(imgui->createWindow("debug_window", "Debug")),
       indirectLimitDrag(
           debugWindow.createChild<DragInput<float>>("debug_limit_drag", "Limit", 0.01, 0.0001, 1, 0.0001)),
-      renderProbesButton(debugWindow.createChild<Button>("render_probes_button", "Render probes")),
       debugTabBar(debugWindow.createChild<TabBar>("debug_tabbar")), logTab(debugTabBar.addTab("log_tab", "Log")),
       logMemo(logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100)),
       logErrMemo(logTab.createChild<Memo>("log_err_output", "Log: err", 100, true, true, 100)),
@@ -145,13 +144,16 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
           "gbuffer_image",
           (ImTextureID) ImGui_ImplVulkan_AddTexture(*gbufferTexture.vkImageSampler, *gbufferTexture.vkImageView,
                                                     static_cast<VkImageLayout>(gbufferTexture.vkImage.getLayout())),
-          Size{400, 400}))
+          Size{400, 400})),
+      probeRenderWindow(imgui->createWindow("probe_window", "Probes info")),
+      renderProbesButton(probeRenderWindow.createChild<Button>("render_probes_button", "Render probes"))
 
 {
   renderSettingsWindow.setIsDockable(true);
   debugWindow.setIsDockable(true);
   infoWindow.setIsDockable(true);
   modelsWindow.setIsDockable(true);
+  probeRenderWindow.setIsDockable(true);
   setDarkStyle(*imgui);
   modelDetailLayout.setDrawBorder(true);
   modelDetailLayout.setScrollable(true);

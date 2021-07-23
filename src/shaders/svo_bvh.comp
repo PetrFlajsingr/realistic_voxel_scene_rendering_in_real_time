@@ -824,7 +824,7 @@ void main() {
   const vec3 lightDir = normalize(light.pos.xyz - hitPointInCameraSpace);
   if (debug.shadows == 1 && traceResult.hit) {
     Ray shadowRay;
-    shadowRay.direction = lightDir * 50;// TODO: figure out why this needs to be done
+    shadowRay.direction = lightDir * 50;
     shadowRay.origin = hitPointInCameraSpace + EPSILON * lightDir;
     shadowRay.originSize = 0.02;
     shadowRay.directionSize = 0;

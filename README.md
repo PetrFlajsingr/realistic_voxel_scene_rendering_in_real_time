@@ -61,7 +61,7 @@ or
 Alternatively you may just place the config file named as `config.toml` to the same directory as the binary, and it'll find it without the command line argument.
 
 Most likely you want to first run the program in the `scene_edit` mode in order to prepare a scene, save its configuration using main menu -> `File` -> `Save scene`.
-Then start the program without the `scene_edit` argument and load the scene using main menu -> `File` -> `Load scene`. Next render the 
+Then start the program without the `scene_edit` argument and load the scene using main menu -> `File` -> `Load scene`. Next render the probes using the button `Render probes`. 
 ## Controls
 * Camera movement in space:
     * W - move forward
@@ -107,3 +107,6 @@ allow you to control its transformation matrix.
 ### Probes info
 Visualisation of probe atlas. You need to click on the `Render probes in the next pass` button for the probes to prepare themselves. The texture rendered in the window allows you
 to either visualize all the data stored within each probe, or it can show you how the scene looks if rendered via probe ray tracing.
+
+### GBuffer
+Visualisation of parts of gbuffer used in the first part of rendering.

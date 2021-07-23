@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file BakedProbesRenderer.h
+ * @brief A renderer using ESVO to show the scene and ProbeBakeRenderer for debugging purposes.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #ifndef REALISTIC_VOXEL_RENDERING_SRC_RENDERING_BAKEDPROBESRENDERER_H
 #define REALISTIC_VOXEL_RENDERING_SRC_RENDERING_BAKEDPROBESRENDERER_H

@@ -1,6 +1,9 @@
-//
-// Created by petr on 1/5/21.
-//
+/**
+ * @file BakedProbesRenderer.cpp
+ * @brief A renderer using ESVO to show the scene and ProbeBakeRenderer for debugging purposes.
+ * @author Petr Flajšingr
+ * @date 1.5.21
+ */
 
 #include "BakedProbesRenderer.h"
 #include "logging/loggers.h"

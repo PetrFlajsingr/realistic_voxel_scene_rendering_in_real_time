@@ -89,7 +89,6 @@ class MainUI {
         ui::ig::ColorEdit<glm::vec3> &specularColPicker;
   ui::ig::Window &debugWindow;
     ui::ig::DragInput<float> &indirectLimitDrag;
-    ui::ig::Button &renderProbesButton;
     ui::ig::TabBar &debugTabBar;
       ui::ig::Tab &logTab;
         ui::ig::Memo &logMemo;
@@ -150,6 +149,8 @@ class MainUI {
     ui::ig::Combobox<GBufferViewType> &gViewTypeCombobox;
     ui::ig::StretchLayout &gbufferImageLayout;
       ui::ig::Image &gbufferImage;
+  ui::ig::Window &probeRenderWindow;
+    ui::ig::Button &renderProbesButton;
 
   // clang-format on
 
