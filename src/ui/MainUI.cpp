@@ -54,7 +54,7 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
                                                                            glm::vec3{0.9f}, Persistent::Yes)),
       debugWindow(imgui->createWindow("debug_window", "Debug")),
       indirectLimitDrag(
-          debugWindow.createChild<DragInput<float>>("debug_limit_drag", "Limit", 0.01, 0.0001, 1, 0.0001)),
+          debugWindow.createChild<DragInput<float>>("debug_limit_drag", "Limit", 0.01, 0.0001, 1, 0.02)),
       debugTabBar(debugWindow.createChild<TabBar>("debug_tabbar")), logTab(debugTabBar.addTab("log_tab", "Log")),
       logMemo(logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100)),
       logErrMemo(logTab.createChild<Memo>("log_err_output", "Log: err", 100, true, true, 100)),
