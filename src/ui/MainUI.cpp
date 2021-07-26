@@ -18,6 +18,7 @@
 namespace pf {
 
 using namespace ui::ig;
+
 MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterface, std::shared_ptr<ui::Window> uiWindow,
                const Camera &camera, TextureData gbufferTexture)
     : imgui(std::move(imguiInterface)), window(std::move(uiWindow)), windowMenuBar(imgui->getMenuBar()),
@@ -27,10 +28,13 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
       fileMenuSeparator1(fileSubMenu.addSeparator("fileMenuSeparator1")),
       closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", ICON_FA_WINDOW_CLOSE "  Close")),
       viewSubMenu(windowMenuBar.addSubmenu("view_main_menu", "View")),
-      infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true)),
-      renderSettingsMenuItem(viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true)),
-      debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true)),
-      modelsMenuItem(viewSubMenu.addCheckboxItem("view_models_menu", "Models", true)),
+      infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true, Persistent::Yes)),
+      renderSettingsMenuItem(
+          viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true, Persistent::Yes)),
+      debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true, Persistent::Yes)),
+      modelsMenuItem(viewSubMenu.addCheckboxItem("view_models_menu", "Models", true, Persistent::Yes)),
+      gbufferMenuItem(viewSubMenu.addCheckboxItem("gbuffer_menu", "GBuffer", true, Persistent::Yes)),
+      probesInfoMenuItem(viewSubMenu.addCheckboxItem("probes_info_menu", "Probe info", true, Persistent::Yes)),
       separatorMenu1(viewSubMenu.addSeparator("separator_menu_1")),
       hideAllMenuItem(viewSubMenu.addButtonItem("hide_all_windows_menu", "Hide all")),
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
@@ -53,8 +57,7 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
       specularColPicker(phongParamLayout.createChild<ColorEdit<glm::vec3>>("picker_light_specular", "Specular",
                                                                            glm::vec3{0.9f}, Persistent::Yes)),
       debugWindow(imgui->createWindow("debug_window", "Debug")),
-      indirectLimitDrag(
-          debugWindow.createChild<DragInput<float>>("debug_limit_drag", "Limit", 0.01, 0.0001, 1, 0.02)),
+      indirectLimitDrag(debugWindow.createChild<DragInput<float>>("debug_limit_drag", "Limit", 0.01, 0.0001, 1, 0.02)),
       debugTabBar(debugWindow.createChild<TabBar>("debug_tabbar")), logTab(debugTabBar.addTab("log_tab", "Log")),
       logMemo(logTab.createChild<Memo>("log_output", "Log:", 100, true, true, 100)),
       logErrMemo(logTab.createChild<Memo>("log_err_output", "Log: err", 100, true, true, 100)),
@@ -146,9 +149,7 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
                                                     static_cast<VkImageLayout>(gbufferTexture.vkImage.getLayout())),
           Size{400, 400})),
       probeRenderWindow(imgui->createWindow("probe_window", "Probes info")),
-      renderProbesButton(probeRenderWindow.createChild<Button>("render_probes_button", "Render probes"))
-
-{
+      renderProbesButton(probeRenderWindow.createChild<Button>("render_probes_button", "Render probes")) {
   renderSettingsWindow.setIsDockable(true);
   debugWindow.setIsDockable(true);
   infoWindow.setIsDockable(true);
@@ -189,6 +190,10 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
       [this](auto value) { debugWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
   modelsMenuItem.addValueListener(
       [this](auto value) { modelsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  gbufferMenuItem.addValueListener(
+      [this](auto value) { gbufferWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  probesInfoMenuItem.addValueListener(
+      [this](auto value) { probeRenderWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
   hideAllMenuItem.addClickListener([this] { setWindowsVisible(false); });
   showAllMenuItem.addClickListener([this] { setWindowsVisible(true); });
 
@@ -196,6 +201,8 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
   renderSettingsMenuItem.setCloseOnInteract(false);
   debugMenuItem.setCloseOnInteract(false);
   modelsMenuItem.setCloseOnInteract(false);
+  gbufferMenuItem.setCloseOnInteract(false);
+  probesInfoMenuItem.setCloseOnInteract(false);
 
   renderSettingsWindow.setCollapsible(true);
   renderSettingsWindow.setCloseable(true);
@@ -209,6 +216,12 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
   modelsWindow.setCollapsible(true);
   modelsWindow.setCloseable(true);
   modelsWindow.addCloseListener([this] { modelsMenuItem.setValue(false); });
+  probeRenderWindow.setCollapsible(true);
+  probeRenderWindow.setCloseable(true);
+  probeRenderWindow.addCloseListener([this] { probesInfoMenuItem.setValue(false); });
+  gbufferWindow.setCollapsible(true);
+  gbufferWindow.setCloseable(true);
+  gbufferWindow.addCloseListener([this] { gbufferMenuItem.setValue(false); });
   lightPosSlider.setTooltip("Position of light point in the scene");
   phongParamLayout.setCollapsible(true);
   phongParamLayout.addCollapseListener([this](auto collapsed) {
@@ -264,15 +277,20 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
   activeModelList.setDropAllowed(true);
   modelListsLayout.setDrawBorder(true);
 }
+
 void MainUI::setWindowsVisible(bool visible) {
   infoWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   renderSettingsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   debugWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   modelsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  probeRenderWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  gbufferWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   infoMenuItem.setValue(visible);
   renderSettingsMenuItem.setValue(visible);
   debugMenuItem.setValue(visible);
   modelsMenuItem.setValue(visible);
+  probesInfoMenuItem.setValue(visible);
+  gbufferMenuItem.setValue(visible);
 }
 
 std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> MainUI::createLoadingDialog() {

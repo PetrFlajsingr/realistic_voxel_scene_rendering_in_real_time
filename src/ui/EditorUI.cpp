@@ -28,12 +28,13 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
       fileMenuSeparator1(fileSubMenu.addSeparator("fileMenuSeparator1")),
       closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", ICON_FA_WINDOW_CLOSE "  Close")),
       viewSubMenu(windowMenuBar.addSubmenu("view_main_menu", "View")),
-      infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true)),
-      renderSettingsMenuItem(viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true)),
-      debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true)),
-      debugImagesMenuItem(viewSubMenu.addCheckboxItem("view_debug_images_menu", "Debug images", true)),
-      shaderControlsMenuItem(viewSubMenu.addCheckboxItem("view_shader_controls_menu", "Shader controls", true)),
-      modelsMenuItem(viewSubMenu.addCheckboxItem("view_models_menu", "Models", true)),
+      infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true, Persistent::Yes)),
+      renderSettingsMenuItem(viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true, Persistent::Yes)),
+      debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true, Persistent::Yes)),
+      debugImagesMenuItem(viewSubMenu.addCheckboxItem("view_debug_images_menu", "Debug images", true, Persistent::Yes)),
+      shaderControlsMenuItem(viewSubMenu.addCheckboxItem("view_shader_controls_menu", "Shader controls", true, Persistent::Yes)),
+      modelsMenuItem(viewSubMenu.addCheckboxItem("view_models_menu", "Models", true, Persistent::Yes)),
+      probeGridControlsMenuItem(viewSubMenu.addCheckboxItem("probe_controls_menu", "Probe controls", true, Persistent::Yes)),
       separatorMenu1(viewSubMenu.addSeparator("separator_menu_1")),
       hideAllMenuItem(viewSubMenu.addButtonItem("hide_all_windows_menu", "Hide all")),
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
@@ -248,6 +249,8 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
       [this](auto value) { shaderControlsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
   modelsMenuItem.addValueListener(
       [this](auto value) { modelsWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
+  probeGridControlsMenuItem.addValueListener(
+      [this](auto value) { probeGridWindow.setVisibility(value ? Visibility::Visible : Visibility::Invisible); });
   hideAllMenuItem.addClickListener([this] { setWindowsVisible(false); });
   showAllMenuItem.addClickListener([this] { setWindowsVisible(true); });
 
@@ -257,6 +260,7 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
   debugImagesMenuItem.setCloseOnInteract(false);
   shaderControlsMenuItem.setCloseOnInteract(false);
   modelsMenuItem.setCloseOnInteract(false);
+  probeGridControlsMenuItem.setCloseOnInteract(false);
 
   renderSettingsWindow.setCollapsible(true);
   renderSettingsWindow.setCloseable(true);
@@ -273,9 +277,12 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
   debugWindow.setCollapsible(true);
   debugWindow.setCloseable(true);
   debugWindow.addCloseListener([this] { debugMenuItem.setValue(false); });
+  probeGridWindow.setCollapsible(true);
+  probeGridWindow.setCloseable(true);
+  probeGridWindow.addCloseListener([this] { modelsMenuItem.setValue(false); });
   modelsWindow.setCollapsible(true);
   modelsWindow.setCloseable(true);
-  modelsWindow.addCloseListener([this] { modelsMenuItem.setValue(false); });
+  modelsWindow.addCloseListener([this] { probeGridControlsMenuItem.setValue(false); });
   viewTypeComboBox.setTooltip("Render type for debug");
   lightPosSlider.setTooltip("Position of light point in the scene");
   shadowsCheckbox.setTooltip("Enable/disable shadows");
@@ -340,12 +347,14 @@ void EditorUI::setWindowsVisible(bool visible) {
   debugImagesWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   shaderControlsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   modelsWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
+  probeGridWindow.setVisibility(visible ? Visibility::Visible : Visibility::Invisible);
   infoMenuItem.setValue(visible);
   renderSettingsMenuItem.setValue(visible);
   debugMenuItem.setValue(visible);
   debugImagesMenuItem.setValue(visible);
   shaderControlsMenuItem.setValue(visible);
   modelsMenuItem.setValue(visible);
+  probeGridControlsMenuItem.setValue(visible);
 }
 
 std::tuple<ui::ig::ModalDialog &, ui::ig::ProgressBar<float> &, ui::ig::Text &> EditorUI::createLoadingDialog() {

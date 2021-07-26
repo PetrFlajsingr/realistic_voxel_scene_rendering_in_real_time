@@ -77,6 +77,7 @@ class EditorUI {
       ui::ig::MenuCheckboxItem &debugImagesMenuItem;
       ui::ig::MenuCheckboxItem &shaderControlsMenuItem;
       ui::ig::MenuCheckboxItem &modelsMenuItem;
+      ui::ig::MenuCheckboxItem &probeGridControlsMenuItem;
       ui::ig::MenuSeparatorItem &separatorMenu1;
       ui::ig::MenuButtonItem &hideAllMenuItem;
       ui::ig::MenuButtonItem &showAllMenuItem;

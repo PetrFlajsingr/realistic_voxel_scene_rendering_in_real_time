@@ -73,6 +73,8 @@ class MainUI {
       ui::ig::MenuCheckboxItem &renderSettingsMenuItem;
       ui::ig::MenuCheckboxItem &debugMenuItem;
       ui::ig::MenuCheckboxItem &modelsMenuItem;
+      ui::ig::MenuCheckboxItem &gbufferMenuItem;
+      ui::ig::MenuCheckboxItem &probesInfoMenuItem;
       ui::ig::MenuSeparatorItem &separatorMenu1;
       ui::ig::MenuButtonItem &hideAllMenuItem;
       ui::ig::MenuButtonItem &showAllMenuItem;
