@@ -244,8 +244,6 @@ MainUI::MainUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInterfac
   specularColPicker.setDropAllowed(true);
   specularColPicker.setTooltip("Color of specular light");
 
-  //openModelButton.setTooltip("Select model file via file explorer");
-
   modelList.setTooltip("Models from model folder");
 
   modelsFilterInput.setTooltip("Filter list of models");

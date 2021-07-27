@@ -437,8 +437,8 @@ float distanceToIntersection(in Ray ray, in vec3 v) {
   return numer / denom;
 }
 /**
- * Trace within probe space on full resolution.
- */
+     * Trace within probe space on full resolution.
+     */
 TRACE_RESULT traceSegmentHighRes(in Ray probeSpaceRay, in vec2 startTexCoord, in vec2 endTexCoord, in int probeIndex,
                                  inout float tMin, inout float tMax, inout vec2 hitProbeTexCoord) {
 
@@ -569,8 +569,8 @@ bool traceSegmentLowRes(in Ray probeSpaceRay, in int probeIndex, inout vec2 texC
   return false;
 }
 /**
- * Trace within one ray segment over the probe.
- */
+     * Trace within one ray segment over the probe.
+     */
 TRACE_RESULT traceRaySegment(Ray probeSpaceRay, float t0, float t1, int probeIndex, inout float tMin, inout float tMax,
                              inout vec2 hitCoord) {
   vec3 probeSpaceStartPoint = probeSpaceRay.origin + probeSpaceRay.direction * (t0 + rayBumpEpsilon);
@@ -604,8 +604,8 @@ TRACE_RESULT traceRaySegment(Ray probeSpaceRay, float t0, float t1, int probeInd
   return TRACE_RESULT_MISS;
 }
 /**
- * Try and trace ray through the probe.
- */
+     * Try and trace ray through the probe.
+     */
 TRACE_RESULT traceProbe(int probeIndex, Ray ray, inout float tMin, inout float tMax, inout vec2 hitCoord) {
   vec3 probeOrigin = probeLocation(probeIndex);
 

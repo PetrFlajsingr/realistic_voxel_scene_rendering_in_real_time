@@ -150,7 +150,7 @@ struct TraceResult {
   bool hit;                   /**< Hit or miss flag */
   int iter;                   /**< Count of iterations done in while tracing the ray */
   int stackPtr;               /**< Info about level of hit voxel within octree */
-  uint materialId;            /**< ID of hit material. This is an id within this model's material buffer, 
+  uint materialId;            /**< ID of hit material. This is an id within this model's material buffer,
       offset needs to be applied as well */
   vec3 normal;                /**< Normal of hit point */
   bool isOnlyAABB;            /**< True of only AABB has been hit but not a voxel */
@@ -525,8 +525,8 @@ TraceResult trace(Ray ray, uint offsetInSVOBuffer) {
         uint ptr = childDescriptor.data2;// child pointer
 
         /* if ((childDescriptor.childData & 0x10000) != 0) { // FAR
-                          ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
-                        }*/
+                                  ptr = svo.data[offsetInSVOBuffer + SVO_HEADER_SIZE + parent + int(ptr * 2)];
+                                }*/
 
         uint validMask = (childDescriptor.data1 >> 8u) & 0xFFu;
         uint leafMask = childDescriptor.data1 & 0xFFu;

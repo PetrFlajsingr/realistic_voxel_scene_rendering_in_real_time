@@ -29,12 +29,15 @@ EditorUI::EditorUI(std::unique_ptr<ui::ig::ImGuiGlfwVulkanInterface> &&imguiInte
       closeMenuItem(fileSubMenu.addButtonItem("file_close_menu", ICON_FA_WINDOW_CLOSE "  Close")),
       viewSubMenu(windowMenuBar.addSubmenu("view_main_menu", "View")),
       infoMenuItem(viewSubMenu.addCheckboxItem("view_info_menu", "Info", true, Persistent::Yes)),
-      renderSettingsMenuItem(viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true, Persistent::Yes)),
+      renderSettingsMenuItem(
+          viewSubMenu.addCheckboxItem("view_render_settings_menu", "Render settings", true, Persistent::Yes)),
       debugMenuItem(viewSubMenu.addCheckboxItem("view_debug_menu", "Debug", true, Persistent::Yes)),
       debugImagesMenuItem(viewSubMenu.addCheckboxItem("view_debug_images_menu", "Debug images", true, Persistent::Yes)),
-      shaderControlsMenuItem(viewSubMenu.addCheckboxItem("view_shader_controls_menu", "Shader controls", true, Persistent::Yes)),
+      shaderControlsMenuItem(
+          viewSubMenu.addCheckboxItem("view_shader_controls_menu", "Shader controls", true, Persistent::Yes)),
       modelsMenuItem(viewSubMenu.addCheckboxItem("view_models_menu", "Models", true, Persistent::Yes)),
-      probeGridControlsMenuItem(viewSubMenu.addCheckboxItem("probe_controls_menu", "Probe controls", true, Persistent::Yes)),
+      probeGridControlsMenuItem(
+          viewSubMenu.addCheckboxItem("probe_controls_menu", "Probe controls", true, Persistent::Yes)),
       separatorMenu1(viewSubMenu.addSeparator("separator_menu_1")),
       hideAllMenuItem(viewSubMenu.addButtonItem("hide_all_windows_menu", "Hide all")),
       showAllMenuItem(viewSubMenu.addButtonItem("show_all_windows_menu", "Show all")),
